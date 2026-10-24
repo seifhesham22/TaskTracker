@@ -158,3 +158,6 @@ vite.config.ts.timestamp-*
 # OS files
 .DS_Store
 Thumbs.db
+# .NET build output
+[Bb]in/
+[Oo]bj/
