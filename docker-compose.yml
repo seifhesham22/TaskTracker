@@ -1,0 +1,41 @@
+# Local development stack: PostgreSQL + TaskTracker API.
+# Start:  docker compose up --build
+# Stop:   docker compose down        (add -v to also delete the database data)
+# Override any ${VAR:-default} below by creating a .env file (see .env.example).
+
+name: tasktracker
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tasktracker}
+      POSTGRES_USER: ${POSTGRES_USER:-tasktracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tasktracker}
+    # Host port defaults to 5433 so it doesn't clash with a locally installed PostgreSQL.
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: TaskTracker.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-tasktracker};Username=${POSTGRES_USER:-tasktracker};Password=${POSTGRES_PASSWORD:-tasktracker};GSS Encryption Mode=Disable"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
