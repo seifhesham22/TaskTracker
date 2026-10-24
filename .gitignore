@@ -161,3 +161,16 @@ Thumbs.db
 # .NET build output
 [Bb]in/
 [Oo]bj/
+
+# Expo local development data and cache
+.expo/
+
+# Generated native projects for the mobile app
+/mobile/android/
+/mobile/ios/
+
+# Generated Expo files
+/mobile/expo-env.d.ts
+
+# Generated web build output, if created
+/mobile/web-build/
