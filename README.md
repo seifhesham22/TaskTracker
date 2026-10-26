@@ -23,6 +23,7 @@ GitHub Actions runs a pipeline for each app. Workflows live in [`.github/workflo
 | Check | What runs | When |
 |---|---|---|
 | `backend` | Restore, build and test `/backend` | Every push to any branch and every Pull Request to `main` |
+| `mobile` | Install dependencies, lint, type-check and run unit tests for `/mobile` | Every push to any branch and every Pull Request to `main` |
 
 If nothing in an app's folder changed, its check is skipped and counts as passed.
 
