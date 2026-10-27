@@ -1,0 +1,83 @@
+.api-status-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.api-status-card__badge {
+  --badge-color: var(--color-text-muted);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--badge-color);
+  background: color-mix(in hsl, var(--badge-color) 14%, transparent);
+  border: 1px solid color-mix(in hsl, var(--badge-color) 35%, transparent);
+}
+
+.api-status-card__badge--online {
+  --badge-color: var(--color-success);
+}
+
+.api-status-card__badge--offline {
+  --badge-color: var(--color-danger);
+}
+
+.api-status-card__badge--unconfigured {
+  --badge-color: var(--color-warning);
+}
+
+.api-status-card__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--badge-color);
+  box-shadow: 0 0 0 0 var(--badge-color);
+}
+
+.api-status-card__badge--checking .api-status-card__dot,
+.api-status-card__badge--online .api-status-card__dot {
+  animation: api-status-pulse 1.8s var(--ease-out) infinite;
+}
+
+.api-status-card__hint {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+}
+
+.api-status-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.api-status-card__meta dt {
+  color: var(--color-text-subtle);
+}
+
+.api-status-card__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@keyframes api-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in hsl, var(--badge-color) 60%, transparent);
+  }
+
+  70% {
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
