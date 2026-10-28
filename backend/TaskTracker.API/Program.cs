@@ -29,6 +29,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     await DbSeeder.SeedAsync(app.Services);
+    await DbSeeder.SeedProjectAsync(app.Services);
 }
 
 app.UseHttpsRedirection();
