@@ -7,7 +7,7 @@ namespace TaskTracker.API.Domain.Entities
         public string Name { get; set; } = null!;
         public string Key { get; set; } = null!;
         public string? Description { get; set; } = null!;
-        public long LastTaskNumber { get; set; }
+        public int LastTaskNumber { get; set; }
 
         public ICollection<ProjectMember> ProjectMembers { get; set; } = [];
         //public ICollection<Status> Statuses { get; set; } = [];
