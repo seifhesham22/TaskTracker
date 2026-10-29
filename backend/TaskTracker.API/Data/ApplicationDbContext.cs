@@ -11,7 +11,7 @@ namespace TaskTracker.API.Data
         public DbSet<ProjectMember> projectMembers => Set<ProjectMember>();
         public DbSet<Board> boards => Set<Board>();
         public DbSet<BoardColumn> boardColumns => Set<BoardColumn>();
-
+        public DbSet<TaskAssignee> assignees => Set<TaskAssignee>();
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }

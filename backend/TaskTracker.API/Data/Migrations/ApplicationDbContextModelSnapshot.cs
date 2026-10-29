@@ -275,8 +275,8 @@ namespace TaskTracker.API.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<long>("LastTaskNumber")
-                        .HasColumnType("bigint");
+                    b.Property<int>("LastTaskNumber")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -332,6 +332,21 @@ namespace TaskTracker.API.Data.Migrations
                     b.ToTable("project_members", (string)null);
                 });
 
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskAssignee", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId", "TaskId");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("task_assignee", (string)null);
+                });
+
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -346,7 +361,7 @@ namespace TaskTracker.API.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("CreatedById")
+                    b.Property<Guid?>("CreatedById")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -368,9 +383,10 @@ namespace TaskTracker.API.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Number")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.None);
 
                     b.Property<Guid?>("ParentTaskId")
                         .HasColumnType("uuid");
@@ -581,6 +597,25 @@ namespace TaskTracker.API.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskAssignee", b =>
+                {
+                    b.HasOne("TaskTracker.API.Domain.Entities.TaskItem", "Task")
+                        .WithMany("Assignees")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskTracker.API.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskItem", b =>
                 {
                     b.HasOne("TaskTracker.API.Domain.Entities.Board", "Board")
@@ -592,8 +627,7 @@ namespace TaskTracker.API.Data.Migrations
                     b.HasOne("TaskTracker.API.Domain.Entities.User", "CreatedBy")
                         .WithMany()
                         .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("TaskTracker.API.Domain.Entities.User", "DeletedBy")
                         .WithMany()
@@ -652,6 +686,8 @@ namespace TaskTracker.API.Data.Migrations
 
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskItem", b =>
                 {
+                    b.Navigation("Assignees");
+
                     b.Navigation("Subtasks");
                 });
 

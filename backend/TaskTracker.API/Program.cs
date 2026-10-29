@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using TaskTracker.API.Data;
 using TaskTracker.API.Data.Seeders;
 using TaskTracker.API.Domain.Entities;
+using TaskTracker.API.Features.Tasks.CreateTask;
+using TaskTracker.API.Shared.GraphQL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,20 @@ builder.Services
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.AddScoped<CreateTaskHandler>();
+
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType()
+    .AddMutationType()
+    .AddType<PingQuery>()
+    .AddType<CreateTaskMutation>()
+    .AddErrorFilter<DomainErrorFilter>()
+    .ModifyRequestOptions(o => o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
+
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
@@ -32,10 +48,14 @@ if (app.Environment.IsDevelopment())
     await DbSeeder.SeedProjectAsync(app.Services);
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+    app.UseCors();
+else
+    app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGraphQL();
 
 app.Run();

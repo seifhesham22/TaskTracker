@@ -84,8 +84,16 @@ namespace TaskTracker.API.Data.Seeders
             var user3 = seededUsers["user3@local.test"];
             var user4 = seededUsers["user4@local.test"];
 
-            if (await db.projects.FirstOrDefaultAsync(x => x.Key == "TES") is not null)
+            if (await db.projects.AnyAsync(x => x.Key == "TES"))
             {
+                var boardsWithoutColumns = await db.boards
+                    .Where(b => b.Project.Key == "TES" && !b.Columns.Any())
+                    .ToListAsync();
+
+                foreach (var existingBoard in boardsWithoutColumns)
+                    AddDefaultColumns(existingBoard);
+
+                await db.SaveChangesAsync();
                 return;
             }
 
@@ -145,10 +153,19 @@ namespace TaskTracker.API.Data.Seeders
                 IsArchived = false,
             };
 
+            AddDefaultColumns(board);
             project.Boards.Add(board);
 
             db.Add(project);
             await db.SaveChangesAsync();
+        }
+
+        private static void AddDefaultColumns(Board board)
+        {
+            board.Columns.Add(new BoardColumn { Name = "Backlog", Category = Domain.Enums.ColumnCategory.Backlog, Color = "#8A90A0", Position = "V" });
+            board.Columns.Add(new BoardColumn { Name = "To do", Category = Domain.Enums.ColumnCategory.ToDo, Color = "#5B8DE8", Position = "l" });
+            board.Columns.Add(new BoardColumn { Name = "In progress", Category = Domain.Enums.ColumnCategory.InProgress, Color = "#E8945B", Position = "t" });
+            board.Columns.Add(new BoardColumn { Name = "Done", Category = Domain.Enums.ColumnCategory.Done, Color = "#2A9D8F", Position = "x" });
         }
     }
 }
