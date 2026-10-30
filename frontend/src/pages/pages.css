@@ -1,0 +1,81 @@
+/* Shared page-level layout used by every page component. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  animation: page-enter var(--duration-base) var(--ease-out) both;
+}
+
+.page--centered {
+  align-items: center;
+  text-align: center;
+  padding-top: var(--space-7);
+}
+
+.page--centered .page-header {
+  align-items: center;
+}
+
+.page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-5);
+}
+
+.page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-muted);
+}
+
+.page__list li::marker {
+  color: var(--color-primary);
+}
+
+.page__muted {
+  color: var(--color-text-muted);
+}
+
+.page__empty {
+  align-items: center;
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+  border-style: dashed;
+}
+
+.page__empty-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.page__code {
+  font-size: clamp(5rem, 14vw, 9rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

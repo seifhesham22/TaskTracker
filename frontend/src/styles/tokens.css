@@ -1,0 +1,54 @@
+/* Design tokens: the only place colors, spacing, radii and fonts are defined. */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: hsl(232 32% 7%);
+  --color-bg-elevated: hsl(232 28% 11%);
+  --color-surface: hsl(232 30% 16% / 0.55);
+  --color-surface-hover: hsl(232 30% 20% / 0.7);
+  --color-border: hsl(232 30% 80% / 0.1);
+  --color-border-strong: hsl(232 30% 80% / 0.2);
+
+  --color-text: hsl(228 33% 96%);
+  --color-text-muted: hsl(228 15% 68%);
+  --color-text-subtle: hsl(228 12% 50%);
+
+  --color-primary: hsl(252 92% 70%);
+  --color-primary-strong: hsl(262 84% 62%);
+  --color-accent: hsl(188 86% 58%);
+  --color-success: hsl(152 66% 52%);
+  --color-warning: hsl(38 94% 60%);
+  --color-danger: hsl(352 86% 64%);
+
+  --gradient-brand: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  --gradient-glow:
+    radial-gradient(60rem 40rem at 10% -10%, hsl(252 92% 60% / 0.22), transparent 60%),
+    radial-gradient(50rem 36rem at 110% 10%, hsl(188 86% 50% / 0.16), transparent 60%);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 999px;
+
+  --shadow-card: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 20px 40px -24px hsl(240 60% 2% / 0.8);
+  --shadow-glow: 0 10px 30px -10px hsl(252 92% 60% / 0.55);
+
+  --blur-glass: 16px;
+  --content-width: 72rem;
+
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: dark;
+}
