@@ -61,7 +61,7 @@ describe('CreateTaskForm Component', () => {
     expect(options).toEqual(['Unassigned', 'admin@local.test', 'user1@local.test']);
   });
 
-  it('prevents submission when title is empty and shows clear message', async () => {
+  it('shows "Title is required" under title when title is empty', async () => {
     const submitSpy = vi.fn();
 
     render(
@@ -78,11 +78,11 @@ describe('CreateTaskForm Component', () => {
     const submitBtn = screen.getByRole('button', { name: /^create task$/i });
     fireEvent.click(submitBtn);
 
-    expect(screen.getByText('Title is required and cannot be empty.')).toBeInTheDocument();
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
     expect(submitSpy).not.toHaveBeenCalled();
   });
 
-  it('prevents submission when title contains only whitespace', async () => {
+  it('shows "Title is required" under title when title contains only spaces and disappears when fixed', async () => {
     const submitSpy = vi.fn();
 
     render(
@@ -97,13 +97,84 @@ describe('CreateTaskForm Component', () => {
     );
 
     const titleInput = screen.getByLabelText(/title/i);
-    fireEvent.change(titleInput, { target: { value: '    ' } });
+    fireEvent.change(titleInput, { target: { value: '     ' } });
 
     const submitBtn = screen.getByRole('button', { name: /^create task$/i });
     fireEvent.click(submitBtn);
 
-    expect(screen.getByText('Title is required and cannot be empty.')).toBeInTheDocument();
-    expect(submitSpy).not.toHaveBeenCalled();
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+
+    // "An error disappears as soon as the field is fixed."
+    fireEvent.change(titleInput, { target: { value: 'Valid Title' } });
+    expect(screen.queryByText('Title is required')).toBeNull();
+  });
+
+  it('shows server reason under assignee when assignee is not in project, disappears when fixed', () => {
+    render(
+      <CreateTaskForm
+        boardId="b-1"
+        members={mockMembers}
+        isOpen={true}
+        isSubmitting={false}
+        serverError="User '01a18766' is not a member of project TES, so they can't be assigned to this task."
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText("User '01a18766' is not a member of project TES, so they can't be assigned to this task.")
+    ).toBeInTheDocument();
+
+    // Change assignee to fix error
+    const assigneeSelect = screen.getByLabelText(/assignee/i);
+    fireEvent.change(assigneeSelect, { target: { value: 'u-1' } });
+
+    expect(
+      screen.queryByText("User '01a18766' is not a member of project TES, so they can't be assigned to this task.")
+    ).toBeNull();
+  });
+
+  it('shows "Board not found" when board no longer exists', () => {
+    render(
+      <CreateTaskForm
+        boardId="b-1"
+        members={mockMembers}
+        isOpen={true}
+        isSubmitting={false}
+        serverError="Board 'b-1' was not found."
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Board not found')).toBeInTheDocument();
+  });
+
+  it('shows general error at top of form and preserves typed values on network/server failure', () => {
+    const submitSpy = vi.fn().mockResolvedValue(false);
+
+    render(
+      <CreateTaskForm
+        boardId="b-1"
+        members={mockMembers}
+        isOpen={true}
+        isSubmitting={false}
+        serverError="Network connection lost. Please try again."
+        onClose={vi.fn()}
+        onSubmit={submitSpy}
+      />
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'Offline title' } });
+    fireEvent.change(descInput, { target: { value: 'Offline description' } });
+
+    expect(screen.getByText('Network connection lost. Please try again.')).toBeInTheDocument();
+    expect(titleInput).toHaveValue('Offline title');
+    expect(descInput).toHaveValue('Offline description');
   });
 
   it('submits with title only and leaves optional fields undefined', async () => {
@@ -179,47 +250,6 @@ describe('CreateTaskForm Component', () => {
     expect(closeSpy).toHaveBeenCalled();
   });
 
-  it('preserves user input and shows error message when server rejects creation', async () => {
-    const submitSpy = vi.fn().mockResolvedValue(false);
-
-    const { rerender } = render(
-      <CreateTaskForm
-        boardId="b-1"
-        members={mockMembers}
-        isOpen={true}
-        isSubmitting={false}
-        serverError={null}
-        onClose={vi.fn()}
-        onSubmit={submitSpy}
-      />
-    );
-
-    const titleInput = screen.getByLabelText(/title/i);
-    const descInput = screen.getByLabelText(/description/i);
-
-    fireEvent.change(titleInput, { target: { value: 'Failed task' } });
-    fireEvent.change(descInput, { target: { value: 'Should stay typed' } });
-
-    const submitBtn = screen.getByRole('button', { name: /^create task$/i });
-    fireEvent.click(submitBtn);
-
-    rerender(
-      <CreateTaskForm
-        boardId="b-1"
-        members={mockMembers}
-        isOpen={true}
-        isSubmitting={false}
-        serverError="Title is invalid per project policy"
-        onClose={vi.fn()}
-        onSubmit={submitSpy}
-      />
-    );
-
-    expect(screen.getByText('Title is invalid per project policy')).toBeInTheDocument();
-    expect(titleInput).toHaveValue('Failed task');
-    expect(descInput).toHaveValue('Should stay typed');
-  });
-
   it('calls onClose when clicking Cancel button or backdrop', () => {
     const closeSpy = vi.fn();
 
@@ -245,4 +275,3 @@ describe('CreateTaskForm Component', () => {
     }
   });
 });
-

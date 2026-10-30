@@ -33,7 +33,6 @@ export function BoardView({
 
   // Group tasks by ColumnCategory ensuring stable order and representation even if empty
   const columnsWithTasks = useMemo(() => {
-    // Determine columns: prefer board's defined columns if present, otherwise default columns
     const columns: BoardColumnModel[] = board?.columns && board.columns.length > 0
       ? [...board.columns]
       : DEFAULT_COLUMN_CATEGORIES.map((col, idx) => ({
@@ -44,7 +43,6 @@ export function BoardView({
           position: String.fromCharCode(65 + idx),
         }));
 
-    // Ensure fixed display order: Backlog -> ToDo -> InProgress -> Done -> Cancelled
     const orderMap: Record<ColumnCategory, number> = {
       [ColumnCategory.Backlog]: 1,
       [ColumnCategory.ToDo]: 2,
@@ -107,6 +105,8 @@ export function BoardView({
     );
   }
 
+  const hasNoTasks = tasks.length === 0;
+
   return (
     <div className="board-view" data-testid="board-view">
       <div className="board-view__toolbar">
@@ -141,6 +141,24 @@ export function BoardView({
         </div>
       </div>
 
+      {/* Prominent empty board message when board has no tasks: Requirement for Task 3 */}
+      {hasNoTasks && (
+        <div className="board-view__empty-state" role="status" data-testid="empty-board-banner">
+          <p className="board-view__empty-title">No tasks yet</p>
+          <p className="board-view__empty-desc">
+            Get started by creating the first task on this board.
+          </p>
+          <button
+            type="button"
+            className="board-view__btn board-view__btn--primary"
+            onClick={() => setIsCreateModalOpen(true)}
+            data-testid="empty-board-create-btn"
+          >
+            + Create First Task
+          </button>
+        </div>
+      )}
+
       {/* Horizontal scrolling canvas container */}
       <div className="board-view__canvas" role="region" aria-label="Task board columns">
         {columnsWithTasks.map(({ column, tasks: colTasks }) => (
@@ -167,4 +185,3 @@ export function BoardView({
     </div>
   );
 }
-

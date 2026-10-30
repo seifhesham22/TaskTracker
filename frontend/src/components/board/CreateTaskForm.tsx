@@ -27,7 +27,38 @@ export function CreateTaskForm({
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<TaskPriority | ''>('');
   const [dueDate, setDueDate] = useState('');
+
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [dismissedAssigneeError, setDismissedAssigneeError] = useState(false);
+  const [dismissedGeneralError, setDismissedGeneralError] = useState(false);
+
+  // Derive field-specific or general server errors dynamically without setState in effect
+  let serverAssigneeError: string | null = null;
+  let serverGeneralError: string | null = null;
+  let serverTitleError: string | null = null;
+
+  if (serverError) {
+    const lower = serverError.toLowerCase();
+
+    if (lower.includes('board') && lower.includes('not found')) {
+      serverGeneralError = 'Board not found';
+    } else if (
+      lower.includes('assignee') ||
+      lower.includes('member') ||
+      lower.includes("can't be assigned") ||
+      lower.includes('cannot be assigned')
+    ) {
+      serverAssigneeError = serverError;
+    } else if (lower.includes('title')) {
+      serverTitleError = serverError;
+    } else {
+      serverGeneralError = serverError;
+    }
+  }
+
+  const effectiveTitleError = titleError || serverTitleError;
+  const effectiveAssigneeError = dismissedAssigneeError ? null : serverAssigneeError;
+  const effectiveGeneralError = dismissedGeneralError ? null : serverGeneralError;
 
   if (!isOpen) {
     return null;
@@ -38,10 +69,12 @@ export function CreateTaskForm({
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setTitleError('Title is required and cannot be empty.');
+      setTitleError('Title is required');
       return;
     }
     setTitleError(null);
+    setDismissedAssigneeError(false);
+    setDismissedGeneralError(false);
 
     const input: CreateTaskInput = {
       boardId,
@@ -59,6 +92,9 @@ export function CreateTaskForm({
       setAssigneeId('');
       setPriority('');
       setDueDate('');
+      setTitleError(null);
+      setDismissedAssigneeError(false);
+      setDismissedGeneralError(false);
       onClose();
     }
   };
@@ -91,9 +127,9 @@ export function CreateTaskForm({
           </button>
         </div>
 
-        {serverError && (
+        {effectiveGeneralError && (
           <div className="create-task-form__alert create-task-form__alert--error" role="alert">
-            {serverError}
+            {effectiveGeneralError}
           </div>
         )}
 
@@ -105,11 +141,12 @@ export function CreateTaskForm({
             <input
               id="task-title-input"
               type="text"
-              className={`create-task-form__input ${titleError ? 'create-task-form__input--invalid' : ''}`}
+              className={`create-task-form__input ${effectiveTitleError ? 'create-task-form__input--invalid' : ''}`}
               placeholder="e.g. Implement user authentication"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
+                // "An error disappears as soon as the field is fixed."
                 if (titleError && e.target.value.trim()) {
                   setTitleError(null);
                 }
@@ -117,9 +154,9 @@ export function CreateTaskForm({
               disabled={isSubmitting}
               autoFocus
             />
-            {titleError && (
+            {effectiveTitleError && (
               <span className="create-task-form__field-error" role="alert">
-                {titleError}
+                {effectiveTitleError}
               </span>
             )}
           </div>
@@ -146,9 +183,13 @@ export function CreateTaskForm({
               </label>
               <select
                 id="task-assignee-select"
-                className="create-task-form__select"
+                className={`create-task-form__select ${effectiveAssigneeError ? 'create-task-form__input--invalid' : ''}`}
                 value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
+                onChange={(e) => {
+                  setAssigneeId(e.target.value);
+                  // "An error disappears as soon as the field is fixed."
+                  setDismissedAssigneeError(true);
+                }}
                 disabled={isSubmitting}
               >
                 <option value="">Unassigned</option>
@@ -158,6 +199,11 @@ export function CreateTaskForm({
                   </option>
                 ))}
               </select>
+              {effectiveAssigneeError && (
+                <span className="create-task-form__field-error" role="alert">
+                  {effectiveAssigneeError}
+                </span>
+              )}
             </div>
 
             <div className="create-task-form__group">
@@ -216,4 +262,3 @@ export function CreateTaskForm({
     </div>
   );
 }
-
