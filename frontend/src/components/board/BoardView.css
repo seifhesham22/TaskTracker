@@ -66,7 +66,36 @@
   background-color: var(--color-surface);
 }
 
-/* Horizontal scrolling container for board columns */
+/* Empty board state banner */
+.board-view__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  background-color: var(--color-surface-subtle);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.board-view__empty-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.board-view__empty-desc {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+/* Horizontal scrolling canvas container for board columns */
 .board-view__canvas {
   display: flex;
   align-items: flex-start;
@@ -147,4 +176,3 @@
     transform: rotate(360deg);
   }
 }
-
