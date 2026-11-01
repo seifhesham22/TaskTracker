@@ -4,7 +4,7 @@ using TaskTracker.API.Data;
 
 namespace TaskTracker.API.Tests.Infrastructure;
 
-public class PostgresFixture : IAsyncLifetime
+public class PostgresFixture : IAsyncLifetime, IDbContextFactory<ApplicationDbContext>
 {
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:17").Build();
 
