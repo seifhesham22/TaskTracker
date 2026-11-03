@@ -263,6 +263,50 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task A_subtask_created_through_the_API_shows_its_parent_in_the_tasks_query()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var parentJson = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Parent" }) { id parentTaskId } }
+            """);
+        var parent = parentJson.GetProperty("data").GetProperty("createTask");
+        var parentId = parent.GetProperty("id").GetString();
+        Assert.Equal(JsonValueKind.Null, parent.GetProperty("parentTaskId").ValueKind);
+
+        var childJson = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { parentTaskId } }
+            """);
+        Assert.Equal(parentId, childJson.GetProperty("data").GetProperty("createTask").GetProperty("parentTaskId").GetString());
+
+        var tasksJson = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}") { title parentTaskId } }
+            """);
+        var tasks = tasksJson.GetProperty("data").GetProperty("tasks").EnumerateArray().ToList();
+        Assert.Equal(JsonValueKind.Null, tasks.Single(t => t.GetProperty("title").GetString() == "Parent").GetProperty("parentTaskId").ValueKind);
+        Assert.Equal(parentId, tasks.Single(t => t.GetProperty("title").GetString() == "Child").GetProperty("parentTaskId").GetString());
+    }
+
+    [Fact]
+    public async Task A_subtask_with_an_unknown_parent_comes_back_with_the_NOT_FOUND_code()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var parentId = Guid.NewGuid();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Parent task '{parentId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()

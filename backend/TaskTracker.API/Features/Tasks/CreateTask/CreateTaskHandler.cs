@@ -23,6 +23,9 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
             if (input.AssigneeId is Guid assigneeId)
                 await EnsureProjectMemberAsync(board, assigneeId, ct);
 
+            if (input.ParentTaskId is Guid parentTaskId)
+                await EnsureParentOnBoardAsync(board, parentTaskId, ct);
+
             var task = new TaskItem(
                 board.ProjectId,
                 board.Id,
@@ -33,6 +36,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
 
             task.SetDescription(input.Description);
             task.SetDueDate(input.DueDate);
+            task.ParentTaskId = input.ParentTaskId;
 
             if (input.AssigneeId is Guid newAssigneeId)
                 task.AssignTo(newAssigneeId);
@@ -53,7 +57,8 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 task.Priority,
                 task.Assignees.Select(a => a.UserId).ToList(),
                 input.DueDate,
-                task.CreatedAt);
+                task.CreatedAt,
+                task.ParentTaskId);
         }
 
         private async Task<BoardInfo> GetBoardAsync(Guid boardId, Guid? columnId, CancellationToken ct) =>
@@ -79,6 +84,19 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
             if (!isMember)
                 throw new BadUserInputException(
                     $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
+        }
+
+        private async Task EnsureParentOnBoardAsync(BoardInfo board, Guid parentTaskId, CancellationToken ct)
+        {
+            var parentBoardId = await db.Set<TaskItem>()
+                .Where(t => t.Id == parentTaskId)
+                .Select(t => (Guid?)t.BoardId)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException($"Parent task '{parentTaskId}' was not found.");
+
+            if (parentBoardId != board.Id)
+                throw new BadUserInputException(
+                    $"Parent task '{parentTaskId}' is on another board. A subtask must be on the same board as its parent.");
         }
 
         private async Task<string> NextPositionAsync(Guid columnId, CancellationToken ct)

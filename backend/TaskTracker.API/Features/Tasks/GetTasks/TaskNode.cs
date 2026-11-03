@@ -20,6 +20,7 @@ namespace TaskTracker.API.Features.Tasks.GetTasks
         public Guid BoardId => task.BoardId;
         public Guid ColumnId => task.ColumnId;
         public string Position => task.Position;
+        public Guid? ParentTaskId => task.ParentTaskId;
 
         public async Task<ColumnNode> GetColumnAsync(ColumnByIdDataLoader loader, CancellationToken ct)
             => await loader.LoadAsync(task.ColumnId, ct)
