@@ -307,6 +307,60 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task MoveTask_returns_the_new_status_and_the_tasks_query_shows_it()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var created = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Move me" }) { id } }
+            """);
+        var taskId = created.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{project.InProgressColumnId}}" }) { id status columnId column { name category } } }
+            """);
+
+        var moved = json.GetProperty("data").GetProperty("moveTask");
+        Assert.Equal(taskId, moved.GetProperty("id").GetString());
+        Assert.Equal("IN_PROGRESS", moved.GetProperty("status").GetString());
+        Assert.Equal(project.InProgressColumnId.ToString(), moved.GetProperty("columnId").GetString());
+        Assert.Equal("In requirement state", moved.GetProperty("column").GetProperty("name").GetString());
+
+        var tasksJson = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}") { id status } }
+            """);
+        var task = Assert.Single(tasksJson.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal("IN_PROGRESS", task.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task MoveTask_to_a_column_of_another_board_comes_back_with_the_NOT_FOUND_code()
+    {
+        TestProject project;
+        Guid otherColumnId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            (_, otherColumnId) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
+        }
+
+        var created = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Stay" }) { id } }
+            """);
+        var taskId = created.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{otherColumnId}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Column '{otherColumnId}' was not found on board '{project.BoardId}'.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()

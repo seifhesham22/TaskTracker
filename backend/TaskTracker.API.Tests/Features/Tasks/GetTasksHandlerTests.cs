@@ -3,6 +3,7 @@ using TaskTracker.API.Features.Tasks;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Positions;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -129,7 +130,7 @@ public class GetTasksHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(input, CancellationToken.None);
     }
 
     private Task<IReadOnlyList<TaskNode>> GetTasksAsync(Guid? boardId = null) =>

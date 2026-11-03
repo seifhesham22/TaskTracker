@@ -82,6 +82,12 @@ namespace TaskTracker.API.Domain.Entities
                 Assignees.Add(new TaskAssignee(Id, userId));
         }
 
+        public void MoveTo(Guid columnId, string position)
+        {
+            ColumnId = columnId;
+            Position = position;
+        }
+
         public static string ReadableId(string projectKey, int number) => $"{projectKey}-{number}";
     }
 }
