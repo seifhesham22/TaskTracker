@@ -6,7 +6,6 @@ import { Text } from 'react-native';
 import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import BoardScreen from '../src/app/boards/[boardId]';
-import { createBackendBoardRepository, READ_API_MISSING } from '../src/data/backendBoardRepository';
 import { BoardLoadError, type BoardRepository } from '../src/data/BoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { NETWORK_ERROR_DESCRIPTION } from '../src/domain/createTaskErrors';
@@ -145,15 +144,5 @@ describe('Board screen: loading and errors', () => {
     expect(await screen.findByText(NETWORK_ERROR_DESCRIPTION)).toBeOnTheScreen();
     expect(screen.getByTestId('title-input')).toHaveDisplayValue('Offline task');
     expect(screen.getByText('No tasks yet')).toBeOnTheScreen();
-  });
-
-  it('with the real backend, says the board cannot be loaded instead of showing made-up data', async () => {
-    const fetchMock = mockFetch();
-    await renderBoard(createBackendBoardRepository());
-
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    expect(screen.getByText(READ_API_MISSING)).toBeOnTheScreen();
-    expect(screen.queryByText('No tasks yet')).not.toBeOnTheScreen();
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

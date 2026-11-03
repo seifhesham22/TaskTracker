@@ -2,8 +2,11 @@ import { ApiError } from '../api/client';
 import { GraphQLResponseError, NetworkError, type GraphQLErrorEntry } from '../api/graphql';
 import { TITLE_MAX_LENGTH, type CreateTaskInput } from './models';
 
-export const TITLE_REQUIRED = 'Title is required';
+export const TITLE_REQUIRED = 'Title is required.';
 export const TITLE_TOO_LONG = `Title can’t be longer than ${TITLE_MAX_LENGTH} characters.`;
+
+export const notAMemberMessage = (memberName: string, projectName: string) =>
+  `${memberName} isn’t a member of ${projectName || 'this project'}, so they can’t be assigned. Pick someone from this project.`;
 
 export const GENERAL_ERROR_TITLE = 'Couldn’t create the task';
 export const SERVER_ERROR_DESCRIPTION =
