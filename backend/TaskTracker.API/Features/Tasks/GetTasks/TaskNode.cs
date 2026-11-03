@@ -20,10 +20,14 @@ namespace TaskTracker.API.Features.Tasks.GetTasks
         public Guid BoardId => task.BoardId;
         public Guid ColumnId => task.ColumnId;
         public string Position => task.Position;
+        public Guid? ParentTaskId => task.ParentTaskId;
 
         public async Task<ColumnNode> GetColumnAsync(ColumnByIdDataLoader loader, CancellationToken ct)
             => await loader.LoadAsync(task.ColumnId, ct)
             ?? throw new NotFoundException("Couldn't find a column associated with this task");
+
+        public async Task<ColumnCategory> GetStatusAsync(ColumnByIdDataLoader loader, CancellationToken ct)
+            => (await GetColumnAsync(loader, ct)).category;
 
         public async Task<AssigneeNode[]> GetAssigneesAsync(AssigneesByTaskIdDataLoader loader, CancellationToken ct)
             => await loader.LoadAsync(task.Id, ct) ?? [];

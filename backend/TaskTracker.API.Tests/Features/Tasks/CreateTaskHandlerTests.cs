@@ -5,6 +5,7 @@ using TaskTracker.API.Domain.Exceptions;
 using TaskTracker.API.Features.Tasks;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Positions;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -190,6 +191,67 @@ public class CreateTaskHandlerTests(PostgresFixture database)
         Assert.Equal(new[] { "First", "Second" }, titlesInOrder);
     }
 
+    [Fact]
+    public async Task Creates_a_subtask_under_a_parent_on_the_same_board()
+    {
+        var project = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(TitleOnly(project.BoardId, "Parent"));
+
+        var child = await CreateTaskAsync(TitleOnly(project.BoardId, "Child") with { ParentTaskId = parent.Id });
+
+        Assert.Null(parent.ParentTaskId);
+        Assert.Equal(parent.Id, child.ParentTaskId);
+        await using var db = database.CreateDbContext();
+        var saved = await db.Set<TaskItem>().SingleAsync(t => t.Id == child.Id);
+        Assert.Equal(parent.Id, saved.ParentTaskId);
+    }
+
+    [Fact]
+    public async Task Returns_not_found_for_a_parent_that_does_not_exist()
+    {
+        var project = await GivenProjectAsync();
+        var parentId = Guid.NewGuid();
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(() =>
+            CreateTaskAsync(TitleOnly(project.BoardId) with { ParentTaskId = parentId }));
+
+        Assert.Equal($"Parent task '{parentId}' was not found.", error.Message);
+    }
+
+    [Fact]
+    public async Task Refuses_a_parent_on_another_board()
+    {
+        var project = await GivenProjectAsync();
+        Guid otherBoardId;
+        await using (var db = database.CreateDbContext())
+            (otherBoardId, _) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
+        var parent = await CreateTaskAsync(TitleOnly(otherBoardId, "On another board"));
+
+        var error = await Assert.ThrowsAsync<BadUserInputException>(() =>
+            CreateTaskAsync(TitleOnly(project.BoardId) with { ParentTaskId = parent.Id }));
+
+        Assert.Equal(
+            $"Parent task '{parent.Id}' is on another board. A subtask must be on the same board as its parent.",
+            error.Message);
+    }
+
+    [Fact]
+    public async Task Returns_not_found_for_a_deleted_parent()
+    {
+        var project = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(TitleOnly(project.BoardId, "Deleted parent"));
+        await using (var db = database.CreateDbContext())
+            await db.Set<TaskItem>()
+                .IgnoreQueryFilters()
+                .Where(t => t.Id == parent.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsDeleted, true));
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(() =>
+            CreateTaskAsync(TitleOnly(project.BoardId) with { ParentTaskId = parent.Id }));
+
+        Assert.Equal($"Parent task '{parent.Id}' was not found.", error.Message);
+    }
+
     private async Task<TestProject> GivenProjectAsync()
     {
         await using var db = database.CreateDbContext();
@@ -199,7 +261,7 @@ public class CreateTaskHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(input, CancellationToken.None);
     }
 
     private static CreateTaskInput TitleOnly(Guid boardId, string title = "A task") =>

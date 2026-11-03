@@ -3,6 +3,7 @@ using TaskTracker.API.Features.Tasks;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Positions;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -104,6 +105,19 @@ public class GetTasksHandlerTests(PostgresFixture database)
         Assert.Equal($"Board '{boardId}' was not found.", error.Message);
     }
 
+    [Fact]
+    public async Task Returns_the_parent_of_each_subtask()
+    {
+        var project = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(project.BoardId, "Parent");
+        await CreateTaskAsync(new CreateTaskInput(project.BoardId, null, "Child", null, null, null, null, parent.Id));
+
+        var tasks = await GetTasksAsync(boardId: project.BoardId);
+
+        Assert.Null(tasks.Single(t => t.Title == "Parent").ParentTaskId);
+        Assert.Equal(parent.Id, tasks.Single(t => t.Title == "Child").ParentTaskId);
+    }
+
     private async Task<TestProject> GivenProjectAsync()
     {
         await using var db = database.CreateDbContext();
@@ -116,7 +130,7 @@ public class GetTasksHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(input, CancellationToken.None);
     }
 
     private Task<IReadOnlyList<TaskNode>> GetTasksAsync(Guid? boardId = null) =>

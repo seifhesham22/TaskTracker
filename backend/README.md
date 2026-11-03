@@ -60,7 +60,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 
 ### createTask
 
-Creates a task in a column of a board. The task's status is the category of that column (a column "In review" with category `IN_PROGRESS` gives the task status `IN_PROGRESS`). Without a `columnId`, the task goes into the board's first column. The database gives the task the next number in its project.
+Creates a task in a column of a board. The task's status is the category of that column (a column "In review" with category `IN_PROGRESS` gives the task status `IN_PROGRESS`). Without a `columnId`, the task goes into the board's first column. The database gives the task the next number in its project. With a `parentTaskId`, the new task is a subtask of that task.
 
 **Input**
 
@@ -73,6 +73,9 @@ Creates a task in a column of a board. The task's status is the category of that
 | `assigneeId`  | `UUID`         | no       | Must be a member of the board's project                   |
 | `priority`    | `TaskPriority` | no       | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`                       |
 | `dueDate`     | `DateTime`     | no       | ISO 8601, e.g. `2026-11-05T00:00:00Z`                     |
+| `parentTaskId` | `UUID`        | no       | Makes the task a subtask. The parent must be on the same board |
+
+The response also has `parentTaskId` (`null` for a task without a parent).
 
 **Example**
 
@@ -130,6 +133,8 @@ mutation {
 | Board does not exist                              | `NOT_FOUND`       | Board '…' was not found.                                                         |
 | Column is not on that board                       | `NOT_FOUND`       | Column '…' was not found on board '…'.                                           |
 | Board has no columns (and no `columnId` was sent) | `BAD_USER_INPUT`  | This board has no columns, so the task can't get a status.                       |
+| Parent task does not exist, or was deleted        | `NOT_FOUND`       | Parent task '…' was not found.                                                   |
+| Parent task is on another board                   | `BAD_USER_INPUT`  | Parent task '…' is on another board. A subtask must be on the same board as its parent. |
 | Title missing completely                          | (none)            | Refused by the schema: `title` is a required field and cannot be null.           |
 
 ```json
@@ -143,6 +148,62 @@ mutation {
   "data": null
 }
 ```
+
+### moveTask
+
+Moves a task to another column of its board. Because a task's status is the category of its column, this is how a task's status changes. The task goes to the bottom of the new column. Moving a task to the column it is already in changes nothing. The response is the same `Task` type the `tasks` query returns, so a GraphQL client can update the task everywhere it is shown.
+
+**Input**
+
+| Field      | Type   | Required | Notes                         |
+| ---------- | ------ | -------- | ----------------------------- |
+| `taskId`   | `UUID` | yes      | Must be an existing task      |
+| `columnId` | `UUID` | yes      | Must be a column of the task's board |
+
+**Example**
+
+```graphql
+mutation {
+  moveTask(
+    input: {
+      taskId: "01a18766-8315-7c9c-90fd-5657de973481"
+      columnId: "01a18766-48b6-7c11-9a2e-1f2a3b4c5d03"
+    }
+  ) {
+    id
+    readableId
+    status
+    columnId
+    column {
+      name
+      category
+    }
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "data": {
+    "moveTask": {
+      "id": "01a18766-8315-7c9c-90fd-5657de973481",
+      "readableId": "TES-2",
+      "status": "IN_PROGRESS",
+      "columnId": "01a18766-48b6-7c11-9a2e-1f2a3b4c5d03",
+      "column": { "name": "In progress", "category": "IN_PROGRESS" }
+    }
+  }
+}
+```
+
+**Errors** come back in the GraphQL `errors` list:
+
+| Case                                | `extensions.code` | Message                                |
+| ----------------------------------- | ----------------- | -------------------------------------- |
+| Task does not exist                 | `NOT_FOUND`       | Task '…' was not found.                |
+| Column is not on the task's board   | `NOT_FOUND`       | Column '…' was not found on board '…'. |
 
 ### tasks
 
@@ -169,10 +230,12 @@ Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `bo
 | `boardId`     | `UUID!`          |                                                                           |
 | `columnId`    | `UUID!`          |                                                                           |
 | `position`    | `String!`        | Order of the task inside its column                                       |
+| `parentTaskId` | `UUID`          | The parent's id for a subtask, `null` for a task without a parent         |
+| `status`      | `ColumnCategory!` | The category of the task's column: `BACKLOG`, `TO_DO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
 | `column`      | `Column!`        | `id`, `name`, `position`, `category`. The task's status is `column.category` |
 | `assignees`   | `[Assignee!]!`   | `id`, `userName`. An empty list when nobody is assigned                   |
 
-`column` and `assignees` are loaded with DataLoaders: one SQL query for all the tasks in the response, and only when the query asks for them.
+`status`, `column` and `assignees` are loaded with DataLoaders (`status` and `column` share one): one SQL query for all the tasks in the response, and only when the query asks for them.
 
 **Example**
 

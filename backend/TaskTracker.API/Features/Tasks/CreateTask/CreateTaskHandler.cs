@@ -7,7 +7,7 @@ using TaskTracker.API.Shared.Positions;
 
 namespace TaskTracker.API.Features.Tasks.CreateTask
 {
-    public class CreateTaskHandler(ApplicationDbContext db)
+    public class CreateTaskHandler(ApplicationDbContext db, ITaskPositionService positions)
     {
         private record ColumnInfo(Guid Id, string Name, ColumnCategory Category);
         private record BoardInfo(Guid Id, Guid ProjectId, string ProjectKey, ColumnInfo? Column);
@@ -23,16 +23,20 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
             if (input.AssigneeId is Guid assigneeId)
                 await EnsureProjectMemberAsync(board, assigneeId, ct);
 
+            if (input.ParentTaskId is Guid parentTaskId)
+                await EnsureParentOnBoardAsync(board, parentTaskId, ct);
+
             var task = new TaskItem(
                 board.ProjectId,
                 board.Id,
                 column.Id,
                 input.Title,
-                await NextPositionAsync(column.Id, ct),
+                await positions.GetNextPositionAsync(column.Id, ct),
                 input.Priority);
 
             task.SetDescription(input.Description);
             task.SetDueDate(input.DueDate);
+            task.ParentTaskId = input.ParentTaskId;
 
             if (input.AssigneeId is Guid newAssigneeId)
                 task.AssignTo(newAssigneeId);
@@ -53,7 +57,8 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 task.Priority,
                 task.Assignees.Select(a => a.UserId).ToList(),
                 input.DueDate,
-                task.CreatedAt);
+                task.CreatedAt,
+                task.ParentTaskId);
         }
 
         private async Task<BoardInfo> GetBoardAsync(Guid boardId, Guid? columnId, CancellationToken ct) =>
@@ -81,15 +86,17 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                     $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
         }
 
-        private async Task<string> NextPositionAsync(Guid columnId, CancellationToken ct)
+        private async Task EnsureParentOnBoardAsync(BoardInfo board, Guid parentTaskId, CancellationToken ct)
         {
-            var lastPosition = await db.Set<TaskItem>()
-                .Where(t => t.ColumnId == columnId)
-                .OrderByDescending(t => t.Position)
-                .Select(t => t.Position)
-                .FirstOrDefaultAsync(ct);
+            var parentBoardId = await db.Set<TaskItem>()
+                .Where(t => t.Id == parentTaskId)
+                .Select(t => (Guid?)t.BoardId)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException($"Parent task '{parentTaskId}' was not found.");
 
-            return PositionKey.After(lastPosition);
+            if (parentBoardId != board.Id)
+                throw new BadUserInputException(
+                    $"Parent task '{parentTaskId}' is on another board. A subtask must be on the same board as its parent.");
         }
     }
 }
