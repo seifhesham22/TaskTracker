@@ -20,7 +20,7 @@ export function TaskCard({ task, members }: { task: Task; members: ProjectMember
           {task.priority ? <PriorityBadge priority={task.priority} /> : null}
           {task.dueDate ? <DueDateLabel dueDate={task.dueDate} overdue={isOverdue(task.dueDate, task.status)} /> : null}
           <View style={styles.spacer} />
-          {task.assigneeIds.length > 0 ? <Avatar name={assignee?.userName ?? '?'} /> : null}
+          {task.assigneeIds.length > 0 ? <Avatar name={assignee?.userName || task.assigneeNames?.[0] || '?'} /> : null}
         </View>
       ) : null}
     </View>

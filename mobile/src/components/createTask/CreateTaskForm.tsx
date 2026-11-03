@@ -2,6 +2,7 @@ import { useState, type RefObject } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 
 import { PRIORITY_LABELS, TASK_PRIORITIES, TITLE_MAX_LENGTH, type ProjectMember, type TaskPriority } from '../../domain/models';
+import { notAMemberMessage } from '../../domain/createTaskErrors';
 import type { CreateTaskFormController } from '../../hooks/useCreateTaskForm';
 import { colors, radius } from '../../theme/tokens';
 import { PriorityIcon } from '../board/markers';
@@ -20,11 +21,15 @@ export function CreateTaskForm({
   form,
   titleInputRef,
   members,
+  membersUnavailable,
+  projectName = '',
   columnName,
 }: {
   form: CreateTaskFormController;
   titleInputRef: RefObject<TextInputInstance | null>;
   members: ProjectMember[];
+  membersUnavailable?: string;
+  projectName?: string;
   columnName?: string;
 }) {
   const { values, errors, generalError, submitting, onFieldLayout } = form;
@@ -33,6 +38,7 @@ export function CreateTaskForm({
 
   const assignee = values.assigneeId ? members.find((m) => m.userId === values.assigneeId) : undefined;
   const titleLength = values.title.trim().length;
+  const assigneeError = errors.assigneeId && assignee ? notAMemberMessage(assignee.userName, projectName) : errors.assigneeId;
 
   return (
     <View style={styles.form}>
@@ -92,18 +98,23 @@ export function CreateTaskForm({
         />
       </Field>
 
-      <Field label="Assignee" error={errors.assigneeId} errorTestID="assignee-error" onLayout={onFieldLayout('assigneeId')} testID="field-assigneeId">
+      <Field label="Assignee" error={assigneeError} errorTestID="assignee-error" onLayout={onFieldLayout('assigneeId')} testID="field-assigneeId">
         <SelectControl
           label="Assignee"
           value={assignee ? assignee.userName : values.assigneeId ? 'Unknown member' : null}
           placeholder="Unassigned"
           leading={<Avatar name={assignee?.userName} unassigned={!values.assigneeId} />}
           invalid={!!errors.assigneeId}
-          hint={errors.assigneeId ?? undefined}
+          hint={assigneeError ?? undefined}
           disabled={submitting}
           onPress={() => setSheet('assignee')}
           testID="assignee-select"
         />
+        {membersUnavailable ? (
+          <Text style={styles.hint} testID="assignee-unavailable">
+            {membersUnavailable}
+          </Text>
+        ) : null}
       </Field>
 
       <Field label="Priority" onLayout={onFieldLayout('priority')} testID="field-priority">

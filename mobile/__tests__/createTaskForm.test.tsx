@@ -33,6 +33,7 @@ jest.mock('@react-native-community/datetimepicker', () => {
 
 const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } };
 const NOT_A_MEMBER = `User '${MEMBERS[0].userId}' is not a member of project TES, so they can't be assigned to this task.`;
+const NOT_A_MEMBER_SHOWN = 'Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.';
 
 const scrollTo = (ScrollView.prototype as unknown as { scrollTo: jest.Mock }).scrollTo;
 /** scrollTo calls made on the form's own ScrollView. */
@@ -127,7 +128,7 @@ describe('Title validation', () => {
 });
 
 describe('Assignee error from the server', () => {
-  it('shows the server reason under Assignee, not at the top of the form', async () => {
+  it('shows the design’s message for the rejected member under Assignee, not at the top of the form', async () => {
     const fetchMock = mockFetch({ body: gqlError('BAD_USER_INPUT', NOT_A_MEMBER) });
     await renderSheet();
     await fireEvent.changeText(titleInput(), 'Assign me');
@@ -135,7 +136,8 @@ describe('Assignee error from the server', () => {
 
     await submit();
 
-    expect(await within(screen.getByTestId('field-assigneeId')).findByText(NOT_A_MEMBER)).toBeOnTheScreen();
+    expect(await within(screen.getByTestId('field-assigneeId')).findByText(NOT_A_MEMBER_SHOWN)).toBeOnTheScreen();
+    expect(screen.queryByText(NOT_A_MEMBER)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('form-error-alert')).not.toBeOnTheScreen();
     expect(sentBody(fetchMock).variables.input.assigneeId).toBe(MEMBERS[0].userId);
   });
@@ -146,11 +148,11 @@ describe('Assignee error from the server', () => {
     await fireEvent.changeText(titleInput(), 'Assign me');
     await chooseAssignee(MEMBERS[0].userId);
     await submit();
-    expect(await screen.findByText(NOT_A_MEMBER)).toBeOnTheScreen();
+    expect(await screen.findByText(NOT_A_MEMBER_SHOWN)).toBeOnTheScreen();
 
     await chooseAssignee(MEMBERS[1].userId);
 
-    expect(screen.queryByText(NOT_A_MEMBER)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('assignee-error')).not.toBeOnTheScreen();
   });
 });
 
