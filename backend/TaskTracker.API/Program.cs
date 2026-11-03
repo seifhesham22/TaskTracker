@@ -4,6 +4,7 @@ using TaskTracker.API.Data;
 using TaskTracker.API.Data.DataLoaders;
 using TaskTracker.API.Data.Seeders;
 using TaskTracker.API.Domain.Entities;
+using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.GraphQL;
@@ -26,14 +27,18 @@ builder.Services
 
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
+builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddDataLoader<ColumnByIdDataLoader>();
 builder.Services.AddDataLoader<AssigneesByTaskIdDataLoader>();
+builder.Services.AddDataLoader<MembersByProjectIdDataLoader>();
+builder.Services.AddDataLoader<BoardsByProjectIdDataLoader>();
 
 builder.Services
     .AddGraphQLServer()
     .AddQueryType()
     .AddMutationType()
     .AddType<GetTasksQuery>()
+    .AddType<GetProjectsQuery>()
     .AddType<CreateTaskMutation>()
     .AddErrorFilter<DomainErrorFilter>()
     .ModifyRequestOptions(o => o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
