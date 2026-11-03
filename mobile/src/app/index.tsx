@@ -12,6 +12,14 @@ export default function HomeScreen() {
           <Text style={styles.buttonText}>View sample task</Text>
         </Pressable>
       </Link>
+
+      <View style={styles.secondLink}>
+        <Link href="/boards" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>View boards</Text>
+          </Pressable>
+        </Link>
+      </View>
     </View>
   );
 }
@@ -40,6 +48,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
+  },
+  secondLink: {
+    marginTop: 12,
   },
   buttonText: {
     color: '#fff',
