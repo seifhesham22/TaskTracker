@@ -149,6 +149,62 @@ mutation {
 }
 ```
 
+### moveTask
+
+Moves a task to another column of its board. Because a task's status is the category of its column, this is how a task's status changes. The task goes to the bottom of the new column. Moving a task to the column it is already in changes nothing. The response is the same `Task` type the `tasks` query returns, so a GraphQL client can update the task everywhere it is shown.
+
+**Input**
+
+| Field      | Type   | Required | Notes                         |
+| ---------- | ------ | -------- | ----------------------------- |
+| `taskId`   | `UUID` | yes      | Must be an existing task      |
+| `columnId` | `UUID` | yes      | Must be a column of the task's board |
+
+**Example**
+
+```graphql
+mutation {
+  moveTask(
+    input: {
+      taskId: "01a18766-8315-7c9c-90fd-5657de973481"
+      columnId: "01a18766-48b6-7c11-9a2e-1f2a3b4c5d03"
+    }
+  ) {
+    id
+    readableId
+    status
+    columnId
+    column {
+      name
+      category
+    }
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "data": {
+    "moveTask": {
+      "id": "01a18766-8315-7c9c-90fd-5657de973481",
+      "readableId": "TES-2",
+      "status": "IN_PROGRESS",
+      "columnId": "01a18766-48b6-7c11-9a2e-1f2a3b4c5d03",
+      "column": { "name": "In progress", "category": "IN_PROGRESS" }
+    }
+  }
+}
+```
+
+**Errors** come back in the GraphQL `errors` list:
+
+| Case                                | `extensions.code` | Message                                |
+| ----------------------------------- | ----------------- | -------------------------------------- |
+| Task does not exist                 | `NOT_FOUND`       | Task '…' was not found.                |
+| Column is not on the task's board   | `NOT_FOUND`       | Column '…' was not found on board '…'. |
+
 ### tasks
 
 Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `boardId` for the tasks of one board, or leave it out for all tasks. A board with no tasks returns an empty list.
@@ -175,10 +231,11 @@ Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `bo
 | `columnId`    | `UUID!`          |                                                                           |
 | `position`    | `String!`        | Order of the task inside its column                                       |
 | `parentTaskId` | `UUID`          | The parent's id for a subtask, `null` for a task without a parent         |
+| `status`      | `ColumnCategory!` | The category of the task's column: `BACKLOG`, `TO_DO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
 | `column`      | `Column!`        | `id`, `name`, `position`, `category`. The task's status is `column.category` |
 | `assignees`   | `[Assignee!]!`   | `id`, `userName`. An empty list when nobody is assigned                   |
 
-`column` and `assignees` are loaded with DataLoaders: one SQL query for all the tasks in the response, and only when the query asks for them.
+`status`, `column` and `assignees` are loaded with DataLoaders (`status` and `column` share one): one SQL query for all the tasks in the response, and only when the query asks for them.
 
 **Example**
 

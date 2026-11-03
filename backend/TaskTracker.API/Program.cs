@@ -8,7 +8,9 @@ using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
+using TaskTracker.API.Features.Tasks.MoveTask;
 using TaskTracker.API.Shared.GraphQL;
+using TaskTracker.API.Shared.Positions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,10 +28,12 @@ builder.Services
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.AddScoped<ITaskPositionService, TaskPositionService>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
+builder.Services.AddScoped<MoveTaskHandler>();
 builder.Services.AddDataLoader<ColumnByIdDataLoader>();
 builder.Services.AddDataLoader<AssigneesByTaskIdDataLoader>();
 builder.Services.AddDataLoader<MembersByProjectIdDataLoader>();
@@ -44,6 +48,7 @@ builder.Services
     .AddType<GetProjectsQuery>()
     .AddType<GetBoardQuery>()
     .AddType<CreateTaskMutation>()
+    .AddType<MoveTaskMutation>()
     .AddErrorFilter<DomainErrorFilter>()
     .ModifyRequestOptions(o => o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
 

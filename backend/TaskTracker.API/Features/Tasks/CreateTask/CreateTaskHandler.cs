@@ -7,7 +7,7 @@ using TaskTracker.API.Shared.Positions;
 
 namespace TaskTracker.API.Features.Tasks.CreateTask
 {
-    public class CreateTaskHandler(ApplicationDbContext db)
+    public class CreateTaskHandler(ApplicationDbContext db, ITaskPositionService positions)
     {
         private record ColumnInfo(Guid Id, string Name, ColumnCategory Category);
         private record BoardInfo(Guid Id, Guid ProjectId, string ProjectKey, ColumnInfo? Column);
@@ -31,7 +31,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 board.Id,
                 column.Id,
                 input.Title,
-                await NextPositionAsync(column.Id, ct),
+                await positions.GetNextPositionAsync(column.Id, ct),
                 input.Priority);
 
             task.SetDescription(input.Description);
@@ -97,17 +97,6 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
             if (parentBoardId != board.Id)
                 throw new BadUserInputException(
                     $"Parent task '{parentTaskId}' is on another board. A subtask must be on the same board as its parent.");
-        }
-
-        private async Task<string> NextPositionAsync(Guid columnId, CancellationToken ct)
-        {
-            var lastPosition = await db.Set<TaskItem>()
-                .Where(t => t.ColumnId == columnId)
-                .OrderByDescending(t => t.Position)
-                .Select(t => t.Position)
-                .FirstOrDefaultAsync(ct);
-
-            return PositionKey.After(lastPosition);
         }
     }
 }
