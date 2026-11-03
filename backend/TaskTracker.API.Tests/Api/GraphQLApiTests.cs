@@ -65,6 +65,53 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Tasks_returns_each_task_with_its_column_and_assignees()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Assigned", assigneeId: "{{project.MemberId}}" }) { id } }
+            """);
+        await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Nobody" }) { id } }
+            """);
+
+        var json = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}") { readableId title column { name category } assignees { id userName } } }
+            """);
+
+        var tasks = json.GetProperty("data").GetProperty("tasks").EnumerateArray().ToList();
+        Assert.Equal(2, tasks.Count);
+
+        var assigned = tasks[0];
+        Assert.Equal($"{project.Key}-1", assigned.GetProperty("readableId").GetString());
+        Assert.Equal("Backlog", assigned.GetProperty("column").GetProperty("name").GetString());
+        Assert.Equal("BACKLOG", assigned.GetProperty("column").GetProperty("category").GetString());
+        var assignee = Assert.Single(assigned.GetProperty("assignees").EnumerateArray());
+        Assert.Equal(project.MemberId.ToString(), assignee.GetProperty("id").GetString());
+        Assert.False(string.IsNullOrEmpty(assignee.GetProperty("userName").GetString()));
+
+        Assert.Equal("Nobody", tasks[1].GetProperty("title").GetString());
+        Assert.Empty(tasks[1].GetProperty("assignees").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Tasks_of_an_unknown_board_come_back_with_the_NOT_FOUND_code()
+    {
+        var boardId = Guid.NewGuid();
+
+        var json = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{boardId}}") { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Board '{boardId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()
