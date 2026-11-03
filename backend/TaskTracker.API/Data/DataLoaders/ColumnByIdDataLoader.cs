@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using TaskTracker.API.Features.Tasks.GetTasks;
+using TaskTracker.API.Features.Boards.Nodes;
 
 namespace TaskTracker.API.Data.DataLoaders
 {

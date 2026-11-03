@@ -205,6 +205,64 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Board_returns_its_columns_in_board_order()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var columns = await GetBoardColumnsAsync(project.BoardId);
+
+        Assert.Equal(new[] { "Backlog", "In requirement state", "Done" }, columns.Select(c => c.GetProperty("name").GetString()));
+        Assert.Equal(new[] { "BACKLOG", "IN_PROGRESS", "DONE" }, columns.Select(c => c.GetProperty("category").GetString()));
+        Assert.Equal(project.BacklogColumnId.ToString(), columns[0].GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task Board_columns_follow_a_change_of_position()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            await db.boardColumns
+                .Where(c => c.Id == project.BacklogColumnId)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.Position, "z"));
+        }
+
+        var columns = await GetBoardColumnsAsync(project.BoardId);
+
+        Assert.Equal(new[] { "In requirement state", "Done", "Backlog" }, columns.Select(c => c.GetProperty("name").GetString()));
+    }
+
+    [Fact]
+    public async Task A_board_without_columns_has_an_empty_list_of_columns()
+    {
+        Guid emptyBoardId;
+        await using (var db = database.CreateDbContext())
+        {
+            var project = await TestData.CreateProjectAsync(db);
+            emptyBoardId = await TestData.CreateEmptyBoardAsync(db, project.ProjectId);
+        }
+
+        Assert.Empty(await GetBoardColumnsAsync(emptyBoardId));
+    }
+
+    [Fact]
+    public async Task Board_of_an_unknown_id_comes_back_with_the_NOT_FOUND_code()
+    {
+        var boardId = Guid.NewGuid();
+
+        var json = await PostGraphQLAsync($$"""
+            query { board(id: "{{boardId}}") { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Board '{boardId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()
@@ -220,6 +278,17 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var response = await SendPreflightAsync(FrontendOrigin);
 
         Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    private async Task<List<JsonElement>> GetBoardColumnsAsync(Guid boardId)
+    {
+        var json = await PostGraphQLAsync($$"""
+            query { board(id: "{{boardId}}") { id name columns { id name category position } } }
+            """);
+
+        var board = json.GetProperty("data").GetProperty("board");
+        Assert.Equal(boardId.ToString(), board.GetProperty("id").GetString());
+        return board.GetProperty("columns").EnumerateArray().ToList();
     }
 
     private async Task<JsonElement> PostGraphQLAsync(string query)

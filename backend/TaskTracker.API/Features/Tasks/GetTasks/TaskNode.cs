@@ -1,6 +1,7 @@
 ﻿using TaskTracker.API.Data.DataLoaders;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Domain.Enums;
+using TaskTracker.API.Features.Boards.Nodes;
 using TaskTracker.API.Shared.Exceptions;
 
 namespace TaskTracker.API.Features.Tasks.GetTasks
