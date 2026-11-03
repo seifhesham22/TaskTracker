@@ -232,16 +232,33 @@ The board screen (`/boards/:boardId`) follows the designer's mobile handoff (`mo
 
 - **States:** loading (skeleton, only after 300 ms), empty (**No tasks yet** + **Create task**), the board (column tabs + swipe pager + floating **New task** button), **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
 - **Create task:** a full-screen sheet with Title (required), Description, Assignee, Priority and Due date. The form scrolls; the **Create task** button stays at the bottom, above the keyboard. Assignee and Priority open a bottom sheet; Due date opens the native date picker. **Cancel** asks “Discard this task?” when something was entered.
-- **Errors:** Title errors (“Title is required”) and the server’s assignee reason appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
+- **Errors:** Title errors (“Title is required.”) and a rejected assignee (“Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.”) appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
 
 ### What works against the real backend
 
-The backend currently has only two GraphQL operations, `ping` and `createTask`, and no REST endpoints. It has **no way to read boards, columns, tasks or project members**. So, with the real backend:
+The mobile app uses these backend GraphQL operations (`src/api/boards.ts`, `src/api/tasks.ts`):
 
-- `createTask` is fully implemented (`src/api/tasks.ts`), including error mapping.
-- Opening a board shows **Couldn’t load this board** with the reason “The server can’t send board data yet…”. The app never shows made-up data as if it came from the server.
+| Screen | Operation |
+| --- | --- |
+| Board list (`/boards`) | `projects(userId)` → every project's `boards` |
+| Board screen | `board(id)` with `columns`, and `tasks(boardId)` with `column` and `assignees`, in one request |
+| Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
+| Create task | `createTask(input)` |
 
-When the backend adds board/task/member reads, only `src/data/backendBoardRepository.ts` (`getBoard`, `listBoards`) needs to change.
+The backend has no login yet, so `projects` takes the user's id as an argument. Set it in `mobile/.env`:
+
+```bash
+EXPO_PUBLIC_USER_ID=<a user id from your local database>
+```
+
+Take one from a local development database with `SELECT "UserId" FROM project_members;`. Without it:
+
+- the board list shows “Set EXPO_PUBLIC_USER_ID…”;
+- a board opened by its link still loads its columns and tasks, but the Assignee field says the project members can't be listed, and the task can only be created unassigned. The app never invents members.
+
+The board query has no column colour, so the column colour comes from its category (`colors.status` in `src/theme/tokens.ts`). `ProjectMember` has no e-mail field; the user name is shown.
+
+After a task is created, the task returned by `createTask` is put on the board straight away, then the board is loaded again from the backend.
 
 How errors are told apart (the backend sends `NOT_FOUND` for a missing board **and** a missing column, with no other field):
 
@@ -249,8 +266,8 @@ How errors are told apart (the backend sends `NOT_FOUND` for a missing board **a
 | --- | --- |
 | `NOT_FOUND` “Board '<this board's id>' was not found.” | **Board not found** screen |
 | `NOT_FOUND` “Column '…' was not found on board '…'.” | Error at the top of the form (not “Board not found”) |
-| `BAD_USER_INPUT` “User '<assignee id>' is not a member of project …” | The server's message under **Assignee** |
-| `BAD_USER_INPUT` “Title cannot be empty…” | “Title is required” under **Title** |
+| `BAD_USER_INPUT` “User '<assignee id>' is not a member of project …” | “<name> isn’t a member of <project>, so they can’t be assigned. Pick someone from this project.” under **Assignee** (the design's wording) |
+| `BAD_USER_INPUT` “Title cannot be empty…” | “Title is required.” under **Title** |
 | Other `BAD_USER_INPUT` (for example “This board has no columns…”) | The server's message at the top of the form |
 | No response (offline, server down) | “We couldn’t reach the server…” at the top of the form |
 | HTTP 5xx, or a GraphQL error without a known code | “Something went wrong on our side…” at the top of the form |
@@ -259,7 +276,7 @@ Telling the board and column apart depends on the backend's message text. If tho
 
 ## Demo Mode (Development Only)
 
-Demo mode lets you try the board screen and the create-task form on a device while the backend can't send board data. It uses **sample data kept in memory on the device**: it is **not** the backend's seeded data, nothing is sent to the backend, and everything is lost when the app restarts. Screens show a yellow “Demo mode” banner.
+Demo mode lets you try the board screen and the create-task form on a device without a backend, including failures that are hard to cause on purpose. It uses **sample data kept in memory on the device**: it is **not** the backend's seeded data, nothing is sent to the backend, and everything is lost when the app restarts. Screens show a yellow “Demo mode” banner.
 
 Turn it on in `mobile/.env`, then restart Expo with a clean cache:
 
@@ -289,9 +306,9 @@ On every demo board the assignee **Demo Removed Member** is rejected, as the bac
 
 1. Set `EXPO_PUBLIC_MOBILE_DEMO_MODE=true`, run `npx expo start -c` and press `a`.
 2. Home → **View boards** → **Demo board**. Expect **No tasks yet**, “Tasks you add to this board show up here, grouped by status.”, and a **Create task** button.
-3. Tap **Create task**, then **Create task** at the bottom with an empty title. Expect “Title is required” under Title, with the keyboard open and Title visible.
+3. Tap **Create task**, then **Create task** at the bottom with an empty title. Expect “Title is required.” under Title, with the keyboard open and Title visible.
 4. Type only spaces and submit: same error. Type a real title: the error disappears straight away.
-5. Pick **Demo Removed Member** as assignee and submit. Expect “User '…' is not a member of project DEMO, so they can't be assigned to this task.” under Assignee, and the form scrolled to it. Pick another member: the error disappears.
+5. Pick **Demo Removed Member** as assignee and submit. Expect “Demo Removed Member isn’t a member of Demo Project, so they can’t be assigned. Pick someone from this project.” under Assignee, and the form scrolled to it. Pick another member: the error disappears.
 6. Submit. The sheet closes, a “Task created” toast shows, **No tasks yet** disappears, the task card is in **Backlog**, and the header and tab show 1 task.
 7. Open **Demo · network failure on first submit**, fill every field (title, description, assignee, priority, due date) and submit. Expect “Couldn’t create the task” at the top and every value still there. Submit again: it works.
 8. Repeat with **Demo · server failure on first submit** (expect “Something went wrong on our side…”).
@@ -300,9 +317,15 @@ On every demo board the assignee **Demo Removed Member** is rejected, as the bac
 11. **Demo · a board that doesn’t exist** → **Board not found**. **Demo · board fails to load once** → **Couldn’t load this board** → **Try again** → empty board.
 12. Keyboard: with the keyboard open, the **Create task** button stays above it, and the field with an error isn't hidden behind it. Check this on Android and, if available, iOS; Jest can't check native keyboard layout.
 
-### Scenarios that need the real backend
+### Manual test against the real backend
 
-These can't be checked until the backend can send board, task and member data: the seeded **Test Board** showing empty and then the created task; picking real project members; the server rejecting a member removed from the project in the database; and a board deleted in the database showing **Board not found**. Note that `Board` uses soft delete and `createTask` does not currently filter out soft-deleted boards, so a soft-deleted board may still accept new tasks. Only a board row that is really gone returns `NOT_FOUND`. Use a local development database only, never shared data, and don't change the seed.
+1. Start the backend in Development (it seeds **Test Project** with **Test Board** and five users).
+2. In `mobile/.env`, set `EXPO_PUBLIC_API_URL` (Android emulator: `http://10.0.2.2:<port>`), `EXPO_PUBLIC_USER_ID`, and `EXPO_PUBLIC_MOBILE_DEMO_MODE=false`. Run `npx expo start -c` and press `a`.
+3. Home → **View boards** → **Test Board**. The header shows “Test Project · N tasks”.
+4. **New task** (or **Create task** on an empty board) → the Assignee sheet lists the project's five members.
+5. Create a task with every field filled. The card appears in the active column without a refresh; check it in the backend with the `tasks` query.
+
+Note that `Board` uses soft delete and `createTask` does not currently filter out soft-deleted boards, so a soft-deleted board may still accept new tasks, while the `board` query reports it as not found. Use a local development database only, never shared data, and don't change the seed.
 
 ## Checks
 

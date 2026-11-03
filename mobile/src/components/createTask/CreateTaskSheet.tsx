@@ -78,10 +78,10 @@ export function CreateTaskSheet({
             onScrollBeginDrag={onScrollBeginDrag}
             testID="create-task-scroll"
           >
-            <CreateTaskForm form={form} titleInputRef={titleInputRef} members={board.members} columnName={column?.name} />
+            <CreateTaskForm form={form} titleInputRef={titleInputRef} members={board.members} membersUnavailable={board.membersUnavailable} projectName={board.projectName} columnName={column?.name} />
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 12) }]}>
             <Button
               label={submitting ? 'Creating…' : 'Create task'}
               size="lg"

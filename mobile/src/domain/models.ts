@@ -1,12 +1,3 @@
-/**
- * Models shared by the board screen and the create-task form.
- *
- * `Task` and `CreateTaskInput` match the backend `createTask` mutation (TaskDto / CreateTaskInput).
- * `Board`, `BoardColumn` and `ProjectMember` describe data the backend cannot return yet
- * (there is no board, task-list or member query); they follow the backend entities so a real
- * board query can fill them later.
- */
-
 export type ColumnCategory = 'BACKLOG' | 'TO_DO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -35,9 +26,10 @@ export interface Task {
   columnName: string;
   priority: TaskPriority | null;
   assigneeIds: string[];
+  assigneeNames?: string[];
   /** ISO 8601 date-time, e.g. "2026-11-05T00:00:00Z". */
   dueDate: string | null;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface CreateTaskInput {
@@ -62,7 +54,7 @@ export interface BoardColumn {
 export interface ProjectMember {
   userId: string;
   userName: string;
-  email: string;
+  email?: string;
 }
 
 export interface Board {
@@ -74,6 +66,7 @@ export interface Board {
   columns: BoardColumn[];
   /** Members of the board's project, i.e. the people a task can be assigned to. */
   members: ProjectMember[];
+  membersUnavailable?: string;
 }
 
 export interface BoardData {

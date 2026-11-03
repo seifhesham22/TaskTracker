@@ -2,8 +2,7 @@
  * The real backend repository: the createTask GraphQL request and how each backend answer is
  * mapped. Responses copy the backend's codes and messages (CreateTaskHandler, TaskItem).
  */
-import { createBackendBoardRepository, READ_API_MISSING } from '../src/data/backendBoardRepository';
-import { BoardLoadError } from '../src/data/BoardRepository';
+import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import {
   COLUMN_MISSING_DESCRIPTION,
   CreateTaskError,
@@ -139,16 +138,5 @@ describe('createTask error mapping', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect((error as CreateTaskError).failure).toMatchObject({ kind: 'general', reason: 'configuration' });
-  });
-});
-
-describe('board reads on the real backend', () => {
-  it('reports board and board-list loading as unsupported without calling the backend', async () => {
-    const fetchMock = mockFetch();
-    const repository = createBackendBoardRepository();
-
-    await expect(repository.getBoard(BOARD_ID)).rejects.toEqual(new BoardLoadError('unsupported', READ_API_MISSING));
-    await expect(repository.listBoards()).rejects.toMatchObject({ kind: 'unsupported' });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

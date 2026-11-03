@@ -93,7 +93,7 @@ export default function BoardScreen() {
     const { board, tasks } = state.data;
     content = (
       <>
-        <BoardHeader onBack={goBack} title={board.name} subtitle={`${board.projectName} · ${taskCount(tasks.length)}`} />
+        <BoardHeader onBack={goBack} title={board.name} subtitle={[board.projectName, taskCount(tasks.length)].filter(Boolean).join(' · ')} />
         {repository.mode === 'demo' ? <DemoBanner /> : null}
         <BoardColumnTabs columns={columns} counts={counts} activeIndex={current} onSelect={setActiveIndex} />
         {tasks.length === 0 ? (
