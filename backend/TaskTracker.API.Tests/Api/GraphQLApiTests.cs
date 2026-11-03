@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TaskTracker.API.Tests.Infrastructure;
 
@@ -109,6 +110,98 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
         Assert.Equal($"Board '{boardId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Projects_returns_the_projects_of_the_user_with_their_role_and_members()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            query { projects(userId: "{{project.MemberId}}") { id key role projectMembers { userId userName role } } }
+            """);
+
+        var result = Assert.Single(json.GetProperty("data").GetProperty("projects").EnumerateArray());
+        Assert.Equal(project.ProjectId.ToString(), result.GetProperty("id").GetString());
+        Assert.Equal(project.Key, result.GetProperty("key").GetString());
+        Assert.Equal("OWNER", result.GetProperty("role").GetString());
+
+        var member = Assert.Single(result.GetProperty("projectMembers").EnumerateArray());
+        Assert.Equal(project.MemberId.ToString(), member.GetProperty("userId").GetString());
+        Assert.False(string.IsNullOrEmpty(member.GetProperty("userName").GetString()));
+        Assert.Equal("OWNER", member.GetProperty("role").GetString());
+    }
+
+    [Fact]
+    public async Task Projects_returns_the_boards_of_a_project_in_board_order_without_deleted_boards()
+    {
+        TestProject project;
+        Guid otherBoardId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            (otherBoardId, _) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
+            var deletedBoardId = await TestData.CreateEmptyBoardAsync(db, project.ProjectId);
+            await db.boards
+                .Where(b => b.Id == deletedBoardId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsDeleted, true));
+        }
+
+        var json = await PostGraphQLAsync($$"""
+            query { projects(userId: "{{project.MemberId}}") { boards { id name } } }
+            """);
+
+        var boards = Assert.Single(json.GetProperty("data").GetProperty("projects").EnumerateArray())
+            .GetProperty("boards").EnumerateArray().ToList();
+        Assert.Equal(new[] { project.BoardId.ToString(), otherBoardId.ToString() }, boards.Select(b => b.GetProperty("id").GetString()));
+        Assert.Equal(new[] { "Board", "Other board" }, boards.Select(b => b.GetProperty("name").GetString()));
+    }
+
+    [Fact]
+    public async Task Projects_gives_each_project_only_its_own_boards()
+    {
+        TestProject first, second;
+        await using (var db = database.CreateDbContext())
+        {
+            first = await TestData.CreateProjectAsync(db);
+            second = await TestData.CreateProjectAsync(db);
+            db.Add(new TaskTracker.API.Domain.Entities.ProjectMember
+            {
+                ProjectId = second.ProjectId,
+                UserId = first.MemberId,
+                ProjectRole = TaskTracker.API.Domain.Enums.ProjectRole.Reader,
+                JoinedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var json = await PostGraphQLAsync($$"""
+            query { projects(userId: "{{first.MemberId}}") { id boards { id } } }
+            """);
+
+        var projects = json.GetProperty("data").GetProperty("projects").EnumerateArray().ToList();
+        Assert.Equal(2, projects.Count);
+        foreach (var (projectId, boardId) in new[] { (first.ProjectId, first.BoardId), (second.ProjectId, second.BoardId) })
+        {
+            var project = projects.Single(p => p.GetProperty("id").GetString() == projectId.ToString());
+            Assert.Equal(boardId.ToString(), Assert.Single(project.GetProperty("boards").EnumerateArray()).GetProperty("id").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task Projects_of_an_unknown_user_come_back_with_the_NOT_FOUND_code()
+    {
+        var userId = Guid.NewGuid();
+
+        var json = await PostGraphQLAsync($$"""
+            query { projects(userId: "{{userId}}") { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"User '{userId}' was not found.", error.GetProperty("message").GetString());
     }
 
     [Fact]
