@@ -1,6 +1,6 @@
-﻿using TaskTracker.API.Domain.Enums;
+using TaskTracker.API.Domain.Enums;
 
-namespace TaskTracker.API.Features.Tasks.GetTasks
+namespace TaskTracker.API.Features.Boards.Nodes
 {
     [GraphQLName("Column")]
     public sealed record ColumnNode(Guid Id, string name, string position, ColumnCategory category);
