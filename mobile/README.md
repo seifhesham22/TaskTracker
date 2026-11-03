@@ -21,14 +21,26 @@ mobile/
 ├── eslint.config.js     # ESLint configuration
 ├── README.md            # Mobile setup and usage instructions
 ├── assets/              # App icons and images
+├── __tests__/           # Jest + React Native Testing Library tests
+├── test-utils/          # Test helpers (mocked GraphQL backend); not app code
 └── src/
     ├── api/
-    │   └── client.ts    # Placeholder HTTP client using fetch
-    └── app/             # Expo Router screens
-        ├── _layout.tsx  # Root navigation layout
-        ├── index.tsx    # Home screen (/)
-        ├── task-details.tsx  # Task Details screen (/task-details)
-        └── +not-found.tsx    # Fallback for unknown routes
+    │   ├── client.ts    # Shared HTTP client using fetch
+    │   ├── graphql.ts   # GraphQL requests over the client (network / HTTP / GraphQL errors)
+    │   └── tasks.ts     # createTask mutation
+    ├── app/             # Expo Router screens
+    │   ├── _layout.tsx  # Root navigation layout
+    │   ├── index.tsx    # Home screen (/)
+    │   ├── task-details.tsx  # Task Details screen (/task-details)
+    │   ├── boards/
+    │   │   ├── index.tsx      # Board list (/boards)
+    │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
+    │   └── +not-found.tsx    # Fallback for unknown routes
+    ├── components/      # Board, create-task and form components (names match the design)
+    ├── data/            # Board data sources: real backend, demo data, React context
+    ├── domain/          # Models, createTask error mapping, formatting
+    ├── hooks/           # useBoard, useCreateTaskForm
+    └── theme/           # Design tokens from the designer handoff
 ```
 
 ## Prerequisites
@@ -214,6 +226,84 @@ The `.env` file contains local configuration and must not be committed. Only `.e
 
 For local HTTPS development, coordinate the certificate and URL configuration with the backend developer. A development certificate that the emulator does not trust may cause requests to fail. Android release builds can also restrict unencrypted HTTP traffic.
 
+## Board Screen and Create Task
+
+The board screen (`/boards/:boardId`) follows the designer's mobile handoff (`mobile.html`, `app.jsx`, `styles.css`):
+
+- **States:** loading (skeleton, only after 300 ms), empty (**No tasks yet** + **Create task**), the board (column tabs + swipe pager + floating **New task** button), **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
+- **Create task:** a full-screen sheet with Title (required), Description, Assignee, Priority and Due date. The form scrolls; the **Create task** button stays at the bottom, above the keyboard. Assignee and Priority open a bottom sheet; Due date opens the native date picker. **Cancel** asks “Discard this task?” when something was entered.
+- **Errors:** Title errors (“Title is required”) and the server’s assignee reason appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
+
+### What works against the real backend
+
+The backend currently has only two GraphQL operations, `ping` and `createTask`, and no REST endpoints. It has **no way to read boards, columns, tasks or project members**. So, with the real backend:
+
+- `createTask` is fully implemented (`src/api/tasks.ts`), including error mapping.
+- Opening a board shows **Couldn’t load this board** with the reason “The server can’t send board data yet…”. The app never shows made-up data as if it came from the server.
+
+When the backend adds board/task/member reads, only `src/data/backendBoardRepository.ts` (`getBoard`, `listBoards`) needs to change.
+
+How errors are told apart (the backend sends `NOT_FOUND` for a missing board **and** a missing column, with no other field):
+
+| Backend answer | Shown as |
+| --- | --- |
+| `NOT_FOUND` “Board '<this board's id>' was not found.” | **Board not found** screen |
+| `NOT_FOUND` “Column '…' was not found on board '…'.” | Error at the top of the form (not “Board not found”) |
+| `BAD_USER_INPUT` “User '<assignee id>' is not a member of project …” | The server's message under **Assignee** |
+| `BAD_USER_INPUT` “Title cannot be empty…” | “Title is required” under **Title** |
+| Other `BAD_USER_INPUT` (for example “This board has no columns…”) | The server's message at the top of the form |
+| No response (offline, server down) | “We couldn’t reach the server…” at the top of the form |
+| HTTP 5xx, or a GraphQL error without a known code | “Something went wrong on our side…” at the top of the form |
+
+Telling the board and column apart depends on the backend's message text. If those messages change, `src/domain/createTaskErrors.ts` must change too.
+
+## Demo Mode (Development Only)
+
+Demo mode lets you try the board screen and the create-task form on a device while the backend can't send board data. It uses **sample data kept in memory on the device**: it is **not** the backend's seeded data, nothing is sent to the backend, and everything is lost when the app restarts. Screens show a yellow “Demo mode” banner.
+
+Turn it on in `mobile/.env`, then restart Expo with a clean cache:
+
+```bash
+EXPO_PUBLIC_MOBILE_DEMO_MODE=true
+```
+
+```bash
+npx expo start -c
+```
+
+It is on when the value is exactly `true`, and also whenever `EXPO_PUBLIC_API_URL` is empty (with no backend configured there is nothing else to load). Open **View boards** on the Home screen. The demo boards are:
+
+| Board | What it simulates |
+| --- | --- |
+| Demo board | An empty board; tasks you create are added to it |
+| Demo · board deleted while the form is open | `createTask` answers “Board '…' was not found.” |
+| Demo · column missing on first submit | First `createTask` answers “Column '…' was not found on board '…'.”, then works |
+| Demo · network failure on first submit | First `createTask` gets no response, then works |
+| Demo · server failure on first submit | First `createTask` gets HTTP 500, then works |
+| Demo · board fails to load once | The first load fails, **Try again** works |
+| Demo · a board that doesn’t exist | Opening it shows **Board not found** |
+
+On every demo board the assignee **Demo Removed Member** is rejected, as the backend rejects someone who isn't a project member. The simulated failures use the backend's own error codes and messages and go through the same error handling as real responses.
+
+### Manual test on the Android emulator (demo mode)
+
+1. Set `EXPO_PUBLIC_MOBILE_DEMO_MODE=true`, run `npx expo start -c` and press `a`.
+2. Home → **View boards** → **Demo board**. Expect **No tasks yet**, “Tasks you add to this board show up here, grouped by status.”, and a **Create task** button.
+3. Tap **Create task**, then **Create task** at the bottom with an empty title. Expect “Title is required” under Title, with the keyboard open and Title visible.
+4. Type only spaces and submit: same error. Type a real title: the error disappears straight away.
+5. Pick **Demo Removed Member** as assignee and submit. Expect “User '…' is not a member of project DEMO, so they can't be assigned to this task.” under Assignee, and the form scrolled to it. Pick another member: the error disappears.
+6. Submit. The sheet closes, a “Task created” toast shows, **No tasks yet** disappears, the task card is in **Backlog**, and the header and tab show 1 task.
+7. Open **Demo · network failure on first submit**, fill every field (title, description, assignee, priority, due date) and submit. Expect “Couldn’t create the task” at the top and every value still there. Submit again: it works.
+8. Repeat with **Demo · server failure on first submit** (expect “Something went wrong on our side…”).
+9. **Demo · column missing on first submit**: the error is at the top of the form; it does **not** say “Board not found”.
+10. **Demo · board deleted while the form is open**: submit → **Board not found** → **Go to boards** returns to the list.
+11. **Demo · a board that doesn’t exist** → **Board not found**. **Demo · board fails to load once** → **Couldn’t load this board** → **Try again** → empty board.
+12. Keyboard: with the keyboard open, the **Create task** button stays above it, and the field with an error isn't hidden behind it. Check this on Android and, if available, iOS; Jest can't check native keyboard layout.
+
+### Scenarios that need the real backend
+
+These can't be checked until the backend can send board, task and member data: the seeded **Test Board** showing empty and then the created task; picking real project members; the server rejecting a member removed from the project in the database; and a board deleted in the database showing **Board not found**. Note that `Board` uses soft delete and `createTask` does not currently filter out soft-deleted boards, so a soft-deleted board may still accept new tasks. Only a board row that is really gone returns `NOT_FOUND`. Use a local development database only, never shared data, and don't change the seed.
+
 ## Checks
 
 The following checks use dependencies installed in the project:
@@ -221,7 +311,10 @@ The following checks use dependencies installed in the project:
 ```bash
 npm run lint
 npm run typecheck
+npm test -- --runInBand
 ```
+
+The tests use a mocked GraphQL backend and the in-memory demo data. They need no running backend, database or emulator.
 
 You can inspect available scripts by running:
 

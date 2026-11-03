@@ -1,0 +1,63 @@
+import { StyleSheet, Text, View } from 'react-native';
+
+import { isOverdue } from '../../domain/format';
+import type { ProjectMember, Task } from '../../domain/models';
+import { colors, radius } from '../../theme/tokens';
+import { Avatar, Skeleton } from '../ui';
+import { DueDateLabel, PriorityBadge } from './markers';
+
+/** TaskCard, variants "Title only" and "Full": each meta item hides on its own when empty. */
+export function TaskCard({ task, members }: { task: Task; members: ProjectMember[] }) {
+  const assignee = task.assigneeIds[0] ? members.find((m) => m.userId === task.assigneeIds[0]) : undefined;
+  const hasMeta = !!(task.priority || task.dueDate || task.assigneeIds.length > 0);
+  return (
+    <View style={styles.card} testID={`task-card-${task.id}`} accessible accessibilityLabel={task.title}>
+      <Text style={styles.title} numberOfLines={3}>
+        {task.title}
+      </Text>
+      {hasMeta ? (
+        <View style={styles.meta}>
+          {task.priority ? <PriorityBadge priority={task.priority} /> : null}
+          {task.dueDate ? <DueDateLabel dueDate={task.dueDate} overdue={isOverdue(task.dueDate, task.status)} /> : null}
+          <View style={styles.spacer} />
+          {task.assigneeIds.length > 0 ? <Avatar name={assignee?.userName ?? '?'} /> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export function TaskCardSkeleton() {
+  return (
+    <View style={[styles.card, styles.skeletonCard]}>
+      <Skeleton width="100%" height={16} />
+      <Skeleton width={200} height={16} />
+      <View style={styles.meta}>
+        <Skeleton width={64} height={20} borderRadius={6} />
+        <Skeleton width={44} height={16} />
+        <View style={styles.spacer} />
+        <Skeleton width={24} height={24} borderRadius={12} />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  skeletonCard: { shadowOpacity: 0, elevation: 0 },
+  title: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: colors.foreground },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  spacer: { flex: 1 },
+});
