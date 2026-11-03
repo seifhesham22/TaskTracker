@@ -15,5 +15,6 @@ namespace TaskTracker.API.Features.Tasks
         TaskPriority? Priority,
         IReadOnlyList<Guid> AssigneeIds,
         DateTimeOffset? DueDate,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+        Guid? ParentTaskId);
 }

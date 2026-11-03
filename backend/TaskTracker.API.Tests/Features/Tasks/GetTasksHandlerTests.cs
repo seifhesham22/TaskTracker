@@ -104,6 +104,19 @@ public class GetTasksHandlerTests(PostgresFixture database)
         Assert.Equal($"Board '{boardId}' was not found.", error.Message);
     }
 
+    [Fact]
+    public async Task Returns_the_parent_of_each_subtask()
+    {
+        var project = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(project.BoardId, "Parent");
+        await CreateTaskAsync(new CreateTaskInput(project.BoardId, null, "Child", null, null, null, null, parent.Id));
+
+        var tasks = await GetTasksAsync(boardId: project.BoardId);
+
+        Assert.Null(tasks.Single(t => t.Title == "Parent").ParentTaskId);
+        Assert.Equal(parent.Id, tasks.Single(t => t.Title == "Child").ParentTaskId);
+    }
+
     private async Task<TestProject> GivenProjectAsync()
     {
         await using var db = database.CreateDbContext();
