@@ -230,7 +230,9 @@ For local HTTPS development, coordinate the certificate and URL configuration wi
 
 The board screen (`/boards/:boardId`) follows the designer's mobile handoff (`mobile.html`, `app.jsx`, `styles.css`):
 
-- **States:** loading (skeleton, only after 300 ms), empty (**No tasks yet** + **Create task**), the board (column tabs + swipe pager + floating **New task** button), **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
+- **Columns:** one tab and one swipeable page per board column, always all of them, in the order the server returns (`position`). Tabs and swiping stay in sync. Each task is on the page of its `columnId`, and cards are ordered by the task's `position`.
+- **States:** loading (skeleton, only after 300 ms), an empty board (**No tasks yet** + **Create task** on every column), an empty column on a board with tasks (“No tasks in this column”), **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
+- **Pull-to-refresh:** works on every column, including on an empty board, and asks the server again. If it fails, the cards stay and a toast says “Couldn’t refresh the board. Pull down to try again.”
 - **Create task:** a full-screen sheet with Title (required), Description, Assignee, Priority and Due date. The form scrolls; the **Create task** button stays at the bottom, above the keyboard. Assignee and Priority open a bottom sheet; Due date opens the native date picker. **Cancel** asks “Discard this task?” when something was entered.
 - **Errors:** Title errors (“Title is required.”) and a rejected assignee (“Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.”) appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
 
@@ -241,7 +243,7 @@ The mobile app uses these backend GraphQL operations (`src/api/boards.ts`, `src/
 | Screen | Operation |
 | --- | --- |
 | Board list (`/boards`) | `projects(userId)` → every project's `boards` |
-| Board screen | `board(id)` with `columns`, and `tasks(boardId)` with `column` and `assignees`, in one request |
+| Board screen | `board(id)` with `columns`, and `tasks(boardId)` with `position`, `status`, `column` and `assignees`, in one request |
 | Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
 | Create task | `createTask(input)` |
 

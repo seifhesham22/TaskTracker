@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 
 import type { BoardColumn, ProjectMember, Task } from '../../domain/models';
 import { colors } from '../../theme/tokens';
 import { Button } from '../ui';
+import { BoardState } from './BoardState';
 import { TaskCard, TaskCardSkeleton } from './TaskCard';
 
 /** One page per column. Swiping and tapping a tab do the same thing; each page scrolls vertically. */
@@ -30,6 +31,7 @@ export function BoardColumnPager({
   const scrollRef = useRef<ScrollViewInstance>(null);
   // Only the first page shown; later changes scroll in the effect below.
   const [initialIndex] = useState(activeIndex);
+  const boardEmpty = columns.every((column) => (tasksByColumn[column.id] ?? []).length === 0);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ x: activeIndex * width, animated: true });
@@ -49,29 +51,43 @@ export function BoardColumnPager({
       style={styles.pager}
       testID="board-column-pager"
     >
-      {columns.map((column) => (
-        <ScrollView
-          key={column.id}
-          style={{ width }}
-          contentContainerStyle={styles.page}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          testID={`column-page-${column.id}`}
-        >
-          {(tasksByColumn[column.id] ?? []).map((task) => (
-            <TaskCard key={task.id} task={task} members={members} />
-          ))}
-          <Button
-            variant="ghost"
-            size="lg"
-            icon="plus"
-            label="Add task"
-            alignStart
-            textColor={colors.mutedForeground}
-            accessibilityLabel={`Add task to ${column.name}`}
-            onPress={() => onAddTask(column.id)}
-          />
-        </ScrollView>
-      ))}
+      {columns.map((column) => {
+        const tasks = tasksByColumn[column.id] ?? [];
+        return (
+          <ScrollView
+            key={column.id}
+            style={{ width }}
+            contentContainerStyle={boardEmpty ? styles.emptyBoardPage : styles.page}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            testID={`column-page-${column.id}`}
+          >
+            {boardEmpty ? (
+              <BoardState type="empty" onAction={() => onAddTask(column.id)} />
+            ) : (
+              <>
+                {tasks.length === 0 ? (
+                  <Text style={styles.emptyColumn} testID={`column-empty-${column.id}`}>
+                    No tasks in this column
+                  </Text>
+                ) : null}
+                {tasks.map((task) => (
+                  <TaskCard key={task.id} task={task} members={members} />
+                ))}
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  icon="plus"
+                  label="Add task"
+                  alignStart
+                  textColor={colors.mutedForeground}
+                  accessibilityLabel={`Add task to ${column.name}`}
+                  onPress={() => onAddTask(column.id)}
+                />
+              </>
+            )}
+          </ScrollView>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -90,4 +106,6 @@ const styles = StyleSheet.create({
   pager: { flex: 1 },
   // Bottom padding keeps the last card clear of the floating "New task" button.
   page: { paddingHorizontal: 16, paddingBottom: 120, gap: 12 },
+  emptyBoardPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingBottom: 80 },
+  emptyColumn: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground, paddingHorizontal: 4, paddingTop: 8 },
 });

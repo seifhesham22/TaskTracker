@@ -11,8 +11,9 @@ import { CreateTaskButton } from '../../components/board/CreateTaskButton';
 import { Toast } from '../../components/board/Toast';
 import { CreateTaskSheet } from '../../components/createTask/CreateTaskSheet';
 import { useBoardRepository } from '../../data/BoardRepositoryContext';
+import { groupTasksByColumn } from '../../domain/board';
 import type { Task } from '../../domain/models';
-import { useBoard } from '../../hooks/useBoard';
+import { REFRESH_FAILED_MESSAGE, useBoard } from '../../hooks/useBoard';
 import { colors } from '../../theme/tokens';
 
 const taskCount = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`;
@@ -22,24 +23,20 @@ export default function BoardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const repository = useBoardRepository();
-  const { state, showSkeleton, retry, refresh, addCreatedTask, markNotFound } = useBoard(boardId);
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
+  const hideToast = useCallback(() => setToast(null), []);
+  const showRefreshFailure = useCallback(() => setToast({ message: REFRESH_FAILED_MESSAGE, tone: 'error' }), []);
+  const { state, showSkeleton, retry, refresh, addCreatedTask, markNotFound } = useBoard(boardId, showRefreshFailure);
   const [activeIndex, setActiveIndex] = useState(0);
   // undefined = form closed; null = open, column chosen by the backend (first column).
   const [createIn, setCreateIn] = useState<string | null | undefined>(undefined);
-  const [toast, setToast] = useState<string | null>(null);
-  const hideToast = useCallback(() => setToast(null), []);
 
   const goToBoards = () => router.replace('/boards');
   const goBack = () => (router.canGoBack() ? router.back() : goToBoards());
 
   const data = state.status === 'ready' ? state.data : null;
   const columns = useMemo(() => data?.board.columns ?? [], [data]);
-  const tasksByColumn = useMemo(() => {
-    const groups: Record<string, Task[]> = {};
-    for (const column of columns) groups[column.id] = [];
-    for (const task of data?.tasks ?? []) (groups[task.columnId] ??= []).push(task);
-    return groups;
-  }, [columns, data]);
+  const tasksByColumn = useMemo(() => groupTasksByColumn(columns, data?.tasks ?? []), [columns, data]);
   const counts = useMemo(
     () => Object.fromEntries(Object.entries(tasksByColumn).map(([id, tasks]) => [id, tasks.length])),
     [tasksByColumn],
@@ -49,7 +46,7 @@ export default function BoardScreen() {
 
   const handleCreated = (task: Task) => {
     setCreateIn(undefined);
-    setToast('Task created');
+    setToast({ message: 'Task created', tone: 'success' });
     const index = columns.findIndex((c) => c.id === task.columnId);
     if (index >= 0) setActiveIndex(index);
     addCreatedTask(task);
@@ -96,25 +93,23 @@ export default function BoardScreen() {
         <BoardHeader onBack={goBack} title={board.name} subtitle={[board.projectName, taskCount(tasks.length)].filter(Boolean).join(' · ')} />
         {repository.mode === 'demo' ? <DemoBanner /> : null}
         <BoardColumnTabs columns={columns} counts={counts} activeIndex={current} onSelect={setActiveIndex} />
-        {tasks.length === 0 ? (
+        {columns.length === 0 ? (
           <View style={styles.center}>
             <BoardState type="empty" onAction={() => openCreate()} />
           </View>
         ) : (
-          <>
-            <BoardColumnPager
-              columns={columns}
-              tasksByColumn={tasksByColumn}
-              members={board.members}
-              activeIndex={current}
-              onIndexChange={setActiveIndex}
-              onAddTask={openCreate}
-              refreshing={state.refreshing}
-              onRefresh={refresh}
-            />
-            <CreateTaskButton onPress={() => openCreate()} />
-          </>
+          <BoardColumnPager
+            columns={columns}
+            tasksByColumn={tasksByColumn}
+            members={board.members}
+            activeIndex={current}
+            onIndexChange={setActiveIndex}
+            onAddTask={openCreate}
+            refreshing={state.refreshing}
+            onRefresh={refresh}
+          />
         )}
+        {tasks.length > 0 ? <CreateTaskButton onPress={() => openCreate()} /> : null}
         {createIn !== undefined ? (
           <CreateTaskSheet
             board={board}
@@ -125,7 +120,7 @@ export default function BoardScreen() {
             onBoardNotFound={handleBoardNotFound}
           />
         ) : null}
-        {toast ? <Toast message={toast} onHide={hideToast} /> : null}
+        {toast ? <Toast message={toast.message} tone={toast.tone} onHide={hideToast} /> : null}
       </>
     );
   }

@@ -3,6 +3,7 @@
  * repository that uses the real createTask request with a supplied board.
  * Kept outside __tests__ so Jest doesn't run this file as a test suite.
  */
+import type { BoardNode, ProjectNode, TaskNode } from '../src/api/boards';
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import type { BoardRepository } from '../src/data/BoardRepository';
 import type { BoardColumn, BoardData, ProjectMember, Task } from '../src/domain/models';
@@ -83,3 +84,61 @@ export function testRepository(getBoard: () => Promise<BoardData>): BoardReposit
   const backend = createBackendBoardRepository();
   return { ...backend, mode: 'test', getBoard: jest.fn(getBoard) };
 }
+
+export const USER_ID = '01a18766-479c-7ec2-be3f-3c3a00989ad6';
+export const PROJECT_ID = '01a18766-48a1-7b2e-9c3f-5d6e7f809a1b';
+
+export const BOARD_NODE: BoardNode = {
+  id: BOARD_ID,
+  projectId: PROJECT_ID,
+  name: 'Test Board',
+  columns: COLUMNS.map(({ id, name, position, category }) => ({ id, name, position, category })),
+};
+
+export const PROJECT_MEMBERS = [
+  { userId: USER_ID, userName: 'admin@local.test' },
+  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad7', userName: 'user1@local.test' },
+];
+
+export const PROJECTS: ProjectNode[] = [
+  {
+    id: '01a18766-48a1-7b2e-9c3f-5d6e7f809a1c',
+    name: 'Other Project',
+    boards: [{ id: '01a18766-48b5-7fb8-a04c-13e1bf648d00', name: 'Other Board' }],
+    projectMembers: [{ userId: '01a18766-479c-7ec2-be3f-3c3a00989a00', userName: 'outsider@local.test' }],
+  },
+  { id: PROJECT_ID, name: 'Test Project', boards: [{ id: BOARD_ID, name: 'Test Board' }], projectMembers: PROJECT_MEMBERS },
+];
+
+export const taskNode = (overrides: Partial<TaskNode> = {}): TaskNode => ({
+  id: '01a18766-8315-7c9c-90fd-5657de973400',
+  number: 1,
+  readableId: 'TES-1',
+  title: 'Existing task',
+  description: null,
+  priority: 'HIGH',
+  dueDate: '2026-11-05T00:00:00.000Z',
+  boardId: BOARD_ID,
+  columnId: COLUMNS[2].id,
+  position: 'V',
+  status: 'IN_PROGRESS',
+  column: { id: COLUMNS[2].id, name: 'In progress', category: 'IN_PROGRESS' },
+  assignees: [{ id: PROJECT_MEMBERS[1].userId, userName: PROJECT_MEMBERS[1].userName }],
+  ...overrides,
+});
+
+export const titleOnlyTaskNode = (columnIndex: number, overrides: Partial<TaskNode> = {}): TaskNode => {
+  const column = COLUMNS[columnIndex];
+  return taskNode({
+    priority: null,
+    dueDate: null,
+    assignees: [],
+    columnId: column.id,
+    status: column.category,
+    column: { id: column.id, name: column.name, category: column.category },
+    ...overrides,
+  });
+};
+
+export const boardResponse = (tasks: TaskNode[] = []) => ({ body: { data: { board: BOARD_NODE, tasks } } });
+export const projectsResponse = (projects: ProjectNode[] = PROJECTS) => ({ body: { data: { projects } } });

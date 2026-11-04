@@ -30,6 +30,7 @@ export interface Task {
   /** ISO 8601 date-time, e.g. "2026-11-05T00:00:00Z". */
   dueDate: string | null;
   createdAt?: string;
+  position?: string;
 }
 
 export interface CreateTaskInput {
