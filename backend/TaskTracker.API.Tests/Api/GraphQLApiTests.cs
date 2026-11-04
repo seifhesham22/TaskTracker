@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Api;
@@ -51,6 +52,38 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal("`title` is a required field and cannot be null.", error.GetProperty("message").GetString());
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task An_empty_title_comes_back_with_the_BAD_USER_INPUT_code(string title)
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "{{title}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Title cannot be empty or only spaces.", error.GetProperty("message").GetString());
+
+        await using var check = database.CreateDbContext();
+        Assert.False(await check.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
+    [Fact]
+    public async Task A_missing_board_id_is_refused_by_the_schema()
+    {
+        var json = await PostGraphQLAsync("""
+            mutation { createTask(input: { title: "No board" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("`boardId` is a required field and cannot be null.", error.GetProperty("message").GetString());
+    }
+
     [Fact]
     public async Task An_unknown_board_comes_back_with_the_NOT_FOUND_code()
     {
@@ -63,6 +96,40 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
         Assert.Equal($"Board '{boardId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task CreateTask_saves_the_task_only_on_the_requested_board()
+    {
+        TestProject project;
+        Guid otherBoardId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            (otherBoardId, _) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
+        }
+
+        var created = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Board A task" }) { id title } }
+            """);
+        var task = created.GetProperty("data").GetProperty("createTask");
+        var taskId = task.GetProperty("id").GetString();
+        Assert.Equal("Board A task", task.GetProperty("title").GetString());
+
+        var onRequestedBoard = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}") { id } }
+            """);
+        var listedTask = Assert.Single(onRequestedBoard.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal(taskId, listedTask.GetProperty("id").GetString());
+
+        var onOtherBoard = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{otherBoardId}}") { id } }
+            """);
+        Assert.Empty(onOtherBoard.GetProperty("data").GetProperty("tasks").EnumerateArray());
+
+        await using var check = database.CreateDbContext();
+        var saved = await check.Set<TaskItem>().SingleAsync(t => t.Id == Guid.Parse(taskId!));
+        Assert.Equal(project.BoardId, saved.BoardId);
     }
 
     [Fact]
