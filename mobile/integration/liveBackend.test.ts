@@ -79,6 +79,23 @@ describe('live GraphQL backend', () => {
     expect(returned?.dueDate?.slice(0, 10)).toBe('2099-11-05');
   });
 
+  it('moves a task to another column and keeps it there, and refuses an unknown column', async () => {
+    const boardId = await firstBoardId();
+    const { board } = await repository.getBoard(boardId);
+    const destination = board.columns[1];
+    const created = await repository.createTask({ boardId, columnId: board.columns[0].id, title: `integration move ${Date.now()}` });
+
+    const moved = await repository.moveTask(created.id, destination.id);
+
+    expect(moved).toMatchObject({ id: created.id, columnId: destination.id, status: destination.category });
+    const { tasks } = await repository.getBoard(boardId);
+    expect(tasks.filter((task) => task.id === created.id).map((task) => task.columnId)).toEqual([destination.id]);
+
+    await expect(repository.moveTask(created.id, MISSING_ID)).rejects.toThrow(`Column '${MISSING_ID}' was not found on board '${boardId}'.`);
+    const after = await repository.getBoard(boardId);
+    expect(after.tasks.find((task) => task.id === created.id)?.columnId).toBe(destination.id);
+  });
+
   it('reports a board that does not exist as not found', async () => {
     await expect(repository.getBoard(MISSING_ID)).rejects.toMatchObject({ kind: 'notFound' });
     await expect(repository.getBoard(MISSING_ID)).rejects.toBeInstanceOf(BoardLoadError);

@@ -16,4 +16,5 @@ export interface BoardRepository {
   listBoards(): Promise<BoardSummary[]>;
   getBoard(boardId: string): Promise<BoardData>;
   createTask(input: CreateTaskInput): Promise<Task>;
+  moveTask(taskId: string, columnId: string): Promise<Task>;
 }

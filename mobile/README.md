@@ -203,6 +203,7 @@ The board screen (`/boards/:boardId`) follows the designer's mobile handoff (`mo
 - **Tasks:** each task is on the page whose ID equals its `columnId`, ordered by the task's `position`. A task whose `columnId` isn't on the board is reported in a notice above the columns, never dropped.
 - **States:** loading (skeleton, only after 300 ms), an empty board (**No tasks yet** + **Create task** on every column), an empty column on a board with tasks (“No tasks in this column”), **This board has no columns**, **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
 - **Pull-to-refresh:** works on every column, including on an empty board, and fetches the board and the tasks again, so renamed or reordered columns and moved tasks show up. If it fails, the cards stay and a toast says “Couldn’t refresh the board. Pull down to try again.”
+- **Move a task:** touch and hold a card to open **Move to column**, which lists the columns of this board with the current one marked. Choosing another column moves the card there at once, shows **Saving…** on it, and sends `moveTask`. If the server refuses or can't be reached, the card goes back and a notice shows the reason with **Try again** and **Dismiss**. Other tasks can still be moved while one is saving.
 - **Create task:** a full-screen sheet with Title (required), Description, Assignee, Priority and Due date. The form scrolls; the **Create task** button stays at the bottom, above the keyboard. Assignee and Priority open a bottom sheet; Due date opens the native date picker. **Cancel** asks “Discard this task?” when something was entered.
 - **Errors:** Title errors (“Title is required.”) and a rejected assignee (“Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.”) appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
 
@@ -216,6 +217,7 @@ The mobile app uses these backend GraphQL operations (`src/api/boards.ts`, `src/
 | Board screen | `board(id)` with `columns`, and `tasks(boardId)` with `position`, `status`, `column` and `assignees`, in one request |
 | Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
 | Create task | `createTask(input)` |
+| Move a task | `moveTask(input: { taskId, columnId })` |
 
 Without `EXPO_PUBLIC_USER_ID`:
 
@@ -272,7 +274,7 @@ npm test -- --runInBand
 
 `npm test` uses a mocked GraphQL backend, so it needs no running backend, database or emulator. These fixtures live only in `__tests__` and `test-utils`, and the app never imports them.
 
-The integration tests call the real API and need a running backend. They aren't part of `npm test` or CI, and because the backend has no delete operation, each run leaves two `integration …` tasks on the board:
+The integration tests call the real API and need a running backend. They aren't part of `npm test` or CI, and because the backend has no delete operation, each run leaves three `integration …` tasks on the board:
 
 ```bash
 LIVE_API_URL=http://localhost:8080 LIVE_USER_ID=<a user id> npm run test:integration

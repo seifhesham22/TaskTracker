@@ -124,12 +124,14 @@ export function SelectControl({
 export interface SelectionOption {
   key: string;
   label: string;
+  detail?: string;
   leading?: ReactNode;
 }
 
 export function SelectionSheet({
   visible,
   title,
+  description,
   options,
   selectedKey,
   onSelect,
@@ -138,6 +140,7 @@ export function SelectionSheet({
 }: {
   visible: boolean;
   title: string;
+  description?: string;
   options: SelectionOption[];
   selectedKey: string;
   onSelect: (key: string) => void;
@@ -154,6 +157,11 @@ export function SelectionSheet({
           <Text style={sheetStyles.title} accessibilityRole="header">
             {title}
           </Text>
+          {description ? (
+            <Text style={sheetStyles.description} numberOfLines={2}>
+              {description}
+            </Text>
+          ) : null}
           <ScrollView style={{ maxHeight: 420 }}>
             {options.map((option) => {
               const selected = option.key === selectedKey;
@@ -162,13 +170,14 @@ export function SelectionSheet({
                   key={option.key}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={option.label}
+                  accessibilityLabel={option.detail ? `${option.label}, ${option.detail}` : option.label}
                   onPress={() => onSelect(option.key)}
                   style={({ pressed }) => [sheetStyles.option, pressed && { backgroundColor: colors.muted }]}
                   testID={`${testID}-option-${option.key}`}
                 >
                   {option.leading}
                   <Text style={sheetStyles.optionText}>{option.label}</Text>
+                  {option.detail ? <Text style={sheetStyles.optionDetail}>{option.detail}</Text> : null}
                   {selected ? <Icon name="check" size={16} /> : null}
                 </Pressable>
               );
@@ -230,5 +239,7 @@ const sheetStyles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 8 },
   title: { fontSize: 16, lineHeight: 24, fontWeight: '600', paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 12, borderRadius: radius.md },
+  description: { fontSize: 14, lineHeight: 20, paddingHorizontal: 12, paddingBottom: 8, color: colors.mutedForeground },
   optionText: { flex: 1, fontSize: 16, lineHeight: 24, color: colors.foreground },
+  optionDetail: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground },
 });

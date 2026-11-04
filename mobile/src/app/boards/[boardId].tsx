@@ -8,17 +8,21 @@ import { BoardColumnTabs, BoardColumnTabsSkeleton } from '../../components/board
 import { BoardHeader } from '../../components/board/BoardHeader';
 import { BoardState } from '../../components/board/BoardState';
 import { CreateTaskButton } from '../../components/board/CreateTaskButton';
+import { MoveTaskErrorNotice } from '../../components/board/MoveTaskErrorNotice';
+import { MoveTaskSheet } from '../../components/board/MoveTaskSheet';
 import { Toast } from '../../components/board/Toast';
 import { UnplacedTasksNotice } from '../../components/board/UnplacedTasksNotice';
 import { CreateTaskSheet } from '../../components/createTask/CreateTaskSheet';
 import { useBoardRepository } from '../../data/BoardRepositoryContext';
 import { groupTasksByColumn } from '../../domain/board';
-import type { Task } from '../../domain/models';
+import type { BoardColumn, Task } from '../../domain/models';
 import { REFRESH_FAILED_MESSAGE, useBoard } from '../../hooks/useBoard';
 import { colors } from '../../theme/tokens';
 
 const NO_COLUMNS_TITLE = 'This board has no columns';
 const NO_COLUMNS_DESCRIPTION = 'Tasks need a column to go in. Add columns to this board, then try again.';
+
+type FailedMove = { task: Task; column: BoardColumn; message: string };
 
 const taskCount = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`;
 
@@ -30,9 +34,11 @@ export default function BoardScreen() {
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
   const hideToast = useCallback(() => setToast(null), []);
   const showRefreshFailure = useCallback(() => setToast({ message: REFRESH_FAILED_MESSAGE, tone: 'error' }), []);
-  const { state, showSkeleton, retry, refresh, addCreatedTask, markNotFound } = useBoard(boardId, showRefreshFailure);
+  const { state, showSkeleton, retry, refresh, addCreatedTask, markNotFound, moveTask, savingTaskIds } = useBoard(boardId, showRefreshFailure);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createIn, setCreateIn] = useState<string | null | undefined>(undefined);
+  const [taskToMove, setTaskToMove] = useState<Task | null>(null);
+  const [failedMove, setFailedMove] = useState<FailedMove | null>(null);
 
   const goToBoards = () => router.replace('/boards');
   const goBack = () => (router.canGoBack() ? router.back() : goToBoards());
@@ -56,6 +62,20 @@ export default function BoardScreen() {
     setToast({ message: 'Task created', tone: 'success' });
     setActiveColumnId(task.columnId);
     addCreatedTask(task);
+  };
+
+  const startMove = async (task: Task, column: BoardColumn) => {
+    setTaskToMove(null);
+    if (task.columnId === column.id) return;
+    setFailedMove(null);
+    setActiveColumnId(column.id);
+    const outcome = await moveTask(task, column);
+    if (outcome.status === 'moved') {
+      setToast({ message: `Moved to ${column.name}`, tone: 'success' });
+    } else if (outcome.status === 'failed') {
+      setFailedMove({ task, column, message: outcome.message });
+      setActiveColumnId((active) => (active === column.id ? task.columnId : active));
+    }
   };
 
   const handleBoardNotFound = (message: string) => {
@@ -104,6 +124,14 @@ export default function BoardScreen() {
           <>
             <BoardColumnTabs columns={columns} counts={counts} activeIndex={current} onSelect={selectIndex} />
             {grouped.unplaced.length > 0 ? <UnplacedTasksNotice tasks={grouped.unplaced} /> : null}
+            {failedMove ? (
+              <MoveTaskErrorNotice
+                taskTitle={failedMove.task.title}
+                message={failedMove.message}
+                onRetry={() => startMove(failedMove.task, failedMove.column)}
+                onDismiss={() => setFailedMove(null)}
+              />
+            ) : null}
             <BoardColumnPager
               columns={columns}
               tasksByColumn={grouped.byColumn}
@@ -111,12 +139,22 @@ export default function BoardScreen() {
               activeIndex={current}
               onIndexChange={selectIndex}
               onAddTask={openCreate}
+              savingTaskIds={savingTaskIds}
+              onTaskLongPress={setTaskToMove}
               refreshing={state.refreshing}
               onRefresh={refresh}
             />
             {tasks.length > 0 ? <CreateTaskButton onPress={() => openCreate()} /> : null}
           </>
         )}
+        {taskToMove ? (
+          <MoveTaskSheet
+            task={taskToMove}
+            columns={columns}
+            onSelect={(column) => startMove(taskToMove, column)}
+            onClose={() => setTaskToMove(null)}
+          />
+        ) : null}
         {createIn !== undefined ? (
           <CreateTaskSheet
             board={board}

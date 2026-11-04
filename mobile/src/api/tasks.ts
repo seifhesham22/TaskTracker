@@ -1,4 +1,5 @@
 import type { CreateTaskInput, Task } from '../domain/models';
+import { TASK_FIELDS, toTask, type TaskNode } from './boards';
 import { graphqlRequest } from './graphql';
 
 export const CREATE_TASK_MUTATION = `
@@ -21,6 +22,14 @@ export const CREATE_TASK_MUTATION = `
   }
 `;
 
+export const MOVE_TASK_MUTATION = `
+  mutation MoveTask($input: MoveTaskInput!) {
+    moveTask(input: $input) {
+      ${TASK_FIELDS}
+    }
+  }
+`;
+
 export function toMutationInput(input: CreateTaskInput): Record<string, unknown> {
   const result: Record<string, unknown> = { boardId: input.boardId, title: input.title };
   if (input.columnId) result.columnId = input.columnId;
@@ -36,4 +45,11 @@ export async function createTaskRequest(input: CreateTaskInput): Promise<Task> {
     input: toMutationInput(input),
   });
   return data.createTask;
+}
+
+export async function moveTaskRequest(taskId: string, columnId: string): Promise<Task> {
+  const data = await graphqlRequest<{ moveTask: TaskNode }>(MOVE_TASK_MUTATION, {
+    input: { taskId, columnId },
+  });
+  return toTask(data.moveTask);
 }
