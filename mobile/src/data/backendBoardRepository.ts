@@ -28,7 +28,7 @@ export const MEMBERS_LOAD_FAILED =
   'Couldn’t load the project’s members. You can still create the task without an assignee.';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BOARD_NOT_FOUND = /^Board '[^']+' was not found\.$/;
+const BOARD_NOT_FOUND = /^Board '([^']+)' was not found\.$/;
 const USER_NOT_FOUND_MESSAGE = /^User '[^']+' was not found\.$/;
 
 export function getConfiguredUserId(): string | null {
@@ -44,8 +44,14 @@ function hasError(error: unknown, code: string, message: RegExp): string | null 
   return entry ? entry.message : null;
 }
 
-function toBoardLoadError(error: unknown): BoardLoadError {
-  const boardMissing = hasError(error, 'NOT_FOUND', BOARD_NOT_FOUND);
+function missingBoardMessage(error: unknown, boardId: string): string | null {
+  const message = hasError(error, 'NOT_FOUND', BOARD_NOT_FOUND);
+  const missingId = message ? BOARD_NOT_FOUND.exec(message)?.[1] : undefined;
+  return missingId?.toLowerCase() === boardId.toLowerCase() ? message : null;
+}
+
+function toBoardLoadError(error: unknown, boardId?: string): BoardLoadError {
+  const boardMissing = boardId ? missingBoardMessage(error, boardId) : null;
   if (boardMissing) return new BoardLoadError('notFound', boardMissing);
   if (hasError(error, 'NOT_FOUND', USER_NOT_FOUND_MESSAGE)) return new BoardLoadError('server', USER_NOT_FOUND);
   if (error instanceof NetworkError) return new BoardLoadError('network', BOARD_LOAD_NETWORK);
@@ -85,7 +91,7 @@ export function createBackendBoardRepository(): BoardRepository {
       try {
         response = await boardWithTasksRequest(boardId);
       } catch (error) {
-        throw toBoardLoadError(error);
+        throw toBoardLoadError(error, boardId);
       }
 
       const { board, tasks } = response;

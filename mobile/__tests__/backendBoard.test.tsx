@@ -1,7 +1,6 @@
 import { Text } from 'react-native';
 import { fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 
-import type { BoardNode, ProjectNode, TaskNode } from '../src/api/boards';
 import BoardScreen from '../src/app/boards/[boardId]';
 import {
   BOARD_LOAD_NETWORK,
@@ -16,7 +15,21 @@ import { BoardLoadError } from '../src/data/BoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { NETWORK_ERROR_DESCRIPTION, TITLE_REQUIRED } from '../src/domain/createTaskErrors';
 import { colors } from '../src/theme/tokens';
-import { API_URL, BOARD_ID, COLUMNS, gqlError, gqlTask, mockFetch, taskDto } from '../test-utils/fakeBackend';
+import {
+  API_URL,
+  BOARD_ID,
+  COLUMNS,
+  PROJECT_MEMBERS,
+  PROJECTS,
+  USER_ID,
+  boardResponse,
+  gqlError,
+  gqlTask,
+  mockFetch,
+  projectsResponse,
+  taskDto,
+  taskNode,
+} from '../test-utils/fakeBackend';
 
 jest.mock('@react-native-community/datetimepicker', () => {
   const React = jest.requireActual('react');
@@ -29,50 +42,6 @@ jest.mock('@react-native-community/datetimepicker', () => {
     );
   return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } };
 });
-
-const USER_ID = '01a18766-479c-7ec2-be3f-3c3a00989ad6';
-const PROJECT_ID = '01a18766-48a1-7b2e-9c3f-5d6e7f809a1b';
-const OTHER_PROJECT_ID = '01a18766-48a1-7b2e-9c3f-5d6e7f809a1c';
-
-const BOARD_NODE: BoardNode = {
-  id: BOARD_ID,
-  projectId: PROJECT_ID,
-  name: 'Test Board',
-  columns: COLUMNS.map(({ id, name, position, category }) => ({ id, name, position, category })),
-};
-
-const PROJECT_MEMBERS = [
-  { userId: USER_ID, userName: 'admin@local.test' },
-  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad7', userName: 'user1@local.test' },
-];
-
-const PROJECTS: ProjectNode[] = [
-  {
-    id: OTHER_PROJECT_ID,
-    name: 'Other Project',
-    boards: [{ id: '01a18766-48b5-7fb8-a04c-13e1bf648d00', name: 'Other Board' }],
-    projectMembers: [{ userId: '01a18766-479c-7ec2-be3f-3c3a00989a00', userName: 'outsider@local.test' }],
-  },
-  { id: PROJECT_ID, name: 'Test Project', boards: [{ id: BOARD_ID, name: 'Test Board' }], projectMembers: PROJECT_MEMBERS },
-];
-
-const taskNode = (overrides: Partial<TaskNode> = {}): TaskNode => ({
-  id: '01a18766-8315-7c9c-90fd-5657de973400',
-  number: 1,
-  readableId: 'TES-1',
-  title: 'Existing task',
-  description: null,
-  priority: 'HIGH',
-  dueDate: '2026-11-05T00:00:00.000Z',
-  boardId: BOARD_ID,
-  columnId: COLUMNS[2].id,
-  column: { id: COLUMNS[2].id, name: 'In progress', category: 'IN_PROGRESS' },
-  assignees: [{ id: PROJECT_MEMBERS[1].userId, userName: PROJECT_MEMBERS[1].userName }],
-  ...overrides,
-});
-
-const boardResponse = (tasks: TaskNode[] = []) => ({ body: { data: { board: BOARD_NODE, tasks } } });
-const projectsResponse = (projects: ProjectNode[] = PROJECTS) => ({ body: { data: { projects } } });
 
 type SentRequest = { query: string; variables: Record<string, unknown> };
 const sent = (fetchMock: jest.Mock, call: number): SentRequest =>
@@ -122,6 +91,7 @@ describe('backend getBoard', () => {
         assigneeIds: [PROJECT_MEMBERS[1].userId],
         assigneeNames: [PROJECT_MEMBERS[1].userName],
         dueDate: '2026-11-05T00:00:00.000Z',
+        position: 'V',
       },
     ]);
   });
@@ -229,7 +199,7 @@ describe('Board screen and create-task form against the real backend contract', 
     await renderRealBoard();
 
     expect(await screen.findByText('Test Project · 0 tasks')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Create task'));
+    await fireEvent.press(screen.getAllByText('Create task')[0]);
 
     await fireEvent.press(screen.getByTestId('assignee-select'));
     const sheet = screen.getByTestId('assignee-sheet');
@@ -293,7 +263,7 @@ describe('Board screen and create-task form against the real backend contract', 
     );
     await renderRealBoard();
 
-    await fireEvent.press(await screen.findByText('Create task'));
+    await fireEvent.press((await screen.findAllByText('Create task'))[0]);
     await fireEvent.press(screen.getByTestId('submit-button'));
     expect(within(screen.getByTestId('field-title')).getByText(TITLE_REQUIRED)).toBeOnTheScreen();
     await fireEvent.changeText(screen.getByTestId('title-input'), 'Retry me');
@@ -324,7 +294,7 @@ describe('Board screen and create-task form against the real backend contract', 
     await renderRealBoard();
 
     expect(await screen.findByText('0 tasks')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Create task'));
+    await fireEvent.press(screen.getAllByText('Create task')[0]);
 
     expect(screen.getByTestId('assignee-unavailable')).toHaveTextContent(MEMBERS_NEED_USER_ID);
     await fireEvent.press(screen.getByTestId('assignee-select'));

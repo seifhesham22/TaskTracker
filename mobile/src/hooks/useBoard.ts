@@ -12,12 +12,14 @@ export type BoardScreenState =
 /** The design shows the skeleton only when loading takes longer than this, so it doesn't flash. */
 export const SKELETON_DELAY_MS = 300;
 
+export const REFRESH_FAILED_MESSAGE = 'Couldn’t refresh the board. Pull down to try again.';
+
 const toLoadError = (error: unknown) =>
   error instanceof BoardLoadError
     ? error
     : new BoardLoadError('server', error instanceof Error ? error.message : 'Unknown error');
 
-export function useBoard(boardId: string) {
+export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const repository = useBoardRepository();
   const [state, setState] = useState<BoardScreenState>({ status: 'loading' });
   const [showSkeleton, setShowSkeleton] = useState(false);
@@ -25,10 +27,12 @@ export function useBoard(boardId: string) {
   // Each bump of reloadKey loads the board again; keepData says whether this is a refresh.
   const [reloadKey, setReloadKey] = useState(0);
   const keepData = useRef(false);
+  const reportRefreshFailure = useRef(false);
 
   useEffect(() => {
     const request = ++latestRequest.current;
     const isRefresh = keepData.current;
+    const reportFailure = reportRefreshFailure.current;
     repository.getBoard(boardId).then(
       (data) => {
         if (request === latestRequest.current) setState({ status: 'ready', data, refreshing: false });
@@ -42,9 +46,10 @@ export function useBoard(boardId: string) {
             ? { ...current, refreshing: false }
             : { status: 'error', error: loadError },
         );
+        if (isRefresh && reportFailure && loadError.kind !== 'notFound') onRefreshFailed?.();
       },
     );
-  }, [repository, boardId, reloadKey]);
+  }, [repository, boardId, reloadKey, onRefreshFailed]);
 
   useEffect(() => {
     if (state.status !== 'loading') return;
@@ -65,7 +70,14 @@ export function useBoard(boardId: string) {
   /** Pull-to-refresh and the refresh after creating a task: keeps the current data on screen. */
   const refresh = useCallback(() => {
     keepData.current = true;
+    reportRefreshFailure.current = true;
     setState((current) => (current.status === 'ready' ? { ...current, refreshing: true } : current));
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const reloadQuietly = useCallback(() => {
+    keepData.current = true;
+    reportRefreshFailure.current = false;
     setReloadKey((k) => k + 1);
   }, []);
 
@@ -77,9 +89,9 @@ export function useBoard(boardId: string) {
           ? { ...current, data: { ...current.data, tasks: [...current.data.tasks, task] } }
           : current,
       );
-      refresh();
+      reloadQuietly();
     },
-    [refresh],
+    [reloadQuietly],
   );
 
   /** createTask reported that the board no longer exists. */

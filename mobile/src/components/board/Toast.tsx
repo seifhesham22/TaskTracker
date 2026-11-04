@@ -9,7 +9,7 @@ import { Icon } from '../icons';
 export const TOAST_DURATION_MS = 2500;
 
 /** Short confirmation at the bottom of the screen, above the floating "New task" button. */
-export function Toast({ message, onHide }: { message: string; onHide: () => void }) {
+export function Toast({ message, tone = 'success', onHide }: { message: string; tone?: 'success' | 'error'; onHide: () => void }) {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export function Toast({ message, onHide }: { message: string; onHide: () => void
   return (
     <View style={[styles.wrap, { bottom: insets.bottom + 16 + touchTarget + 12 }]} pointerEvents="none">
       <View style={styles.toast} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="toast">
-        <Icon name="check" size={16} color={colors.primaryForeground} />
+        <Icon name={tone === 'error' ? 'circle-alert' : 'check'} size={16} color={colors.primaryForeground} />
         <Text style={styles.text}>{message}</Text>
       </View>
     </View>
@@ -43,5 +43,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  text: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: colors.primaryForeground },
+  text: { flexShrink: 1, fontSize: 14, lineHeight: 20, fontWeight: '500', color: colors.primaryForeground },
 });

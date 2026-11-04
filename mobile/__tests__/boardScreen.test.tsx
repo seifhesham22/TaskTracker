@@ -26,8 +26,13 @@ async function renderBoard(repository: BoardRepository) {
   );
 }
 
+async function pressCreateTask() {
+  const [button] = await screen.findAllByText('Create task');
+  await fireEvent.press(button);
+}
+
 async function openFormAndSubmit(title: string) {
-  await fireEvent.press(await screen.findByText('Create task'));
+  await pressCreateTask();
   await fireEvent.changeText(screen.getByTestId('title-input'), title);
   await fireEvent.press(screen.getByTestId('submit-button'));
 }
@@ -40,8 +45,8 @@ describe('Board screen: empty state', () => {
   it('shows "No tasks yet" for a board with zero tasks', async () => {
     await renderBoard(testRepository(async () => boardData()));
 
-    expect(await screen.findByText('No tasks yet')).toBeOnTheScreen();
-    expect(screen.getByText('Tasks you add to this board show up here, grouped by status.')).toBeOnTheScreen();
+    expect(await screen.findAllByText('No tasks yet')).toHaveLength(COLUMNS.length);
+    expect(screen.getAllByText('Tasks you add to this board show up here, grouped by status.')).toHaveLength(COLUMNS.length);
     expect(screen.getByText('Test Project · 0 tasks')).toBeOnTheScreen();
     expect(screen.queryByTestId('create-task-sheet')).not.toBeOnTheScreen();
   });
@@ -49,7 +54,7 @@ describe('Board screen: empty state', () => {
   it('opens the create-task form from the "Create task" button', async () => {
     await renderBoard(testRepository(async () => boardData()));
 
-    await fireEvent.press(await screen.findByText('Create task'));
+    await pressCreateTask();
 
     expect(screen.getByTestId('create-task-sheet')).toBeOnTheScreen();
     expect(screen.getByText('New task')).toBeOnTheScreen();
@@ -132,7 +137,7 @@ describe('Board screen: loading and errors', () => {
 
     expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Try again'));
-    expect(await screen.findByText('No tasks yet')).toBeOnTheScreen();
+    expect(await screen.findAllByText('No tasks yet')).toHaveLength(COLUMNS.length);
   });
 
   it('keeps the form open with a general error on a network failure', async () => {
@@ -143,6 +148,6 @@ describe('Board screen: loading and errors', () => {
 
     expect(await screen.findByText(NETWORK_ERROR_DESCRIPTION)).toBeOnTheScreen();
     expect(screen.getByTestId('title-input')).toHaveDisplayValue('Offline task');
-    expect(screen.getByText('No tasks yet')).toBeOnTheScreen();
+    expect(screen.getAllByText('No tasks yet')).toHaveLength(COLUMNS.length);
   });
 });

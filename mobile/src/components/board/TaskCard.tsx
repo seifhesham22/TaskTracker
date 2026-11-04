@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { isOverdue } from '../../domain/format';
-import type { ProjectMember, Task } from '../../domain/models';
+import { formatDueDate, isOverdue, isoToDateKey } from '../../domain/format';
+import { PRIORITY_LABELS, type ProjectMember, type Task } from '../../domain/models';
 import { colors, radius } from '../../theme/tokens';
 import { Avatar, Skeleton } from '../ui';
 import { DueDateLabel, PriorityBadge } from './markers';
@@ -9,9 +9,18 @@ import { DueDateLabel, PriorityBadge } from './markers';
 /** TaskCard, variants "Title only" and "Full": each meta item hides on its own when empty. */
 export function TaskCard({ task, members }: { task: Task; members: ProjectMember[] }) {
   const assignee = task.assigneeIds[0] ? members.find((m) => m.userId === task.assigneeIds[0]) : undefined;
+  const assigneeName = assignee?.userName || task.assigneeNames?.[0];
   const hasMeta = !!(task.priority || task.dueDate || task.assigneeIds.length > 0);
+  const accessibilityLabel = [
+    task.title,
+    task.priority && `Priority ${PRIORITY_LABELS[task.priority]}`,
+    task.dueDate && `Due ${formatDueDate(isoToDateKey(task.dueDate))}`,
+    assigneeName && `Assigned to ${assigneeName}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return (
-    <View style={styles.card} testID={`task-card-${task.id}`} accessible accessibilityLabel={task.title}>
+    <View style={styles.card} testID={`task-card-${task.id}`} accessible accessibilityLabel={accessibilityLabel}>
       <Text style={styles.title} numberOfLines={3}>
         {task.title}
       </Text>
@@ -20,7 +29,7 @@ export function TaskCard({ task, members }: { task: Task; members: ProjectMember
           {task.priority ? <PriorityBadge priority={task.priority} /> : null}
           {task.dueDate ? <DueDateLabel dueDate={task.dueDate} overdue={isOverdue(task.dueDate, task.status)} /> : null}
           <View style={styles.spacer} />
-          {task.assigneeIds.length > 0 ? <Avatar name={assignee?.userName || task.assigneeNames?.[0] || '?'} /> : null}
+          {task.assigneeIds.length > 0 ? <Avatar name={assigneeName || '?'} /> : null}
         </View>
       ) : null}
     </View>

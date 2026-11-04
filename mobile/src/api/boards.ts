@@ -32,6 +32,8 @@ export const BOARD_WITH_TASKS_QUERY = `
       dueDate
       boardId
       columnId
+      position
+      status
       column {
         id
         name
@@ -86,6 +88,8 @@ export interface TaskNode {
   dueDate: string | null;
   boardId: string;
   columnId: string;
+  position: string;
+  status: ColumnCategory;
   column: { id: string; name: string; category: ColumnCategory };
   assignees: { id: string; userName: string | null }[];
 }
@@ -109,13 +113,14 @@ export function toTask(node: TaskNode): Task {
     boardId: node.boardId,
     title: node.title,
     description: node.description,
-    status: node.column.category,
+    status: node.status,
     columnId: node.columnId,
     columnName: node.column.name,
     priority: node.priority,
     assigneeIds: node.assignees.map((a) => a.id),
     assigneeNames: node.assignees.map((a) => a.userName ?? ''),
     dueDate: node.dueDate,
+    position: node.position,
   };
 }
 
