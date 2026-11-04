@@ -9,10 +9,6 @@ import { Icon } from '../icons';
 import { Button } from '../ui';
 import { SelectControl } from './fields';
 
-/**
- * Due date with the native date picker: Android opens the system dialog, iOS shows the inline
- * calendar in a bottom sheet. The value is a calendar date ("YYYY-MM-DD") or null.
- */
 export function DueDateField({
   value,
   onChange,

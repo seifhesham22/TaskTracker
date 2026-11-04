@@ -1,7 +1,7 @@
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { Text } from 'react-native';
 
 import HomeScreen from '../src/app/index';
-import TaskDetailsScreen from '../src/app/task-details';
 
 describe('Home screen', () => {
   it('renders the app name and welcome message', async () => {
@@ -11,12 +11,12 @@ describe('Home screen', () => {
     expect(screen.getByText('Welcome! Track and manage your tasks on the go.')).toBeOnTheScreen();
   });
 
-  it('opens the task details screen', async () => {
-    await renderRouter({ index: HomeScreen, 'task-details': TaskDetailsScreen });
+  it('offers no sample data and opens the boards', async () => {
+    await renderRouter({ index: HomeScreen, 'boards/index': () => <Text>Boards list</Text> });
 
-    await fireEvent.press(screen.getByText('View sample task'));
+    expect(screen.queryByText(/sample/i)).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('View boards'));
 
-    expect(screen).toHavePathname('/task-details');
-    expect(screen.getByText('Sample task')).toBeOnTheScreen();
+    expect(screen).toHavePathname('/boards');
   });
 });

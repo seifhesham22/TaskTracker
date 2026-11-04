@@ -1,7 +1,3 @@
-/**
- * Board screen with an injected repository: the board comes from the test, createTask goes
- * through the real GraphQL request over a mocked fetch (backend-shaped responses).
- */
 import { Text } from 'react-native';
 import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
@@ -68,7 +64,7 @@ describe('Board screen: empty state', () => {
     const fetchMock = mockFetch({ body: gqlTask(created) });
     await renderBoard(repository);
 
-    serverTasks = [created]; // what the backend holds once createTask succeeds
+    serverTasks = [created];
     await openFormAndSubmit('First task');
 
     await waitFor(() => expect(screen.queryByTestId('create-task-sheet')).not.toBeOnTheScreen());
@@ -78,7 +74,6 @@ describe('Board screen: empty state', () => {
     expect(screen.getByTestId('toast')).toHaveTextContent('Task created');
     expect(screen.getByText('Test Project · 1 task')).toBeOnTheScreen();
     expect(screen.getByLabelText('Backlog, 1 task')).toBeOnTheScreen();
-    // Created in the column that was active (the first one), and the board was reloaded.
     expect(sentBody(fetchMock).variables.input).toMatchObject({ boardId: BOARD_ID, columnId: COLUMNS[0].id, title: 'First task' });
     expect(repository.getBoard).toHaveBeenCalledTimes(2);
   });

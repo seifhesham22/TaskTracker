@@ -1,4 +1,3 @@
-/** Small primitives translated from the shadcn/ui components in the designer handoff. */
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -20,7 +19,6 @@ type ButtonSize = 'sm' | 'default' | 'lg';
 
 export interface ButtonProps {
   label?: string;
-  /** Leading lucide icon, e.g. "plus". */
   icon?: IconName;
   variant?: ButtonVariant;
   size?: ButtonSize;

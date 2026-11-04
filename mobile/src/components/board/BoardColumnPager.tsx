@@ -7,7 +7,6 @@ import { Button } from '../ui';
 import { BoardState } from './BoardState';
 import { TaskCard, TaskCardSkeleton } from './TaskCard';
 
-/** One page per column. Swiping and tapping a tab do the same thing; each page scrolls vertically. */
 export function BoardColumnPager({
   columns,
   tasksByColumn,
@@ -29,7 +28,6 @@ export function BoardColumnPager({
 }) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollViewInstance>(null);
-  // Only the first page shown; later changes scroll in the effect below.
   const [initialIndex] = useState(activeIndex);
   const boardEmpty = columns.every((column) => (tasksByColumn[column.id] ?? []).length === 0);
 
@@ -104,7 +102,6 @@ export function BoardSkeleton() {
 
 const styles = StyleSheet.create({
   pager: { flex: 1 },
-  // Bottom padding keeps the last card clear of the floating "New task" button.
   page: { paddingHorizontal: 16, paddingBottom: 120, gap: 12 },
   emptyBoardPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingBottom: 80 },
   emptyColumn: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground, paddingHorizontal: 4, paddingTop: 8 },

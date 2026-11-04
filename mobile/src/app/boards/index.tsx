@@ -2,11 +2,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { DemoBanner } from '../../components/board/BoardHeader';
 import { BoardState } from '../../components/board/BoardState';
 import { BoardLoadError } from '../../data/BoardRepository';
 import { useBoardRepository } from '../../data/BoardRepositoryContext';
-import { DEMO_MISSING_BOARD_ID } from '../../data/demoBoardRepository';
 import type { BoardSummary } from '../../domain/models';
 import { colors, radius, touchTarget } from '../../theme/tokens';
 
@@ -55,28 +53,26 @@ export default function BoardsScreen() {
     );
   }
 
-  const rows: { id: string; name: string; detail: string }[] = state.boards.map((b) => ({
-    id: b.id,
-    name: b.name,
-    detail: b.projectName,
-  }));
-  if (repository.mode === 'demo') {
-    rows.push({ id: DEMO_MISSING_BOARD_ID, name: 'Demo · a board that doesn’t exist', detail: 'Opens “Board not found”' });
+  if (state.boards.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.detail}>You aren’t a member of any project with a board.</Text>
+      </View>
+    );
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
-      {repository.mode === 'demo' ? <DemoBanner /> : null}
-      {rows.map((row) => (
+      {state.boards.map((board) => (
         <Pressable
-          key={row.id}
+          key={board.id}
           accessibilityRole="button"
-          accessibilityLabel={row.name}
-          onPress={() => router.push({ pathname: '/boards/[boardId]', params: { boardId: row.id } })}
+          accessibilityLabel={board.name}
+          onPress={() => router.push({ pathname: '/boards/[boardId]', params: { boardId: board.id } })}
           style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.muted }]}
         >
-          <Text style={styles.name}>{row.name}</Text>
-          <Text style={styles.detail}>{row.detail}</Text>
+          <Text style={styles.name}>{board.name}</Text>
+          <Text style={styles.detail}>{board.projectName}</Text>
         </Pressable>
       ))}
     </ScrollView>

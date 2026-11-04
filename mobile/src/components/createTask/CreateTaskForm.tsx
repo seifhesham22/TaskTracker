@@ -13,10 +13,6 @@ import { Avatar } from '../ui';
 const UNASSIGNED = '__unassigned__';
 const NO_PRIORITY = '__none__';
 
-/**
- * CreateTaskForm fields: Title*, Description, Assignee, Priority, Due date.
- * Each field reports its position (onLayout) so the form can scroll to the first field with an error.
- */
 export function CreateTaskForm({
   form,
   titleInputRef,
@@ -168,8 +164,6 @@ export function CreateTaskForm({
 }
 
 const styles = StyleSheet.create({
-  // The padding lives here (not on the ScrollView content) so field positions measured inside
-  // this view are also their positions in the scroll content.
   form: { gap: 20, paddingHorizontal: 16, paddingVertical: 20 },
   hint: { fontSize: 12, lineHeight: 16, color: colors.mutedForeground },
   input: { fontSize: 16, color: colors.foreground, paddingVertical: 10 },

@@ -6,7 +6,6 @@ import { colors, radius } from '../../theme/tokens';
 import { Skeleton } from '../ui';
 import { StatusIcon } from './markers';
 
-/** One BoardColumnTab per column (StatusIcon + name + count); the active tab is kept in view. */
 export function BoardColumnTabs({
   columns,
   counts,

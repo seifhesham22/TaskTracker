@@ -14,7 +14,6 @@ export function FieldLabel({ children, required }: { children: string; required?
   );
 }
 
-/** Field-level error, directly under the field it belongs to. */
 export function FieldError({ children, testID }: { children: string; testID?: string }) {
   return (
     <View style={styles.fieldError} accessibilityRole="alert" accessibilityLiveRegion="polite" testID={testID}>
@@ -26,7 +25,6 @@ export function FieldError({ children, testID }: { children: string; testID?: st
   );
 }
 
-/** Form-level error at the top of the form (shadcn Alert, variant "destructive"). */
 export function FormErrorAlert({ title, description }: { title: string; description: string }) {
   return (
     <View style={styles.alert} accessibilityRole="alert" accessibilityLiveRegion="assertive" testID="form-error-alert">
@@ -41,7 +39,6 @@ export function FormErrorAlert({ title, description }: { title: string; descript
   );
 }
 
-/** Label + control + (error | spacer) + optional counter. `onLayout` reports the field's position in the form. */
 export function Field({
   label,
   required,
@@ -77,7 +74,6 @@ export function Field({
   );
 }
 
-/** Looks like an input; opens a selection sheet or picker when pressed. */
 export function SelectControl({
   label,
   value,
@@ -131,7 +127,6 @@ export interface SelectionOption {
   leading?: ReactNode;
 }
 
-/** Bottom sheet with a list of options (Assignee, Priority). */
 export function SelectionSheet({
   visible,
   title,

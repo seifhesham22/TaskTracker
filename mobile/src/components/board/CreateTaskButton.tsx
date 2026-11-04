@@ -3,7 +3,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../ui';
 
-/** Mobile CreateTaskButton: floating, bottom-right, 16 pt from the edges, above the home indicator. */
 export function CreateTaskButton({ onPress }: { onPress: () => void }) {
   const insets = useSafeAreaInsets();
   return (

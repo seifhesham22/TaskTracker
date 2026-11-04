@@ -1,25 +1,16 @@
-import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { Button } from '../components/ui';
+import { colors } from '../theme/tokens';
 
 export default function HomeScreen() {
+  const router = useRouter();
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TaskTracker</Text>
       <Text style={styles.subtitle}>Welcome! Track and manage your tasks on the go.</Text>
-
-      <Link href="/task-details" asChild>
-        <Pressable style={styles.button}>
-          <Text style={styles.buttonText}>View sample task</Text>
-        </Pressable>
-      </Link>
-
-      <View style={styles.secondLink}>
-        <Link href="/boards" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>View boards</Text>
-          </Pressable>
-        </Link>
-      </View>
+      <Button label="View boards" size="lg" onPress={() => router.push('/boards')} />
     </View>
   );
 }
@@ -30,31 +21,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 8,
+    color: colors.foreground,
   },
   subtitle: {
     fontSize: 16,
-    color: '#555',
+    lineHeight: 24,
+    color: colors.mutedForeground,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  secondLink: {
-    marginTop: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

@@ -1,7 +1,6 @@
 import type { CreateTaskInput, Task } from '../domain/models';
 import { graphqlRequest } from './graphql';
 
-/** The backend's `createTask` mutation (backend/README.md, Features/Tasks/CreateTask). */
 export const CREATE_TASK_MUTATION = `
   mutation CreateTask($input: CreateTaskInput!) {
     createTask(input: $input) {
@@ -22,7 +21,6 @@ export const CREATE_TASK_MUTATION = `
   }
 `;
 
-/** Sends only the fields that are set, so optional fields fall back to the backend defaults. */
 export function toMutationInput(input: CreateTaskInput): Record<string, unknown> {
   const result: Record<string, unknown> = { boardId: input.boardId, title: input.title };
   if (input.columnId) result.columnId = input.columnId;

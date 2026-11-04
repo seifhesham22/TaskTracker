@@ -9,7 +9,6 @@ export type BoardScreenState =
   | { status: 'ready'; data: BoardData; refreshing: boolean }
   | { status: 'error'; error: BoardLoadError };
 
-/** The design shows the skeleton only when loading takes longer than this, so it doesn't flash. */
 export const SKELETON_DELAY_MS = 300;
 
 export const REFRESH_FAILED_MESSAGE = 'Couldn’t refresh the board. Pull down to try again.';
@@ -24,7 +23,6 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const [state, setState] = useState<BoardScreenState>({ status: 'loading' });
   const [showSkeleton, setShowSkeleton] = useState(false);
   const latestRequest = useRef(0);
-  // Each bump of reloadKey loads the board again; keepData says whether this is a refresh.
   const [reloadKey, setReloadKey] = useState(0);
   const keepData = useRef(false);
   const reportRefreshFailure = useRef(false);
@@ -41,7 +39,6 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
         if (request !== latestRequest.current) return;
         const loadError = toLoadError(error);
         setState((current) =>
-          // A failed refresh keeps the last good data, unless the board is gone.
           isRefresh && current.status === 'ready' && loadError.kind !== 'notFound'
             ? { ...current, refreshing: false }
             : { status: 'error', error: loadError },
@@ -60,14 +57,12 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
     };
   }, [state.status]);
 
-  /** "Try again" on the error state. */
   const retry = useCallback(() => {
     keepData.current = false;
     setState({ status: 'loading' });
     setReloadKey((k) => k + 1);
   }, []);
 
-  /** Pull-to-refresh and the refresh after creating a task: keeps the current data on screen. */
   const refresh = useCallback(() => {
     keepData.current = true;
     reportRefreshFailure.current = true;
@@ -81,7 +76,6 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
     setReloadKey((k) => k + 1);
   }, []);
 
-  /** Puts the task returned by createTask on the board, then reloads the board from its source. */
   const addCreatedTask = useCallback(
     (task: Task) => {
       setState((current) =>
@@ -94,7 +88,6 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
     [reloadQuietly],
   );
 
-  /** createTask reported that the board no longer exists. */
   const markNotFound = useCallback((message: string) => {
     latestRequest.current += 1;
     setState({ status: 'error', error: new BoardLoadError('notFound', message) });

@@ -1,6 +1,6 @@
 # TaskTracker Mobile
 
-Mobile application for TaskTracker. This is the initial skeleton, with basic screens, navigation, and a placeholder API client ready for future backend integration.
+Mobile application for TaskTracker. Every board, column, task and project member it shows comes from the backend's GraphQL API and PostgreSQL. It has no demo mode and no local sample data: if a request fails, the app shows the failure.
 
 ## Tech Stack
 
@@ -23,21 +23,22 @@ mobile/
 ├── assets/              # App icons and images
 ├── __tests__/           # Jest + React Native Testing Library tests
 ├── test-utils/          # Test helpers (mocked GraphQL backend); not app code
+├── integration/         # Tests that need a running backend (npm run test:integration)
 └── src/
     ├── api/
     │   ├── client.ts    # Shared HTTP client using fetch
     │   ├── graphql.ts   # GraphQL requests over the client (network / HTTP / GraphQL errors)
+    │   ├── boards.ts    # board, tasks and projects queries
     │   └── tasks.ts     # createTask mutation
     ├── app/             # Expo Router screens
     │   ├── _layout.tsx  # Root navigation layout
     │   ├── index.tsx    # Home screen (/)
-    │   ├── task-details.tsx  # Task Details screen (/task-details)
     │   ├── boards/
     │   │   ├── index.tsx      # Board list (/boards)
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
     │   └── +not-found.tsx    # Fallback for unknown routes
     ├── components/      # Board, create-task and form components (names match the design)
-    ├── data/            # Board data sources: real backend, demo data, React context
+    ├── data/            # Board repository over the GraphQL API, React context
     ├── domain/          # Models, createTask error mapping, formatting
     ├── hooks/           # useBoard, useCreateTaskForm
     └── theme/           # Design tokens from the designer handoff
@@ -87,7 +88,7 @@ If the project does not have a `package-lock.json`, use `npm install` instead.
 
    Then press `a` in the Expo terminal to open the app on the Android emulator.
 
-3. Wait for the application to load. The Home screen should display the TaskTracker name, welcome message, and a **View sample task** button.
+3. Wait for the application to load. The Home screen should display the TaskTracker name, welcome message, and a **View boards** button.
 
 The development server must remain running while testing the application.
 
@@ -119,20 +120,13 @@ Alternatively, run `npm start` and press `i` in the Expo terminal.
 
 Use these steps to verify that navigation works and that invalid routes display the fallback screen.
 
-### 1. Test Home and Task Details
+### 1. Test Home and Boards
 
-1. Start the Expo development server:
-
-   ```bash
-   npm start
-   ```
-
+1. Start the backend (see [Run against the backend](#run-against-the-backend)) and the Expo development server (`npm start`).
 2. Open the application on the Android emulator.
 3. Confirm that the Home screen displays the application name and welcome message.
-4. Tap **View sample task**.
-5. Confirm that the Task Details screen opens and displays its placeholder task information.
-6. Tap **Back to Home**, or use the header back button.
-7. Confirm that the Home screen appears again.
+4. Tap **View boards**. The board list comes from the `projects` query.
+5. Tap a board to open it, and use the back button to return.
 
 ### 2. Test the Unknown-Route Fallback
 
@@ -178,61 +172,37 @@ The application should display a custom **Page not found** screen when a route d
 
 If the URL does not open the application, check that the Expo development server is still running, that the emulator has Expo Go installed, and that the URL matches the current Expo terminal output.
 
-## Configuring the API Base URL
+## Run against the backend
 
-The placeholder API client in `src/api/client.ts` reads the backend URL from the `EXPO_PUBLIC_API_URL` environment variable.
+1. From the repository root, start the database and the API: `docker compose up --build db api`. In Development this applies the migrations and seeds **Test Project** with **Test Board**, its four columns and five users.
+2. From `mobile`, copy the example configuration: `cp .env.example .env` (PowerShell: `Copy-Item .env.example .env`).
+3. Set the two values in `.env`, then restart Expo with `npx expo start -c`:
 
-No API request is made when the application starts, so the basic screen flow works without a running backend.
+| Variable | Value |
+| --- | --- |
+| `EXPO_PUBLIC_API_URL` | The backend's base URL, without `/graphql`. See the table below |
+| `EXPO_PUBLIC_USER_ID` | The user whose projects are listed. Get one with `SELECT "Id", "UserName" FROM "AspNetUsers";` (port 5433, user and password `tasktracker`) |
 
-### 1. Create the Local Environment File
+| Where the app runs | `EXPO_PUBLIC_API_URL` |
+| --- | --- |
+| Android emulator | `http://10.0.2.2:8080` |
+| iOS Simulator | `http://localhost:8080` |
+| Physical device | `http://<computer-LAN-IP>:8080` |
 
-From the `mobile` directory, copy the example configuration:
+The IDs differ per database because the seed generates them, so `EXPO_PUBLIC_USER_ID` has to be taken from your own database.
 
-```bash
-cp .env.example .env
-```
+**No login yet.** The backend has no login, session or token operation, and no authorization on its queries, so the app sends no credentials. `EXPO_PUBLIC_USER_ID` stands in for the signed-in user until the backend adds login. It isn't a secret, but `EXPO_PUBLIC_` variables are embedded in the app bundle, so never put passwords or tokens in them. `.env` must not be committed.
 
-On Windows PowerShell, you can also use:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-### 2. Configure the Backend URL
-
-Set `EXPO_PUBLIC_API_URL` in `.env` using the actual port on which the backend is listening.
-
-| Where the app runs | Host to use                                                        |
-| ------------------ | ------------------------------------------------------------------ |
-| Android emulator   | `10.0.2.2` — normally maps to the development computer's localhost |
-| iOS Simulator      | `localhost`                                                        |
-| Physical device    | The development computer's reachable LAN IP address                |
-
-For example, the Android emulator URL has this form:
-
-```text
-http://10.0.2.2:<actual-backend-port>
-```
-
-Replace `<actual-backend-port>` with the port used by the backend. Do not copy the placeholder literally.
-
-Restart the Expo development server after changing `.env`.
-
-If `EXPO_PUBLIC_API_URL` is not configured, the API client reports a clear configuration error when a request is attempted.
-
-The `.env` file contains local configuration and must not be committed. Only `.env.example`, containing example values and no secrets, should be committed.
-
-**Security note:** Variables prefixed with `EXPO_PUBLIC_` are embedded in the application bundle. Never put passwords, access tokens, or other secrets in them.
-
-For local HTTPS development, coordinate the certificate and URL configuration with the backend developer. A development certificate that the emulator does not trust may cause requests to fail. Android release builds can also restrict unencrypted HTTP traffic.
+If `EXPO_PUBLIC_API_URL` is empty, the screens show that it isn't set. Android release builds can also restrict unencrypted HTTP.
 
 ## Board Screen and Create Task
 
 The board screen (`/boards/:boardId`) follows the designer's mobile handoff (`mobile.html`, `app.jsx`, `styles.css`):
 
-- **Columns:** one tab and one swipeable page per board column, always all of them, in the order the server returns (`position`). Tabs and swiping stay in sync. Each task is on the page of its `columnId`, and cards are ordered by the task's `position`.
-- **States:** loading (skeleton, only after 300 ms), an empty board (**No tasks yet** + **Create task** on every column), an empty column on a board with tasks (“No tasks in this column”), **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
-- **Pull-to-refresh:** works on every column, including on an empty board, and asks the server again. If it fails, the cards stay and a toast says “Couldn’t refresh the board. Pull down to try again.”
+- **Columns:** one tab and one swipeable page per column of the `board` query, always all of them, with the names and order the server returns. The app has no list of column names of its own. Tabs and swiping stay in sync, and the selected column stays selected by its ID when a refresh changes the order.
+- **Tasks:** each task is on the page whose ID equals its `columnId`, ordered by the task's `position`. A task whose `columnId` isn't on the board is reported in a notice above the columns, never dropped.
+- **States:** loading (skeleton, only after 300 ms), an empty board (**No tasks yet** + **Create task** on every column), an empty column on a board with tasks (“No tasks in this column”), **This board has no columns**, **Couldn’t load this board** with **Try again**, and **Board not found** with **Go to boards**.
+- **Pull-to-refresh:** works on every column, including on an empty board, and fetches the board and the tasks again, so renamed or reordered columns and moved tasks show up. If it fails, the cards stay and a toast says “Couldn’t refresh the board. Pull down to try again.”
 - **Create task:** a full-screen sheet with Title (required), Description, Assignee, Priority and Due date. The form scrolls; the **Create task** button stays at the bottom, above the keyboard. Assignee and Priority open a bottom sheet; Due date opens the native date picker. **Cancel** asks “Discard this task?” when something was entered.
 - **Errors:** Title errors (“Title is required.”) and a rejected assignee (“Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.”) appear under their field, and the form scrolls to the first field with an error. Network and server failures appear at the top of the form and keep every value. A board that no longer exists closes the form and shows **Board not found**.
 
@@ -247,18 +217,12 @@ The mobile app uses these backend GraphQL operations (`src/api/boards.ts`, `src/
 | Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
 | Create task | `createTask(input)` |
 
-The backend has no login yet, so `projects` takes the user's id as an argument. Set it in `mobile/.env`:
-
-```bash
-EXPO_PUBLIC_USER_ID=<a user id from your local database>
-```
-
-Take one from a local development database with `SELECT "UserId" FROM project_members;`. Without it:
+Without `EXPO_PUBLIC_USER_ID`:
 
 - the board list shows “Set EXPO_PUBLIC_USER_ID…”;
 - a board opened by its link still loads its columns and tasks, but the Assignee field says the project members can't be listed, and the task can only be created unassigned. The app never invents members.
 
-The board query has no column colour, so the column colour comes from its category (`colors.status` in `src/theme/tokens.ts`). `ProjectMember` has no e-mail field; the user name is shown.
+The `Column` type has no colour field, so the status icon's colour comes from the column's category (`colors.status` in `src/theme/tokens.ts`). The card also shows the task's description when it has one, because no other screen shows it; the design's card has no description.
 
 After a task is created, the task returned by `createTask` is put on the board straight away, then the board is loaded again from the backend.
 
@@ -276,58 +240,25 @@ How errors are told apart (the backend sends `NOT_FOUND` for a missing board **a
 
 Telling the board and column apart depends on the backend's message text. If those messages change, `src/domain/createTaskErrors.ts` must change too.
 
-## Demo Mode (Development Only)
+## Manual test against the real backend
 
-Demo mode lets you try the board screen and the create-task form on a device without a backend, including failures that are hard to cause on purpose. It uses **sample data kept in memory on the device**: it is **not** the backend's seeded data, nothing is sent to the backend, and everything is lost when the app restarts. Screens show a yellow “Demo mode” banner.
+Use a local development database only, never shared data.
 
-Turn it on in `mobile/.env`, then restart Expo with a clean cache:
+1. Start the backend and Expo as described in [Run against the backend](#run-against-the-backend), and press `a`.
+2. Home → **View boards** → **Test Board**. The header shows “Test Project · N tasks”, and the tabs show the columns from the database.
+3. **New task** (or **Create task** on an empty board): the Assignee sheet lists the project's members.
+4. Create a task with every field filled. The card appears in the active column without a refresh. Pull to refresh, and check it with `SELECT * FROM tasks;`.
+5. Rename a column, then pull to refresh. Restore it afterwards:
 
-```bash
-EXPO_PUBLIC_MOBILE_DEMO_MODE=true
-```
+   ```sql
+   UPDATE board_columns SET "Name" = 'Ready for work' WHERE "Name" = 'To do';
+   UPDATE board_columns SET "Name" = 'To do' WHERE "Name" = 'Ready for work';
+   ```
 
-```bash
-npx expo start -c
-```
+6. Open a board that doesn't exist, with your Expo URL: `adb shell am start -a android.intent.action.VIEW -d "exp://10.0.2.2:8081/--/boards/00000000-0000-0000-0000-000000000001"`. Expect **Board not found**.
+7. Run `docker compose stop api`. Pull to refresh (the cards stay, and a toast says so), and submit a filled form (the error is at the top and every value stays). Run `docker compose start api` and submit again.
 
-It is on when the value is exactly `true`, and also whenever `EXPO_PUBLIC_API_URL` is empty (with no backend configured there is nothing else to load). Open **View boards** on the Home screen. The demo boards are:
-
-| Board | What it simulates |
-| --- | --- |
-| Demo board | An empty board; tasks you create are added to it |
-| Demo · board deleted while the form is open | `createTask` answers “Board '…' was not found.” |
-| Demo · column missing on first submit | First `createTask` answers “Column '…' was not found on board '…'.”, then works |
-| Demo · network failure on first submit | First `createTask` gets no response, then works |
-| Demo · server failure on first submit | First `createTask` gets HTTP 500, then works |
-| Demo · board fails to load once | The first load fails, **Try again** works |
-| Demo · a board that doesn’t exist | Opening it shows **Board not found** |
-
-On every demo board the assignee **Demo Removed Member** is rejected, as the backend rejects someone who isn't a project member. The simulated failures use the backend's own error codes and messages and go through the same error handling as real responses.
-
-### Manual test on the Android emulator (demo mode)
-
-1. Set `EXPO_PUBLIC_MOBILE_DEMO_MODE=true`, run `npx expo start -c` and press `a`.
-2. Home → **View boards** → **Demo board**. Expect **No tasks yet**, “Tasks you add to this board show up here, grouped by status.”, and a **Create task** button.
-3. Tap **Create task**, then **Create task** at the bottom with an empty title. Expect “Title is required.” under Title, with the keyboard open and Title visible.
-4. Type only spaces and submit: same error. Type a real title: the error disappears straight away.
-5. Pick **Demo Removed Member** as assignee and submit. Expect “Demo Removed Member isn’t a member of Demo Project, so they can’t be assigned. Pick someone from this project.” under Assignee, and the form scrolled to it. Pick another member: the error disappears.
-6. Submit. The sheet closes, a “Task created” toast shows, **No tasks yet** disappears, the task card is in **Backlog**, and the header and tab show 1 task.
-7. Open **Demo · network failure on first submit**, fill every field (title, description, assignee, priority, due date) and submit. Expect “Couldn’t create the task” at the top and every value still there. Submit again: it works.
-8. Repeat with **Demo · server failure on first submit** (expect “Something went wrong on our side…”).
-9. **Demo · column missing on first submit**: the error is at the top of the form; it does **not** say “Board not found”.
-10. **Demo · board deleted while the form is open**: submit → **Board not found** → **Go to boards** returns to the list.
-11. **Demo · a board that doesn’t exist** → **Board not found**. **Demo · board fails to load once** → **Couldn’t load this board** → **Try again** → empty board.
-12. Keyboard: with the keyboard open, the **Create task** button stays above it, and the field with an error isn't hidden behind it. Check this on Android and, if available, iOS; Jest can't check native keyboard layout.
-
-### Manual test against the real backend
-
-1. Start the backend in Development (it seeds **Test Project** with **Test Board** and five users).
-2. In `mobile/.env`, set `EXPO_PUBLIC_API_URL` (Android emulator: `http://10.0.2.2:<port>`), `EXPO_PUBLIC_USER_ID`, and `EXPO_PUBLIC_MOBILE_DEMO_MODE=false`. Run `npx expo start -c` and press `a`.
-3. Home → **View boards** → **Test Board**. The header shows “Test Project · N tasks”.
-4. **New task** (or **Create task** on an empty board) → the Assignee sheet lists the project's five members.
-5. Create a task with every field filled. The card appears in the active column without a refresh; check it in the backend with the `tasks` query.
-
-Note that `Board` uses soft delete and `createTask` does not currently filter out soft-deleted boards, so a soft-deleted board may still accept new tasks, while the `board` query reports it as not found. Use a local development database only, never shared data, and don't change the seed.
+`Board` uses soft delete and `createTask` doesn't filter out soft-deleted boards, so a soft-deleted board may still accept new tasks while the `board` query reports it as not found.
 
 ## Checks
 
@@ -339,7 +270,13 @@ npm run typecheck
 npm test -- --runInBand
 ```
 
-The tests use a mocked GraphQL backend and the in-memory demo data. They need no running backend, database or emulator.
+`npm test` uses a mocked GraphQL backend, so it needs no running backend, database or emulator. These fixtures live only in `__tests__` and `test-utils`, and the app never imports them.
+
+The integration tests call the real API and need a running backend. They aren't part of `npm test` or CI, and because the backend has no delete operation, each run leaves two `integration …` tasks on the board:
+
+```bash
+LIVE_API_URL=http://localhost:8080 LIVE_USER_ID=<a user id> npm run test:integration
+```
 
 You can inspect available scripts by running:
 
@@ -404,12 +341,6 @@ git diff --cached --stat
 Confirm that `.expo/`, `node_modules/`, build outputs, secrets, and unintended files are not staged.
 
 ## Git Workflow
-
-Work on the feature branch:
-
-```text
-feature/mobile-app-skeleton
-```
 
 After testing the application and reviewing the changes:
 

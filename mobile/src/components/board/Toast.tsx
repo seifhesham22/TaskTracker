@@ -5,10 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, touchTarget } from '../../theme/tokens';
 import { Icon } from '../icons';
 
-/** How long a toast stays on screen. */
 export const TOAST_DURATION_MS = 2500;
 
-/** Short confirmation at the bottom of the screen, above the floating "New task" button. */
 export function Toast({ message, tone = 'success', onHide }: { message: string; tone?: 'success' | 'error'; onHide: () => void }) {
   const insets = useSafeAreaInsets();
 

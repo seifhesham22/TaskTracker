@@ -13,10 +13,8 @@ import type { CreateTaskInput, Task, TaskPriority } from '../domain/models';
 
 export type FormField = 'title' | 'description' | 'assigneeId' | 'priority' | 'dueDate';
 
-/** Visual order of the fields, used to find the first field with an error. */
 export const FIELD_ORDER: FormField[] = ['title', 'description', 'assigneeId', 'priority', 'dueDate'];
 
-/** Space kept above a field when scrolling to it, so its label stays visible. */
 export const SCROLL_MARGIN = 16;
 
 export interface CreateTaskValues {
@@ -24,7 +22,6 @@ export interface CreateTaskValues {
   description: string;
   assigneeId: string | null;
   priority: TaskPriority | null;
-  /** "YYYY-MM-DD" */
   dueDate: string | null;
 }
 
@@ -43,7 +40,6 @@ export function useCreateTaskForm({ boardId, columnId, createTask, onCreated, on
   const [errors, setErrors] = useState<Partial<Record<CreateTaskField, string>>>({});
   const [generalError, setGeneralError] = useState<GeneralFormError | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // Title is checked on submit first, then on every change once its error has been shown.
   const [titleChecked, setTitleChecked] = useState(false);
   const [scrollRequest, setScrollRequest] = useState(0);
 
@@ -72,8 +68,6 @@ export function useCreateTaskForm({ boardId, columnId, createTask, onCreated, on
     if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - SCROLL_MARGIN), animated: true });
   }, []);
 
-  // Runs after the errors are on screen. The target is kept until the user scrolls, so a field
-  // that moves when the layout changes (an alert disappearing above it) is scrolled to again.
   useEffect(() => {
     const target = scrollTarget.current;
     if (!target) return;
@@ -112,7 +106,6 @@ export function useCreateTaskForm({ boardId, columnId, createTask, onCreated, on
   const setDescription = (description: string) => setValues((v) => ({ ...v, description }));
   const setAssigneeId = (assigneeId: string | null) => {
     setValues((v) => ({ ...v, assigneeId }));
-    // The server's assignee error is about the previous choice.
     setErrors((e) => ({ ...e, assigneeId: undefined }));
   };
   const setPriority = (priority: TaskPriority | null) => setValues((v) => ({ ...v, priority }));
@@ -192,7 +185,6 @@ export function useCreateTaskForm({ boardId, columnId, createTask, onCreated, on
       onFieldLayout,
       onScrollBeginDrag,
     },
-    // Kept out of `form` so components can read the form's values during render.
     scrollRef,
     titleInputRef,
   };

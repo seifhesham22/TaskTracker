@@ -1,8 +1,3 @@
-/**
- * StatusIcon, PriorityIcon, PriorityBadge and DueDateLabel from the design (same SVG shapes as the
- * handoff). Priority never relies on colour alone: 1/2/3 bars, a "!" square for Critical, and the
- * label is always shown.
- */
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
@@ -22,7 +17,6 @@ const BACKLOG_ARCS = [
   'M6.391 20.279a10 10 0 0 1-2.69-2.7',
 ];
 
-/** Shape from the column category, tint from the column colour. */
 export function StatusIcon({ category, color, size = 16 }: { category: ColumnCategory; color?: string; size?: number }) {
   const tint = color || colors.status[category];
   return (
@@ -52,7 +46,6 @@ export function StatusIcon({ category, color, size = 16 }: { category: ColumnCat
   );
 }
 
-/** `onBadge`: drawn inside the solid red Critical badge, so the "!" square is inverted. */
 export function PriorityIcon({ level, size = 14, onBadge }: { level: TaskPriority; size?: number; onBadge?: boolean }) {
   if (level === 'CRITICAL') {
     const red = colors.priority.CRITICAL.bg;

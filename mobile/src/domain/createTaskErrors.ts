@@ -24,11 +24,8 @@ export interface GeneralFormError {
 }
 
 export type CreateTaskFailure =
-  /** Errors shown under the field they belong to. */
   | { kind: 'fields'; fields: Partial<Record<CreateTaskField, string>> }
-  /** The board itself is gone: the board screen shows "Board not found". */
   | { kind: 'boardNotFound'; message: string }
-  /** Errors that belong to no field: FormErrorAlert at the top of the form. */
   | {
       kind: 'general';
       reason: 'network' | 'server' | 'rejected' | 'configuration';
@@ -42,9 +39,6 @@ export class CreateTaskError extends Error {
   }
 }
 
-// Messages produced by the backend (CreateTaskHandler, TaskItem). Both "board missing" and
-// "column missing" use the code NOT_FOUND, and the backend sends no other field that tells them
-// apart, so the message text and the IDs in it are what identify the missing resource.
 const BOARD_NOT_FOUND = /^Board '([^']+)' was not found\.$/;
 const COLUMN_NOT_FOUND = /^Column '([^']+)' was not found on board '([^']+)'\.$/;
 const NOT_A_MEMBER = /^User '([^']+)' is not a member of project /;
@@ -82,16 +76,13 @@ function classify(entry: GraphQLErrorEntry, input: CreateTaskInput): Classified 
   if (code === 'BAD_USER_INPUT') {
     const member = NOT_A_MEMBER.exec(message);
     if (member && sameId(member[1], input.assigneeId)) {
-      // Show the server's own reason under Assignee.
       return { kind: 'field', field: 'assigneeId', message };
     }
     if (TITLE_EMPTY.test(message)) return { kind: 'field', field: 'title', message: TITLE_REQUIRED };
     if (TITLE_LONG.test(message)) return { kind: 'field', field: 'title', message: TITLE_TOO_LONG };
-    // For example "This board has no columns, so the task can't get a status."
     return { kind: 'general', reason: 'rejected', error: { title: GENERAL_ERROR_TITLE, description: message } };
   }
 
-  // No known code: an unexpected server error ("Unexpected Execution Error") or a schema error.
   return {
     kind: 'general',
     reason: 'server',
@@ -99,7 +90,6 @@ function classify(entry: GraphQLErrorEntry, input: CreateTaskInput): Classified 
   };
 }
 
-/** Turns anything thrown by the createTask request into what the form should show. */
 export function toCreateTaskFailure(error: unknown, input: CreateTaskInput): CreateTaskFailure {
   if (error instanceof CreateTaskError) return error.failure;
 
@@ -135,7 +125,6 @@ export function toCreateTaskFailure(error: unknown, input: CreateTaskInput): Cre
     };
   }
 
-  // For example EXPO_PUBLIC_API_URL not configured.
   return {
     kind: 'general',
     reason: 'configuration',
@@ -146,7 +135,6 @@ export function toCreateTaskFailure(error: unknown, input: CreateTaskInput): Cre
   };
 }
 
-/** Client-side Title rule, the same as the backend: trimmed, not empty, at most 200 characters. */
 export function validateTitle(title: string): string | null {
   const trimmed = title.trim();
   if (trimmed.length === 0) return TITLE_REQUIRED;
