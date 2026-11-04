@@ -9,9 +9,10 @@ import {
 } from '../api/boards';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NetworkError } from '../api/graphql';
-import { createTaskRequest } from '../api/tasks';
+import { createTaskRequest, moveTaskRequest } from '../api/tasks';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput } from '../domain/models';
+import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
 import { BoardLoadError, type BoardRepository } from './BoardRepository';
 
 export const USER_ID_MISSING =
@@ -117,6 +118,14 @@ export function createBackendBoardRepository(): BoardRepository {
         return await createTaskRequest(input);
       } catch (error) {
         throw new CreateTaskError(toCreateTaskFailure(error, input));
+      }
+    },
+
+    async moveTask(taskId: string, columnId: string) {
+      try {
+        return await moveTaskRequest(taskId, columnId);
+      } catch (error) {
+        throw new MoveTaskError(toMoveTaskFailureMessage(error));
       }
     },
   };

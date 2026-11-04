@@ -9,6 +9,29 @@ import type {
 import { colors } from '../theme/tokens';
 import { graphqlRequest } from './graphql';
 
+export const TASK_FIELDS = `
+  id
+  number
+  readableId
+  title
+  description
+  priority
+  dueDate
+  boardId
+  columnId
+  position
+  status
+  column {
+    id
+    name
+    category
+  }
+  assignees {
+    id
+    userName
+  }
+`;
+
 export const BOARD_WITH_TASKS_QUERY = `
   query BoardWithTasks($boardId: UUID!) {
     board(id: $boardId) {
@@ -23,26 +46,7 @@ export const BOARD_WITH_TASKS_QUERY = `
       }
     }
     tasks(boardId: $boardId) {
-      id
-      number
-      readableId
-      title
-      description
-      priority
-      dueDate
-      boardId
-      columnId
-      position
-      status
-      column {
-        id
-        name
-        category
-      }
-      assignees {
-        id
-        userName
-      }
+      ${TASK_FIELDS}
     }
   }
 `;

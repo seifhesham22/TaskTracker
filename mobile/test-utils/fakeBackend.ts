@@ -51,6 +51,8 @@ export const gqlError = (code: string | undefined, message: string) => ({
 
 export const gqlTask = (task: Task) => ({ data: { createTask: task } });
 
+export const movedTaskResponse = (node: TaskNode) => ({ body: { data: { moveTask: node } } });
+
 export type FakeResponse = { status?: number; body: unknown } | 'network-error';
 
 export function mockFetch(...responses: FakeResponse[]): jest.Mock {

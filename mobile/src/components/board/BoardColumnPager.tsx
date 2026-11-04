@@ -14,6 +14,8 @@ export function BoardColumnPager({
   activeIndex,
   onIndexChange,
   onAddTask,
+  savingTaskIds,
+  onTaskLongPress,
   refreshing,
   onRefresh,
 }: {
@@ -23,15 +25,19 @@ export function BoardColumnPager({
   activeIndex: number;
   onIndexChange: (index: number) => void;
   onAddTask: (columnId: string) => void;
+  savingTaskIds: ReadonlySet<string>;
+  onTaskLongPress: (task: Task) => void;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollViewInstance>(null);
+  const swipedByUser = useRef(false);
   const [initialIndex] = useState(activeIndex);
   const boardEmpty = columns.every((column) => (tasksByColumn[column.id] ?? []).length === 0);
 
   useEffect(() => {
+    swipedByUser.current = false;
     scrollRef.current?.scrollTo({ x: activeIndex * width, animated: true });
   }, [activeIndex, width]);
 
@@ -42,7 +48,12 @@ export function BoardColumnPager({
       pagingEnabled
       showsHorizontalScrollIndicator={false}
       contentOffset={{ x: initialIndex * width, y: 0 }}
+      onScrollBeginDrag={() => {
+        swipedByUser.current = true;
+      }}
       onMomentumScrollEnd={(e) => {
+        if (!swipedByUser.current) return;
+        swipedByUser.current = false;
         const index = Math.round(e.nativeEvent.contentOffset.x / width);
         if (index !== activeIndex && index >= 0 && index < columns.length) onIndexChange(index);
       }}
@@ -69,7 +80,13 @@ export function BoardColumnPager({
                   </Text>
                 ) : null}
                 {tasks.map((task) => (
-                  <TaskCard key={task.id} task={task} members={members} />
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    members={members}
+                    saving={savingTaskIds.has(task.id)}
+                    onLongPress={() => onTaskLongPress(task)}
+                  />
                 ))}
                 <Button
                   variant="ghost"

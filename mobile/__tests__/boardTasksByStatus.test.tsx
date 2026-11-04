@@ -185,12 +185,26 @@ describe('Moving between columns', () => {
     await renderBoard();
     await screen.findByText('Test Project · 1 task');
 
+    await fireEvent(screen.getByTestId('board-column-pager'), 'scrollBeginDrag');
     await fireEvent(screen.getByTestId('board-column-pager'), 'momentumScrollEnd', {
       nativeEvent: { contentOffset: { x: 2 * 750, y: 0 } },
     });
 
     expect(tab(IN_PROGRESS.id)).toBeSelected();
     expect(tab(BACKLOG.id)).not.toBeSelected();
+  });
+
+  it('ignores the end of a scroll the app started, so a reversed scroll can’t change the selected tab', async () => {
+    mockFetch(...loaded([titleOnlyTaskNode(0)]));
+    await renderBoard();
+    await screen.findByText('Test Project · 1 task');
+
+    await fireEvent(screen.getByTestId('board-column-pager'), 'momentumScrollEnd', {
+      nativeEvent: { contentOffset: { x: 3 * 750, y: 0 } },
+    });
+
+    expect(tab(BACKLOG.id)).toBeSelected();
+    expect(tab(DONE.id)).not.toBeSelected();
   });
 });
 
