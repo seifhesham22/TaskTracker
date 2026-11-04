@@ -1,8 +1,3 @@
-/**
- * Test helpers: a mocked `fetch` that answers like the backend's /graphql endpoint, and a board
- * repository that uses the real createTask request with a supplied board.
- * Kept outside __tests__ so Jest doesn't run this file as a test suite.
- */
 import type { BoardNode, ProjectNode, TaskNode } from '../src/api/boards';
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import type { BoardRepository } from '../src/data/BoardRepository';
@@ -19,8 +14,8 @@ export const COLUMNS: BoardColumn[] = [
 ];
 
 export const MEMBERS: ProjectMember[] = [
-  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad6', userName: 'Mona Adel', email: 'mona@example.test' },
-  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad7', userName: 'Omar Khaled', email: 'omar@example.test' },
+  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad6', userName: 'Mona Adel' },
+  { userId: '01a18766-479c-7ec2-be3f-3c3a00989ad7', userName: 'Omar Khaled' },
 ];
 
 export function boardData(tasks: Task[] = []): BoardData {
@@ -49,7 +44,6 @@ export function taskDto(overrides: Partial<Task> = {}): Task {
   };
 }
 
-/** Body of a GraphQL error response, as HotChocolate sends it. */
 export const gqlError = (code: string | undefined, message: string) => ({
   errors: [{ message, ...(code ? { extensions: { code } } : {}) }],
   data: null,
@@ -59,7 +53,6 @@ export const gqlTask = (task: Task) => ({ data: { createTask: task } });
 
 export type FakeResponse = { status?: number; body: unknown } | 'network-error';
 
-/** Replaces global fetch; each call gets the next response. */
 export function mockFetch(...responses: FakeResponse[]): jest.Mock {
   const queue = [...responses];
   const fetchMock = jest.fn(async () => {
@@ -73,16 +66,14 @@ export function mockFetch(...responses: FakeResponse[]): jest.Mock {
   return fetchMock;
 }
 
-/** The JSON body sent in the n-th fetch call. */
 export function sentBody(fetchMock: jest.Mock, call = 0): { query: string; variables: { input: Record<string, unknown> } } {
   const init = fetchMock.mock.calls[call][1] as RequestInit;
   return JSON.parse(init.body as string);
 }
 
-/** Real backend createTask (over the mocked fetch), with the board supplied by the test. */
 export function testRepository(getBoard: () => Promise<BoardData>): BoardRepository & { getBoard: jest.Mock } {
   const backend = createBackendBoardRepository();
-  return { ...backend, mode: 'test', getBoard: jest.fn(getBoard) };
+  return { ...backend, getBoard: jest.fn(getBoard) };
 }
 
 export const USER_ID = '01a18766-479c-7ec2-be3f-3c3a00989ad6';

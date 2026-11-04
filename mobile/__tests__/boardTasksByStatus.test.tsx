@@ -122,9 +122,9 @@ describe('Status columns', () => {
 
   it('orders cards by position, not by the order they were created', () => {
     const task = (id: string, position?: string) => ({ id, columnId: BACKLOG.id, position }) as Task;
-    const grouped = groupTasksByColumn(COLUMNS, [task('created-first', 'l'), task('created-last'), task('moved-up', 'V')]);
-    expect(grouped[BACKLOG.id].map((t) => t.id)).toEqual(['moved-up', 'created-first', 'created-last']);
-    expect(grouped[DONE.id]).toEqual([]);
+    const { byColumn } = groupTasksByColumn(COLUMNS, [task('created-first', 'l'), task('created-last'), task('moved-up', 'V')]);
+    expect(byColumn[BACKLOG.id].map((t) => t.id)).toEqual(['moved-up', 'created-first', 'created-last']);
+    expect(byColumn[DONE.id]).toEqual([]);
   });
 });
 
@@ -150,7 +150,7 @@ describe('Task cards', () => {
     expect(within(card).getByText('Existing task')).toBeOnTheScreen();
     expect(within(card).getByText('High')).toBeOnTheScreen();
     expect(within(card).getByText('Nov 5, 2099')).toBeOnTheScreen();
-    expect(within(card).getByText('US')).toBeOnTheScreen();
+    expect(within(card).getByText('U1')).toBeOnTheScreen();
     expect(card.props.accessibilityLabel).toBe('Existing task, Priority High, Due Nov 5, 2099, Assigned to user1@local.test');
   });
 

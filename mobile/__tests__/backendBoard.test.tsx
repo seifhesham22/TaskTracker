@@ -155,7 +155,7 @@ describe('backend listBoards', () => {
   it('asks for EXPO_PUBLIC_USER_ID instead of calling the backend without it', async () => {
     delete process.env.EXPO_PUBLIC_USER_ID;
     const fetchMock = mockFetch();
-    await expect(createBackendBoardRepository().listBoards()).rejects.toEqual(new BoardLoadError('unsupported', USER_ID_MISSING));
+    await expect(createBackendBoardRepository().listBoards()).rejects.toEqual(new BoardLoadError('configuration', USER_ID_MISSING));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -285,7 +285,7 @@ describe('Board screen and create-task form against the real backend contract', 
     await renderRealBoard();
 
     const card = await screen.findByTestId('task-card-01a18766-8315-7c9c-90fd-5657de973400');
-    expect(within(card).getByText('US')).toBeOnTheScreen();
+    expect(within(card).getByText('U1')).toBeOnTheScreen();
   });
 
   it('says why no assignee can be picked when the members can’t be loaded', async () => {

@@ -36,7 +36,6 @@ const STATES: Record<
   },
 };
 
-/** Mobile BoardState: Empty | Error | Not found, with a large (44 pt) action button. */
 export function BoardState({
   type,
   onAction,
@@ -45,7 +44,6 @@ export function BoardState({
 }: {
   type: BoardStateType;
   onAction: () => void;
-  /** Overrides the design's default description, e.g. for a more specific reason. */
   description?: string;
   title?: string;
 }) {

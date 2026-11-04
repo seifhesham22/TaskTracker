@@ -1,7 +1,3 @@
-/**
- * CreateTaskSheet / CreateTaskForm: validation, server errors, kept values, retry and scrolling
- * to the first field with an error. createTask is the real request over a mocked fetch.
- */
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,7 +14,6 @@ import type { Task } from '../src/domain/models';
 import { SCROLL_MARGIN, useCreateTaskForm } from '../src/hooks/useCreateTaskForm';
 import { API_URL, BOARD_ID, MEMBERS, boardData, gqlError, gqlTask, mockFetch, sentBody, taskDto } from '../test-utils/fakeBackend';
 
-// Stand-in for the native date picker: pressing it "picks" Nov 3, 2026.
 jest.mock('@react-native-community/datetimepicker', () => {
   const React = jest.requireActual('react');
   const { Pressable, Text } = jest.requireActual('react-native');
@@ -36,7 +31,6 @@ const NOT_A_MEMBER = `User '${MEMBERS[0].userId}' is not a member of project TES
 const NOT_A_MEMBER_SHOWN = 'Mona Adel isn’t a member of Test Project, so they can’t be assigned. Pick someone from this project.';
 
 const scrollTo = (ScrollView.prototype as unknown as { scrollTo: jest.Mock }).scrollTo;
-/** scrollTo calls made on the form's own ScrollView. */
 const formScrolls = () =>
   scrollTo.mock.calls
     .filter((_, i) => (scrollTo.mock.contexts[i] as { props?: { testID?: string } })?.props?.testID === 'create-task-scroll')
@@ -198,7 +192,6 @@ describe('General errors', () => {
   });
 
   it('sends only one request when submit is triggered twice before the first one finishes', async () => {
-    // Every request waits for the same gate, so the test ends cleanly even if two were sent.
     let finish!: () => void;
     const gate = new Promise<void>((resolve) => (finish = resolve));
     const createTask = jest.fn(async (): Promise<Task> => {
@@ -213,7 +206,7 @@ describe('General errors', () => {
 
     await act(async () => {
       const first = result.current.form.submit();
-      const second = result.current.form.submit(); // a second tap while the request is running
+      const second = result.current.form.submit();
       finish();
       await Promise.all([first, second]);
     });
@@ -272,7 +265,6 @@ describe('Scrolling to the first field with an error', () => {
     await submit();
     scrollTo.mockClear();
 
-    // For example the general alert above it disappeared and the field moved up.
     await fireEvent.layout(screen.getByTestId('field-title'), { x: 0, y: 20, width: 358, height: 72 });
 
     expect(formScrolls()).toContainEqual({ y: 4, animated: true });

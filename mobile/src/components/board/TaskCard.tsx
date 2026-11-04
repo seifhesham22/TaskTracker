@@ -6,13 +6,13 @@ import { colors, radius } from '../../theme/tokens';
 import { Avatar, Skeleton } from '../ui';
 import { DueDateLabel, PriorityBadge } from './markers';
 
-/** TaskCard, variants "Title only" and "Full": each meta item hides on its own when empty. */
 export function TaskCard({ task, members }: { task: Task; members: ProjectMember[] }) {
   const assignee = task.assigneeIds[0] ? members.find((m) => m.userId === task.assigneeIds[0]) : undefined;
   const assigneeName = assignee?.userName || task.assigneeNames?.[0];
   const hasMeta = !!(task.priority || task.dueDate || task.assigneeIds.length > 0);
   const accessibilityLabel = [
     task.title,
+    task.description,
     task.priority && `Priority ${PRIORITY_LABELS[task.priority]}`,
     task.dueDate && `Due ${formatDueDate(isoToDateKey(task.dueDate))}`,
     assigneeName && `Assigned to ${assigneeName}`,
@@ -24,6 +24,11 @@ export function TaskCard({ task, members }: { task: Task; members: ProjectMember
       <Text style={styles.title} numberOfLines={3}>
         {task.title}
       </Text>
+      {task.description ? (
+        <Text style={styles.description} numberOfLines={2}>
+          {task.description}
+        </Text>
+      ) : null}
       {hasMeta ? (
         <View style={styles.meta}>
           {task.priority ? <PriorityBadge priority={task.priority} /> : null}
@@ -67,6 +72,7 @@ const styles = StyleSheet.create({
   },
   skeletonCard: { shadowOpacity: 0, elevation: 0 },
   title: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: colors.foreground },
+  description: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   spacer: { flex: 1 },
 });

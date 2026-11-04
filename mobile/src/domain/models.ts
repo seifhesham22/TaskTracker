@@ -11,7 +11,6 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   CRITICAL: 'Critical',
 };
 
-/** Same limit as the backend (`TaskItem.TitleMaxLength`). */
 export const TITLE_MAX_LENGTH = 200;
 
 export interface Task {
@@ -27,7 +26,6 @@ export interface Task {
   priority: TaskPriority | null;
   assigneeIds: string[];
   assigneeNames?: string[];
-  /** ISO 8601 date-time, e.g. "2026-11-05T00:00:00Z". */
   dueDate: string | null;
   createdAt?: string;
   position?: string;
@@ -40,7 +38,6 @@ export interface CreateTaskInput {
   description?: string;
   assigneeId?: string;
   priority?: TaskPriority;
-  /** ISO 8601 date-time. */
   dueDate?: string;
 }
 
@@ -55,7 +52,6 @@ export interface BoardColumn {
 export interface ProjectMember {
   userId: string;
   userName: string;
-  email?: string;
 }
 
 export interface Board {
@@ -63,9 +59,7 @@ export interface Board {
   name: string;
   projectId: string;
   projectName: string;
-  /** Ordered by position. */
   columns: BoardColumn[];
-  /** Members of the board's project, i.e. the people a task can be assigned to. */
   members: ProjectMember[];
   membersUnavailable?: string;
 }

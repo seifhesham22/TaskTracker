@@ -7,6 +7,7 @@ import {
   toTask,
   type ProjectNode,
 } from '../api/boards';
+import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NetworkError } from '../api/graphql';
 import { createTaskRequest } from '../api/tasks';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
@@ -51,6 +52,7 @@ function missingBoardMessage(error: unknown, boardId: string): string | null {
 }
 
 function toBoardLoadError(error: unknown, boardId?: string): BoardLoadError {
+  if (error instanceof ConfigurationError) return new BoardLoadError('configuration', error.message);
   const boardMissing = boardId ? missingBoardMessage(error, boardId) : null;
   if (boardMissing) return new BoardLoadError('notFound', boardMissing);
   if (hasError(error, 'NOT_FOUND', USER_NOT_FOUND_MESSAGE)) return new BoardLoadError('server', USER_NOT_FOUND);
@@ -72,11 +74,9 @@ async function findProject(userId: string | null, projectId: string): Promise<Pr
 
 export function createBackendBoardRepository(): BoardRepository {
   return {
-    mode: 'backend',
-
     async listBoards() {
       const userId = getConfiguredUserId();
-      if (!userId) throw new BoardLoadError('unsupported', USER_ID_MISSING);
+      if (!userId) throw new BoardLoadError('configuration', USER_ID_MISSING);
       try {
         return toBoardSummaries(await projectsRequest(userId));
       } catch (error) {

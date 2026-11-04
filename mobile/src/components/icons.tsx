@@ -1,4 +1,3 @@
-/** Lucide icons used by the design (same paths as the designer handoff, drawn with react-native-svg). */
 import type { ReactNode } from 'react';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 

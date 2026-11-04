@@ -7,10 +7,6 @@ import { colors } from '../../theme/tokens';
 import { Button } from '../ui';
 import { CreateTaskForm } from './CreateTaskForm';
 
-/**
- * CreateTaskDialog on mobile: a full-screen sheet with Cancel / "New task", a scrollable form
- * and a sticky "Create task" button that stays above the keyboard.
- */
 export function CreateTaskSheet({
   board,
   columnId,
@@ -50,7 +46,6 @@ export function CreateTaskSheet({
   };
 
   return (
-    // Edge-to-edge on Android too (the app is edge-to-edge), so the safe-area insets below apply.
     <Modal
       visible
       animationType="slide"
@@ -68,8 +63,6 @@ export function CreateTaskSheet({
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* The window doesn't resize for the keyboard when drawn edge-to-edge, so on both
-            platforms the padding behaviour lifts the sticky footer above the keyboard. */}
         <KeyboardAvoidingView style={styles.flex} behavior="padding">
           <ScrollView
             ref={scrollRef}

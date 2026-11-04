@@ -1,7 +1,3 @@
-/**
- * Design tokens from the designer handoff (styles.css, shadcn/ui neutral theme).
- * Names follow the CSS variables, e.g. `--muted-foreground` -> `colors.mutedForeground`.
- */
 export const colors = {
   background: '#FFFFFF',
   foreground: '#0A0A0A',
@@ -36,7 +32,6 @@ export const colors = {
 
 export const radius = { sm: 6, md: 8, lg: 10, xl: 14, full: 9999 } as const;
 
-/** Minimum touch target from the mobile design (44 pt). */
 export const touchTarget = 44;
 
 export const text = {

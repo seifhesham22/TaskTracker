@@ -1,10 +1,3 @@
-/**
- * Placeholder HTTP client for future backend integration.
- *
- * The base URL is read from the EXPO_PUBLIC_API_URL environment variable
- * (see mobile/README.md). No requests are made until a caller uses this module.
- */
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -16,6 +9,13 @@ export class ApiError extends Error {
   }
 }
 
+export class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigurationError';
+  }
+}
+
 export type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
 };
@@ -23,7 +23,7 @@ export type RequestOptions = Omit<RequestInit, 'body'> & {
 export function getBaseUrl(): string {
   const baseUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!baseUrl) {
-    throw new Error(
+    throw new ConfigurationError(
       'EXPO_PUBLIC_API_URL is not set. Configure it in mobile/.env before making API requests.',
     );
   }
@@ -34,8 +34,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const { body, headers, ...rest } = options;
   const url = `${getBaseUrl()}/${path.replace(/^\/+/, '')}`;
 
-  // Accepts any HeadersInit (object, Headers instance, or [name, value] pairs).
-  // Caller-provided values take precedence over the JSON defaults.
   const requestHeaders = new Headers(headers);
   if (!requestHeaders.has('Accept')) {
     requestHeaders.set('Accept', 'application/json');

@@ -1,7 +1,3 @@
-/**
- * The real backend repository: the createTask GraphQL request and how each backend answer is
- * mapped. Responses copy the backend's codes and messages (CreateTaskHandler, TaskItem).
- */
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import {
   COLUMN_MISSING_DESCRIPTION,

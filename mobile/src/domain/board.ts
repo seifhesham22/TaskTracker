@@ -1,5 +1,10 @@
 import type { BoardColumn, Task } from './models';
 
+export interface GroupedTasks {
+  byColumn: Record<string, Task[]>;
+  unplaced: Task[];
+}
+
 function compareByPosition(a: Task, b: Task): number {
   if (a.position === b.position) return 0;
   if (a.position === undefined) return 1;
@@ -7,10 +12,15 @@ function compareByPosition(a: Task, b: Task): number {
   return a.position < b.position ? -1 : 1;
 }
 
-export function groupTasksByColumn(columns: BoardColumn[], tasks: Task[]): Record<string, Task[]> {
-  const groups: Record<string, Task[]> = {};
-  for (const column of columns) groups[column.id] = [];
-  for (const task of tasks) groups[task.columnId]?.push(task);
-  for (const group of Object.values(groups)) group.sort(compareByPosition);
-  return groups;
+export function groupTasksByColumn(columns: BoardColumn[], tasks: Task[]): GroupedTasks {
+  const byColumn: Record<string, Task[]> = {};
+  const unplaced: Task[] = [];
+  for (const column of columns) byColumn[column.id] = [];
+  for (const task of tasks) {
+    const group = byColumn[task.columnId];
+    if (group) group.push(task);
+    else unplaced.push(task);
+  }
+  for (const group of Object.values(byColumn)) group.sort(compareByPosition);
+  return { byColumn, unplaced };
 }
