@@ -1,4 +1,5 @@
 import type { BoardColumnModel, ProjectMemberModel, TaskItem } from '../../domain/models';
+import { StatusIcon } from './StatusIcon';
 import { TaskCard } from './TaskCard';
 import './BoardColumn.css';
 
@@ -6,50 +7,56 @@ export interface BoardColumnProps {
   readonly column: BoardColumnModel;
   readonly tasks: readonly TaskItem[];
   readonly members?: readonly ProjectMemberModel[];
+  readonly onAddTask?: (columnId: string) => void;
 }
 
-export function BoardColumn({ column, tasks, members }: BoardColumnProps) {
-  const indicatorColor = column.color || '#5B8DE8';
-
+export function BoardColumn({ column, tasks, members, onAddTask }: BoardColumnProps) {
   return (
     <section
-      className="board-column"
+      className="column"
       aria-labelledby={`col-heading-${column.id}`}
       data-testid={`board-column-${column.category}`}
     >
-      <header className="board-column__header">
-        <div className="board-column__heading">
-          <span
-            className="board-column__indicator"
-            style={{ backgroundColor: indicatorColor }}
-            aria-hidden="true"
-          />
-          <h2 id={`col-heading-${column.id}`} className="board-column__title">
-            {column.name}
-          </h2>
-        </div>
+      <div className="column-title">
+        <StatusIcon category={column.category} color={column.color} />
+        <h2 id={`col-heading-${column.id}`}>
+          {column.name}
+        </h2>
         <span
-          className="board-column__count"
+          className="count"
           aria-label={`${tasks.length} tasks in ${column.name}`}
         >
           {tasks.length}
         </span>
-      </header>
-
-      <div className="board-column__body" role="list">
-        {tasks.length === 0 ? (
-          <div className="board-column__empty" role="note">
-            No tasks in this column
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <div key={task.id} role="listitem">
-              <TaskCard task={task} members={members} />
-            </div>
-          ))
+        {onAddTask && (
+          <button
+            type="button"
+            aria-label={`Add task to ${column.name}`}
+            onClick={() => onAddTask(column.id)}
+          >
+            <img src="/assets/9b420.svg" alt="" width="16" height="16" />
+          </button>
         )}
       </div>
+
+      <div className="column-cards" role="list">
+        {tasks.map((task) => (
+          <div key={task.id} role="listitem">
+            <TaskCard task={task} members={members} />
+          </div>
+        ))}
+      </div>
+
+      {onAddTask && (
+        <button
+          type="button"
+          className="add-task"
+          onClick={() => onAddTask(column.id)}
+        >
+          <img src="/assets/d3182.svg" alt="" width="16" height="16" />
+          Add task
+        </button>
+      )}
     </section>
   );
 }
-

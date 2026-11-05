@@ -1,15 +1,14 @@
-import { useSearchParams } from 'react-router';
-import { PageHeader } from '../components/PageHeader';
+import { useParams, useSearchParams } from 'react-router';
 import { BoardView } from '../components/board/BoardView';
 import { useBoard } from '../hooks/useBoard';
 import './pages.css';
 
-// Seeded board UUID from DbSeeder
-const DEFAULT_SEED_BOARD_ID = '01a18766-48b5-7fb8-a04c-13e1bf648def';
+const DEFAULT_SEED_BOARD_ID = '01a1aad8-c24a-73f9-a095-069769796312';
 
 export function TasksPage() {
+  const { boardId: paramBoardId } = useParams<{ boardId?: string }>();
   const [searchParams] = useSearchParams();
-  const boardId = searchParams.get('boardId') || DEFAULT_SEED_BOARD_ID;
+  const boardId = paramBoardId || searchParams.get('boardId') || DEFAULT_SEED_BOARD_ID;
 
   const {
     board,
@@ -24,14 +23,7 @@ export function TasksPage() {
   } = useBoard(boardId);
 
   return (
-    <div className="page" style={{ maxWidth: '100%' }}>
-      <PageHeader
-        eyebrow={board ? `${board.projectName} • Board` : 'Workspace'}
-        title={board ? board.name : 'Task Board'}
-      >
-        <p>Plan, track and ship your team's tasks across each status column.</p>
-      </PageHeader>
-
+    <div className="tasks-page">
       <BoardView
         board={board}
         tasks={tasks}
