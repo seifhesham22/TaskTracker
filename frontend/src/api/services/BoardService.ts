@@ -7,10 +7,6 @@ import {
   ColumnCategory,
 } from '../../domain/models';
 
-/**
- * Standard status column categories in strict order.
- * Requirement: "Columns are always in the same order. A column is shown even when it has no tasks."
- */
 export const DEFAULT_COLUMN_CATEGORIES: readonly { readonly category: ColumnCategory; readonly name: string; readonly color: string }[] = [
   { category: ColumnCategory.Backlog, name: 'Backlog', color: '#8A90A0' },
   { category: ColumnCategory.ToDo, name: 'To do', color: '#5B8DE8' },
@@ -23,9 +19,49 @@ export interface GraphQLResponse<T> {
   readonly errors?: readonly { readonly message: string; readonly extensions?: { readonly code?: string } }[];
 }
 
-/**
- * Service responsible for board and task operations via GraphQL.
- */
+interface RawColumn {
+  id: string;
+  name: string;
+  category: ColumnCategory;
+  position: string;
+  color?: string | null;
+}
+
+interface RawBoard {
+  id: string;
+  projectId: string;
+  projectName?: string | null;
+  name: string;
+  columns?: RawColumn[];
+  members?: { userId: string; userName: string; email?: string }[];
+}
+
+interface RawTask {
+  id: string;
+  readableId: string;
+  number: number;
+  boardId: string;
+  title: string;
+  description?: string | null;
+  status: ColumnCategory;
+  columnId: string;
+  columnName?: string;
+  position?: string;
+  priority?: TaskItem['priority'];
+  dueDate?: string | null;
+  createdAt?: string;
+  column?: {
+    id: string;
+    name: string;
+    category: ColumnCategory;
+  };
+  assignees?: {
+    id: string;
+    userName?: string | null;
+  }[];
+  assigneeIds?: string[];
+}
+
 export class BoardService {
   private readonly client: HttpClient;
 
@@ -33,29 +69,18 @@ export class BoardService {
     this.client = client;
   }
 
-  /**
-   * Fetches the board details and its tasks.
-   * If the board does not exist, throws an ApiError with code NOT_FOUND.
-   */
   async getBoardWithTasks(boardId: string): Promise<{ board: BoardDetails; tasks: TaskItem[] }> {
     const query = `
       query GetBoardWithTasks($boardId: UUID!) {
         board(id: $boardId) {
           id
-          name
           projectId
-          projectName
+          name
           columns {
             id
             name
             category
-            color
             position
-          }
-          members {
-            userId
-            userName
-            email
           }
         }
         tasks(boardId: $boardId) {
@@ -67,17 +92,24 @@ export class BoardService {
           description
           status
           columnId
-          columnName
+          position
           priority
-          assigneeIds
           dueDate
-          createdAt
+          column {
+            id
+            name
+            category
+          }
+          assignees {
+            id
+            userName
+          }
         }
       }
     `;
 
     try {
-      const result = await this.client.post<GraphQLResponse<{ board?: BoardDetails | null; tasks?: TaskItem[] }>>(
+      const result = await this.client.post<GraphQLResponse<{ board?: RawBoard | null; tasks?: RawTask[] }>>(
         '/graphql',
         { query, variables: { boardId } }
       );
@@ -92,30 +124,58 @@ export class BoardService {
       }
 
       if (result.data?.board) {
-        return {
-          board: result.data.board,
-          tasks: result.data.tasks || [],
+        const rawBoard = result.data.board;
+        const rawTasks = result.data.tasks || [];
+
+        const board: BoardDetails = {
+          id: rawBoard.id,
+          projectId: rawBoard.projectId,
+          projectName: rawBoard.projectName ?? null,
+          name: rawBoard.name,
+          columns: (rawBoard.columns || []).map((col) => ({
+            id: col.id,
+            name: col.name,
+            category: col.category,
+            position: col.position,
+            color: col.color ?? null,
+          })),
+          members: rawBoard.members || [],
         };
+
+        const tasks: TaskItem[] = rawTasks.map((t) => ({
+          id: t.id,
+          readableId: t.readableId,
+          number: t.number,
+          boardId: t.boardId,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          columnId: t.columnId,
+          columnName: t.column?.name ?? t.columnName,
+          position: t.position,
+          priority: t.priority,
+          assignees: t.assignees,
+          assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
+          assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
+          dueDate: t.dueDate,
+          createdAt: t.createdAt,
+        }));
+
+        return { board, tasks };
       }
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 404) {
         throw err;
       }
-      // If the backend GraphQL queries for board/tasks are not implemented yet (Seif noted he's working on tasks query),
-      // verify if it is an unknown board ID or connect to the seeded board.
-      // We check for invalid UUID or missing board:
       if (!this.isValidUuid(boardId)) {
         throw new ApiError(`Board '${boardId}' was not found.`, 404, null);
       }
+      throw err;
     }
 
-    // Fallback support for seeded board when tasks query is pending in backend
-    return this.getFallbackBoard(boardId);
+    throw new ApiError(`Board '${boardId}' was not found.`, 404, null);
   }
 
-  /**
-   * Sends the createTask GraphQL mutation.
-   */
   async createTask(input: CreateTaskInput): Promise<TaskItem> {
     const mutation = `
       mutation CreateTask($input: CreateTaskInput!) {
@@ -159,32 +219,7 @@ export class BoardService {
   }
 
   private isValidUuid(id: string): boolean {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(id);
-  }
-
-  private getFallbackBoard(boardId: string): { board: BoardDetails; tasks: TaskItem[] } {
-    const board: BoardDetails = {
-      id: boardId,
-      projectId: '00000000-0000-0000-0000-000000000001',
-      projectName: 'Test Project',
-      name: 'Test Board',
-      columns: DEFAULT_COLUMN_CATEGORIES.map((col, idx) => ({
-        id: `col-${idx + 1}`,
-        name: col.name,
-        category: col.category,
-        color: col.color,
-        position: String.fromCharCode(65 + idx),
-      })),
-      members: [
-        { userId: '00000000-0000-0000-0000-000000000001', userName: 'admin@local.test', email: 'admin@local.test' },
-        { userId: '00000000-0000-0000-0000-000000000002', userName: 'user1@local.test', email: 'user1@local.test' },
-        { userId: '00000000-0000-0000-0000-000000000003', userName: 'user2@local.test', email: 'user2@local.test' },
-        { userId: '00000000-0000-0000-0000-000000000004', userName: 'user3@local.test', email: 'user3@local.test' },
-        { userId: '00000000-0000-0000-0000-000000000005', userName: 'user4@local.test', email: 'user4@local.test' },
-      ],
-    };
-
-    return { board, tasks: [] };
   }
 }
