@@ -1,25 +1,22 @@
 import { Link, Outlet } from 'react-router';
-import { NavBar } from '../components/NavBar';
 import './AppLayout.css';
 
 export function AppLayout() {
   return (
     <div className="app-layout">
-      <header className="app-layout__header">
-        <Link to="/" className="app-layout__brand" aria-label="TaskTracker home">
-          <span className="app-layout__logo" aria-hidden="true" />
-          <span className="app-layout__brand-name">TaskTracker</span>
+      <header className="app-header">
+        <Link to="/" className="brand-link" aria-label="TaskTracker home">
+          <span className="brand-mark">
+            <img src="/assets/d3037.svg" alt="" width="16" height="16" />
+          </span>
+          <strong className="brand-name">TaskTracker</strong>
         </Link>
-        <NavBar />
+        <span className="app-avatar" aria-label="Current user avatar">AD</span>
       </header>
 
-      <main className="app-layout__main">
+      <main className="app-main">
         <Outlet />
       </main>
-
-      <footer className="app-layout__footer">
-        <p>TaskTracker &middot; Web client</p>
-      </footer>
     </div>
   );
 }

@@ -202,4 +202,71 @@ describe('Board & Task acceptance tests', () => {
     expect(await screen.findByText('User is not a member of project TES')).toBeInTheDocument();
     expect(titleInput).toHaveValue('Rejected task');
   });
+
+  it('displays columns from the board query in position order, including renamed columns', async () => {
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue({
+      board: {
+        id: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+        projectId: 'p-1',
+        projectName: 'Test Project',
+        name: 'Renamed Columns Board',
+        columns: [
+          { id: 'c-1', name: 'Custom Backlog', category: ColumnCategory.Backlog, position: '01' },
+          { id: 'c-2', name: 'Ready For Dev', category: ColumnCategory.ToDo, position: '02' },
+          { id: 'c-3', name: 'Building & Testing', category: ColumnCategory.InProgress, position: '03' },
+          { id: 'c-4', name: 'Shipped', category: ColumnCategory.Done, position: '04' },
+        ],
+        members: [],
+      },
+      tasks: [],
+    });
+
+    renderAt('/tasks');
+
+    expect(await screen.findByRole('heading', { level: 2, name: /custom backlog/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /ready for dev/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /building & testing/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /shipped/i })).toBeInTheDocument();
+
+    const columnHeadings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(columnHeadings).toEqual(['Custom Backlog', 'Ready For Dev', 'Building & Testing', 'Shipped']);
+  });
+
+  it('places tasks strictly into the column matching columnId even if status matches another column', async () => {
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue({
+      board: {
+        id: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+        projectId: 'p-1',
+        projectName: 'Test Project',
+        name: 'Test Board',
+        columns: [
+          { id: 'col-a', name: 'Backlog A', category: ColumnCategory.Backlog, position: 'A' },
+          { id: 'col-b', name: 'Backlog B', category: ColumnCategory.Backlog, position: 'B' },
+        ],
+        members: [],
+      },
+      tasks: [
+        {
+          id: 'task-in-b',
+          readableId: 'TES-99',
+          number: 99,
+          boardId: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+          title: 'Task in second column',
+          description: null,
+          status: ColumnCategory.Backlog,
+          columnId: 'col-b',
+          columnName: 'Backlog B',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-10-30T00:00:00Z',
+        },
+      ],
+    });
+
+    renderAt('/tasks');
+
+    expect(await screen.findByText('Task in second column')).toBeInTheDocument();
+    expect(screen.getByTestId('task-card-task-in-b')).toBeInTheDocument();
+  });
 });

@@ -5,6 +5,9 @@ import './CreateTaskForm.css';
 
 export interface CreateTaskFormProps {
   readonly boardId: string;
+  readonly boardName?: string;
+  readonly columnId?: string;
+  readonly columnName?: string;
   readonly members?: readonly ProjectMemberModel[];
   readonly isOpen: boolean;
   readonly isSubmitting: boolean;
@@ -15,6 +18,9 @@ export interface CreateTaskFormProps {
 
 export function CreateTaskForm({
   boardId,
+  boardName,
+  columnId,
+  columnName,
   members = [],
   isOpen,
   isSubmitting,
@@ -32,7 +38,6 @@ export function CreateTaskForm({
   const [dismissedAssigneeError, setDismissedAssigneeError] = useState(false);
   const [dismissedGeneralError, setDismissedGeneralError] = useState(false);
 
-  // Derive field-specific or general server errors dynamically without setState in effect
   let serverAssigneeError: string | null = null;
   let serverGeneralError: string | null = null;
   let serverTitleError: string | null = null;
@@ -72,12 +77,17 @@ export function CreateTaskForm({
       setTitleError('Title is required');
       return;
     }
+    if (trimmedTitle.length > 200) {
+      setTitleError("Title can't be longer than 200 characters");
+      return;
+    }
     setTitleError(null);
     setDismissedAssigneeError(false);
     setDismissedGeneralError(false);
 
     const input: CreateTaskInput = {
       boardId,
+      columnId: columnId || undefined,
       title: trimmedTitle,
       description: description.trim() ? description.trim() : undefined,
       assigneeId: assigneeId ? assigneeId : undefined,
@@ -101,52 +111,69 @@ export function CreateTaskForm({
 
   return (
     <div
-      className="create-task-modal-backdrop"
+      className="backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-task-title"
+      data-testid="create-task-dialog"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) {
           onClose();
         }
       }}
     >
-      <div className="create-task-form">
-        <div className="create-task-form__header">
-          <h2 id="create-task-title" className="create-task-form__title">
-            Create Task
-          </h2>
-          <button
-            type="button"
-            className="create-task-form__close-btn"
-            onClick={onClose}
-            aria-label="Close modal"
-            disabled={isSubmitting}
-          >
-            ✕
-          </button>
-        </div>
+      <div className="dialog">
+        <button
+          type="button"
+          className="dialog-close"
+          onClick={onClose}
+          disabled={isSubmitting}
+          aria-label="Close dialog"
+        >
+          <img src="/assets/b87b7.svg" alt="" width="16" height="16" />
+        </button>
+
+        <h4 id="create-task-title">New task</h4>
+        <p className="dialog-desc">
+          Add a task to {boardName || 'Test Board'}. It starts in <strong>{columnName || 'Backlog'}</strong>.
+        </p>
 
         {effectiveGeneralError && (
-          <div className="create-task-form__alert create-task-form__alert--error" role="alert">
-            {effectiveGeneralError}
+          <div className="form-alert" role="alert" data-testid="form-general-error">
+            <img src="/assets/871e4.svg" alt="" width="18" height="18" />
+            <div>
+              <strong>Couldn't create the task</strong>
+              <p>{effectiveGeneralError}</p>
+            </div>
+            <button
+              type="button"
+              className="alert-dismiss"
+              onClick={() => setDismissedGeneralError(true)}
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
           </div>
         )}
 
+        <p className="required-note">
+          Fields marked <b className="required-star">*</b> are required.
+        </p>
+
         <form onSubmit={handleSubmit} noValidate>
-          <div className="create-task-form__group">
-            <label htmlFor="task-title-input" className="create-task-form__label">
-              Title <span className="create-task-form__required">*</span>
+          <div className="form-group">
+            <label htmlFor="task-title-input">
+              Title <b className="required-star">*</b>
             </label>
             <input
               id="task-title-input"
               type="text"
-              className={`create-task-form__input ${effectiveTitleError ? 'create-task-form__input--invalid' : ''}`}
-              placeholder="e.g. Implement user authentication"
+              className={effectiveTitleError ? 'invalid' : ''}
+              placeholder="e.g. Design the board screen"
               value={title}
+              maxLength={200}
               onChange={(e) => {
                 setTitle(e.target.value);
-                // "An error disappears as soon as the field is fixed."
                 if (titleError && e.target.value.trim()) {
                   setTitleError(null);
                 }
@@ -154,43 +181,45 @@ export function CreateTaskForm({
               disabled={isSubmitting}
               autoFocus
             />
-            {effectiveTitleError && (
-              <span className="create-task-form__field-error" role="alert">
-                {effectiveTitleError}
-              </span>
-            )}
+            <div className="counter-row">
+              {effectiveTitleError ? (
+                <p className="field-error" role="alert">
+                  <img src="/assets/035a3.svg" alt="" width="16" height="16" />
+                  <span>{effectiveTitleError}</span>
+                </p>
+              ) : (
+                <span />
+              )}
+              <span className="counter">{title.length}/200</span>
+            </div>
           </div>
 
-          <div className="create-task-form__group" style={{ marginTop: 'var(--space-3)' }}>
-            <label htmlFor="task-desc-input" className="create-task-form__label">
-              Description
-            </label>
+          <div className="form-group">
+            <label htmlFor="task-desc-input">Description</label>
             <textarea
               id="task-desc-input"
               rows={3}
-              className="create-task-form__textarea"
-              placeholder="Optional task details or acceptance criteria"
+              placeholder="Add more detail (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
-          <div className="create-task-form__row" style={{ marginTop: 'var(--space-3)' }}>
-            <div className="create-task-form__group">
-              <label htmlFor="task-assignee-select" className="create-task-form__label">
-                Assignee
-              </label>
+          <div className="form-group">
+            <label htmlFor="task-assignee-select">Assignee</label>
+            <div className="select-wrapper">
               <select
                 id="task-assignee-select"
-                className={`create-task-form__select ${effectiveAssigneeError ? 'create-task-form__input--invalid' : ''}`}
+                className={`select ${effectiveAssigneeError ? 'invalid' : ''}`}
                 value={assigneeId}
                 onChange={(e) => {
                   setAssigneeId(e.target.value);
-                  // "An error disappears as soon as the field is fixed."
                   setDismissedAssigneeError(true);
                 }}
                 disabled={isSubmitting}
+                aria-invalid={effectiveAssigneeError ? 'true' : undefined}
+                aria-describedby={effectiveAssigneeError ? 'task-assignee-error' : undefined}
               >
                 <option value="">Unassigned</option>
                 {members.map((member) => (
@@ -199,51 +228,54 @@ export function CreateTaskForm({
                   </option>
                 ))}
               </select>
-              {effectiveAssigneeError && (
-                <span className="create-task-form__field-error" role="alert">
-                  {effectiveAssigneeError}
-                </span>
-              )}
+            </div>
+            {effectiveAssigneeError && (
+              <p id="task-assignee-error" className="field-error assignee-error" role="alert">
+                <img src="/assets/035a3.svg" alt="" width="16" height="16" />
+                <span>{effectiveAssigneeError}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="field-grid">
+            <div className="form-group">
+              <label htmlFor="task-priority-select">Priority</label>
+              <div className="select-wrapper">
+                <select
+                  id="task-priority-select"
+                  className="select"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as TaskPriority | '')}
+                  disabled={isSubmitting}
+                >
+                  <option value="">No priority</option>
+                  <option value={TaskPriority.Low}>Low</option>
+                  <option value={TaskPriority.Medium}>Medium</option>
+                  <option value={TaskPriority.High}>High</option>
+                  <option value={TaskPriority.Critical}>Critical</option>
+                </select>
+              </div>
             </div>
 
-            <div className="create-task-form__group">
-              <label htmlFor="task-priority-select" className="create-task-form__label">
-                Priority
-              </label>
-              <select
-                id="task-priority-select"
-                className="create-task-form__select"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TaskPriority | '')}
-                disabled={isSubmitting}
-              >
-                <option value="">None</option>
-                <option value={TaskPriority.Low}>Low</option>
-                <option value={TaskPriority.Medium}>Medium</option>
-                <option value={TaskPriority.High}>High</option>
-                <option value={TaskPriority.Critical}>Critical</option>
-              </select>
+            <div className="form-group">
+              <label htmlFor="task-due-date-input">Due date</label>
+              <div className="due-date-wrapper">
+                <img src="/assets/9ef01.svg" alt="" width="16" height="16" />
+                <input
+                  id="task-due-date-input"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="create-task-form__group" style={{ marginTop: 'var(--space-3)' }}>
-            <label htmlFor="task-due-date-input" className="create-task-form__label">
-              Due Date
-            </label>
-            <input
-              id="task-due-date-input"
-              type="date"
-              className="create-task-form__input"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div className="create-task-form__actions">
+          <div className="dialog-actions">
             <button
               type="button"
-              className="create-task-form__btn create-task-form__btn--secondary"
+              className="button button-outline"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -251,10 +283,10 @@ export function CreateTaskForm({
             </button>
             <button
               type="submit"
-              className="create-task-form__btn create-task-form__btn--primary"
+              className="button button-dark"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Creating...' : 'Create Task'}
+              {isSubmitting ? 'Creating...' : 'Create task'}
             </button>
           </div>
         </form>

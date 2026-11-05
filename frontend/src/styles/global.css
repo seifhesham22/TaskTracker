@@ -1,4 +1,3 @@
-/* Global base styles and shared utilities (buttons). Component styles live next to components. */
 *,
 *::before,
 *::after {
@@ -8,26 +7,50 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--color-text);
-  background: var(--gradient-glow), var(--color-bg);
-  background-attachment: fixed;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--foreground);
+  background-color: #ffffff;
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+img {
+  display: block;
+  flex: none;
 }
 
 h1,
 h2,
 h3,
+h4,
 p {
   margin: 0;
 }
@@ -37,79 +60,39 @@ a {
   text-decoration: none;
 }
 
-code {
-  font-family: var(--font-mono);
-  font-size: 0.875em;
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-  background: hsl(232 30% 80% / 0.08);
-  color: var(--color-accent);
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-/* Buttons */
 .button {
   display: inline-flex;
+  height: 36px;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border: 1px solid transparent;
-  border-radius: var(--radius-full);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.9375rem;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    background-color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out);
+  transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
-.button:hover:not(:disabled) {
-  transform: translateY(-1px);
+.button-dark {
+  border: 1px solid transparent;
+  color: var(--primary-foreground, #fafafa);
+  background: var(--primary, #171717);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
-.button:active:not(:disabled) {
-  transform: translateY(0);
+.button-dark:hover {
+  background: #262626;
 }
 
-.button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.button-outline {
+  border: 1px solid var(--border, #e5e5e5);
+  background: var(--background, #ffffff);
+  color: var(--foreground, #0a0a0a);
 }
 
-.button--primary {
-  background: var(--gradient-brand);
-  color: hsl(232 40% 8%);
-  box-shadow: var(--shadow-glow);
-}
-
-.button--primary:hover:not(:disabled) {
-  box-shadow: 0 14px 34px -10px hsl(252 92% 60% / 0.75);
-}
-
-.button--ghost {
-  background: var(--color-surface);
-  border-color: var(--color-border-strong);
-  color: var(--color-text);
-}
-
-.button--ghost:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  border-color: var(--color-primary);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+.button-outline:hover {
+  background: var(--muted, #f5f5f5);
 }

@@ -1,8 +1,3 @@
-/**
- * Status of a column and tasks on the board.
- * Matches ColumnCategory in the backend.
- * Uses const object with string literal union for compatibility with TypeScript 5.8+ erasableSyntaxOnly.
- */
 export const ColumnCategory = {
   Backlog: 'BACKLOG',
   ToDo: 'TO_DO',
@@ -13,9 +8,6 @@ export const ColumnCategory = {
 
 export type ColumnCategory = (typeof ColumnCategory)[keyof typeof ColumnCategory];
 
-/**
- * Task priority matching backend TaskPriority enum.
- */
 export const TaskPriority = {
   Low: 'LOW',
   Medium: 'MEDIUM',
@@ -25,9 +17,11 @@ export const TaskPriority = {
 
 export type TaskPriority = (typeof TaskPriority)[keyof typeof TaskPriority];
 
-/**
- * Domain entity representing a task item.
- */
+export interface TaskAssignee {
+  readonly id: string;
+  readonly userName?: string | null;
+}
+
 export interface TaskItem {
   readonly id: string;
   readonly readableId: string;
@@ -37,16 +31,16 @@ export interface TaskItem {
   readonly description?: string | null;
   readonly status: ColumnCategory;
   readonly columnId: string;
-  readonly columnName: string;
+  readonly columnName?: string;
   readonly priority?: TaskPriority | null;
+  readonly assignees?: readonly TaskAssignee[];
   readonly assigneeIds: readonly string[];
+  readonly assigneeNames?: readonly string[];
   readonly dueDate?: string | null;
-  readonly createdAt: string;
+  readonly position?: string;
+  readonly createdAt?: string;
 }
 
-/**
- * Domain entity representing a board column.
- */
 export interface BoardColumnModel {
   readonly id: string;
   readonly name: string;
@@ -55,30 +49,21 @@ export interface BoardColumnModel {
   readonly position: string;
 }
 
-/**
- * Domain entity representing a project member (assignee option).
- */
 export interface ProjectMemberModel {
   readonly userId: string;
   readonly userName: string;
-  readonly email: string;
+  readonly email?: string;
 }
 
-/**
- * Domain entity representing a board with its metadata and columns.
- */
 export interface BoardDetails {
   readonly id: string;
   readonly projectId: string;
-  readonly projectName: string;
+  readonly projectName?: string | null;
   readonly name: string;
   readonly columns: readonly BoardColumnModel[];
-  readonly members: readonly ProjectMemberModel[];
+  readonly members?: readonly ProjectMemberModel[];
 }
 
-/**
- * Input payload for creating a task via GraphQL mutation.
- */
 export interface CreateTaskInput {
   readonly boardId: string;
   readonly columnId?: string;

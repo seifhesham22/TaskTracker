@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
-import type { BoardColumnModel, BoardDetails, CreateTaskInput, TaskItem } from '../../domain/models';
-import { ColumnCategory } from '../../domain/models';
-import { DEFAULT_COLUMN_CATEGORIES } from '../../api/services/BoardService';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BoardDetails, CreateTaskInput, TaskItem } from '../../domain/models';
 import { BoardColumn } from './BoardColumn';
+import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
 import './BoardView.css';
 
@@ -30,35 +29,26 @@ export function BoardView({
   onCreateTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Group tasks by ColumnCategory ensuring stable order and representation even if empty
+  const updateScrollState = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const hasMore = el.scrollWidth - el.clientWidth - el.scrollLeft > 2;
+    setCanScrollRight(hasMore);
+  }, []);
+
   const columnsWithTasks = useMemo(() => {
-    const columns: BoardColumnModel[] = board?.columns && board.columns.length > 0
-      ? [...board.columns]
-      : DEFAULT_COLUMN_CATEGORIES.map((col, idx) => ({
-          id: `col-${idx}`,
-          name: col.name,
-          category: col.category,
-          color: col.color,
-          position: String.fromCharCode(65 + idx),
-        }));
+    if (!board?.columns || board.columns.length === 0) {
+      return [];
+    }
 
-    const orderMap: Record<ColumnCategory, number> = {
-      [ColumnCategory.Backlog]: 1,
-      [ColumnCategory.ToDo]: 2,
-      [ColumnCategory.InProgress]: 3,
-      [ColumnCategory.Done]: 4,
-      [ColumnCategory.Cancelled]: 5,
-    };
-
-    const sortedColumns = [...columns].sort((a, b) => {
-      const orderA = orderMap[a.category] ?? 99;
-      const orderB = orderMap[b.category] ?? 99;
-      return orderA - orderB;
-    });
+    const sortedColumns = [...board.columns].sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
     return sortedColumns.map((col) => {
-      const colTasks = tasks.filter((t) => t.status === col.category);
+      const colTasks = tasks.filter((t) => t.columnId === col.id || (!t.columnId && t.status === col.category));
       return {
         column: col,
         tasks: colTasks,
@@ -66,12 +56,25 @@ export function BoardView({
     });
   }, [board, tasks]);
 
+  useEffect(() => {
+    updateScrollState();
+    window.addEventListener('resize', updateScrollState);
+    return () => window.removeEventListener('resize', updateScrollState);
+  }, [columnsWithTasks, updateScrollState]);
+
   if (isLoading) {
     return (
-      <div className="board-view__state-box" role="status" aria-label="Loading tasks">
-        <div className="board-view__spinner" aria-hidden="true" />
-        <p className="board-view__state-title">Loading board tasks...</p>
-        <p className="board-view__state-desc">Connecting to the API and gathering status columns.</p>
+      <div className="board-view__skeleton" role="status" aria-busy="true" aria-label="Loading tasks">
+        <div className="skeleton-head">
+          <i />
+          <i />
+        </div>
+        <div className="skeleton-columns">
+          <div><i /><b /><b /><b /></div>
+          <div><i /><b /><b /></div>
+          <div><i /><b /><b /></div>
+          <div><i /><b /></div>
+        </div>
       </div>
     );
   }
@@ -79,10 +82,15 @@ export function BoardView({
   if (isNotFound) {
     return (
       <div className="board-view__state-box" role="alert" data-testid="board-not-found">
-        <h2 className="board-view__state-title">Board not found</h2>
-        <p className="board-view__state-desc">
-          {error || 'The requested board could not be found. Please verify the board ID.'}
-        </p>
+        <div className="state-content">
+          <img src="/assets/f5a1e.svg" alt="" width="48" height="48" />
+          <h4>Board not found</h4>
+          <p>This board doesn't exist or was deleted. Check the link, or go back to your boards.</p>
+          <a href="/boards" className="button button-dark">
+            <img src="/assets/6c970.svg" alt="" width="16" height="16" />
+            Go to boards
+          </a>
+        </div>
       </div>
     );
   }
@@ -90,95 +98,78 @@ export function BoardView({
   if (error) {
     return (
       <div className="board-view__state-box board-view__state-box--error" role="alert" data-testid="board-error">
-        <h2 className="board-view__state-title">Failed to load board</h2>
-        <p className="board-view__state-desc">{error}</p>
-        {onReload && (
-          <button
-            type="button"
-            className="board-view__btn board-view__btn--primary"
-            onClick={onReload}
-          >
-            Retry
-          </button>
-        )}
+        <div className="state-content">
+          <img src="/assets/871e4.svg" alt="" width="48" height="48" />
+          <h4>Couldn't load this board</h4>
+          <span className="visually-hidden">Failed to load board</span>
+          <p>Something went wrong while loading the tasks. Check your connection and try again.</p>
+          {onReload && (
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={onReload}
+            >
+              <img src="/assets/5dbe0.svg" alt="" width="16" height="16" />
+              Try again
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
-  const hasNoTasks = tasks.length === 0;
+  const selectedColumn = board?.columns.find((c) => c.id === selectedColumnId);
 
   return (
     <div className="board-view" data-testid="board-view">
-      <div className="board-view__toolbar">
-        <div className="board-view__project-info">
-          {board?.projectName && (
-            <span className="board-view__project-name">{board.projectName}</span>
-          )}
+      <BoardHeader
+        projectName={board?.projectName}
+        boardName={board?.name}
+        taskCount={tasks.length}
+        onOpenCreateTask={() => {
+          setSelectedColumnId(undefined);
+          setIsCreateModalOpen(true);
+        }}
+      />
+
+      <div className="board-columns-wrapper">
+        <div
+          ref={scrollContainerRef}
+          className="board-columns"
+          role="region"
+          aria-label="Task board columns"
+          onScroll={updateScrollState}
+        >
+          {columnsWithTasks.map(({ column, tasks: colTasks }) => (
+            <BoardColumn
+              key={column.id}
+              column={column}
+              tasks={colTasks}
+              members={board?.members}
+              onAddTask={(colId) => {
+                setSelectedColumnId(colId);
+                setIsCreateModalOpen(true);
+              }}
+            />
+          ))}
         </div>
-
-        <div className="board-view__actions">
-          {onReload && (
-            <button
-              type="button"
-              className="board-view__btn board-view__btn--secondary"
-              onClick={onReload}
-              title="Refresh tasks"
-            >
-              🔄 Refresh
-            </button>
-          )}
-
-          {board && (
-            <button
-              type="button"
-              className="board-view__btn board-view__btn--primary"
-              onClick={() => setIsCreateModalOpen(true)}
-              data-testid="create-task-btn"
-            >
-              + Create Task
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Prominent empty board message when board has no tasks: Requirement for Task 3 */}
-      {hasNoTasks && (
-        <div className="board-view__empty-state" role="status" data-testid="empty-board-banner">
-          <p className="board-view__empty-title">No tasks yet</p>
-          <p className="board-view__empty-desc">
-            Get started by creating the first task on this board.
-          </p>
-          <button
-            type="button"
-            className="board-view__btn board-view__btn--primary"
-            onClick={() => setIsCreateModalOpen(true)}
-            data-testid="empty-board-create-btn"
-          >
-            + Create First Task
-          </button>
-        </div>
-      )}
-
-      {/* Horizontal scrolling canvas container */}
-      <div className="board-view__canvas" role="region" aria-label="Task board columns">
-        {columnsWithTasks.map(({ column, tasks: colTasks }) => (
-          <BoardColumn
-            key={column.id || column.category}
-            column={column}
-            tasks={colTasks}
-            members={board?.members}
-          />
-        ))}
+        {canScrollRight && <div className="board-columns-fade" aria-hidden="true" />}
       </div>
 
       {board && (
         <CreateTaskForm
           boardId={board.id}
+          boardName={board.name}
+          columnId={selectedColumnId}
+          columnName={selectedColumn?.name || board.columns[0]?.name || 'Backlog'}
           members={board.members}
           isOpen={isCreateModalOpen}
           isSubmitting={isCreatingTask}
           serverError={createTaskError}
-          onClose={() => setIsCreateModalOpen(false)}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setSelectedColumnId(undefined);
+          }}
           onSubmit={onCreateTask}
         />
       )}

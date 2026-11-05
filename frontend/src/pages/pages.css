@@ -1,3 +1,13 @@
+.tasks-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 /* Shared page-level layout used by every page component. */
 .page {
   display: flex;

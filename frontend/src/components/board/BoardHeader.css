@@ -1,0 +1,50 @@
+.board-header {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 24px 24px 16px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 4px;
+  color: var(--muted-foreground, #636363);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.crumb img {
+  width: 14px;
+  height: 14px;
+}
+
+.board-name {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.board-name__title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  color: var(--foreground, #0a0a0a);
+  letter-spacing: -0.6px;
+}
+
+.board-name__count {
+  color: var(--muted-foreground, #636363);
+  font-size: 14px;
+}
+
+.board-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
