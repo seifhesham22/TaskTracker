@@ -10,8 +10,31 @@
   background: #ffffff;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
   text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: grab;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.card.is-saving {
+  opacity: 0.6;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.card-saving-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  color: var(--muted-foreground, #636363);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
 }
 
 .card:hover {

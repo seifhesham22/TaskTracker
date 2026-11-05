@@ -3,7 +3,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../api';
 import { routes } from '../app/routes';
-import { ColumnCategory, TaskPriority } from '../domain/models';
+import { ColumnCategory, type TaskItem, TaskPriority } from '../domain/models';
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -268,5 +268,196 @@ describe('Board & Task acceptance tests', () => {
 
     expect(await screen.findByText('Task in second column')).toBeInTheDocument();
     expect(screen.getByTestId('task-card-task-in-b')).toBeInTheDocument();
+  });
+
+  it('moves a card to another column via drag and drop without a page reload', async () => {
+    const initialBoardData = {
+      ...mockBoardData,
+      tasks: [
+        {
+          id: 't-1',
+          readableId: 'TES-1',
+          number: 1,
+          boardId: mockBoardData.board.id,
+          title: 'Title only task',
+          description: null,
+          status: ColumnCategory.Backlog,
+          columnId: 'c-backlog',
+          columnName: 'Backlog',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-10-30T00:00:00Z',
+        },
+      ],
+    };
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue(initialBoardData);
+    const moveSpy = vi.spyOn(api.board, 'moveTask').mockResolvedValue({
+      id: 't-1',
+      readableId: 'TES-1',
+      number: 1,
+      boardId: mockBoardData.board.id,
+      title: 'Title only task',
+      description: null,
+      status: ColumnCategory.InProgress,
+      columnId: 'c-progress',
+      columnName: 'In progress',
+      priority: null,
+      assigneeIds: [],
+      dueDate: null,
+      createdAt: '2026-10-30T00:00:00Z',
+    });
+
+    renderAt('/tasks');
+
+    const card = await screen.findByTestId('task-card-t-1');
+    const inProgressColumn = screen.getByTestId('board-column-IN_PROGRESS');
+
+    const dataTransfer = {
+      data: {} as Record<string, string>,
+      setData(key: string, val: string) {
+        this.data[key] = val;
+      },
+      getData(key: string) {
+        return this.data[key] || '';
+      },
+      effectAllowed: 'none',
+      dropEffect: 'none',
+    };
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.dragOver(inProgressColumn, { dataTransfer });
+    fireEvent.drop(inProgressColumn, { dataTransfer });
+
+    await waitFor(() => {
+      expect(moveSpy).toHaveBeenCalledWith({
+        taskId: 't-1',
+        columnId: 'c-progress',
+      });
+    });
+
+    // Verify task is now inside In progress column
+    expect(inProgressColumn).toContainElement(screen.getByTestId('task-card-t-1'));
+  });
+
+  it('shows saving indicator on the card while move is in progress', async () => {
+    const initialBoardData = {
+      ...mockBoardData,
+      tasks: [
+        {
+          id: 't-1',
+          readableId: 'TES-1',
+          number: 1,
+          boardId: mockBoardData.board.id,
+          title: 'Title only task',
+          description: null,
+          status: ColumnCategory.Backlog,
+          columnId: 'c-backlog',
+          columnName: 'Backlog',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-10-30T00:00:00Z',
+        },
+      ],
+    };
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue(initialBoardData);
+    let resolveMove: (task: TaskItem) => void = () => {};
+    const movePromise = new Promise<TaskItem>((resolve) => {
+      resolveMove = resolve;
+    });
+    vi.spyOn(api.board, 'moveTask').mockReturnValue(movePromise);
+
+    renderAt('/tasks');
+
+    const card = await screen.findByTestId('task-card-t-1');
+    const todoColumn = screen.getByTestId('board-column-TO_DO');
+
+    const dataTransfer = {
+      data: { 'application/x-task-id': 't-1' },
+      setData: vi.fn(),
+      getData: (key: string) => (key === 'application/x-task-id' ? 't-1' : ''),
+      effectAllowed: 'none',
+      dropEffect: 'none',
+    };
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.drop(todoColumn, { dataTransfer });
+
+    // While saving, card shows that it is saving
+    expect(await screen.findByText('Saving...')).toBeInTheDocument();
+
+    // Resolve move
+    resolveMove({
+      id: 't-1',
+      readableId: 'TES-1',
+      number: 1,
+      boardId: mockBoardData.board.id,
+      title: 'Title only task',
+      description: null,
+      status: ColumnCategory.ToDo,
+      columnId: 'c-todo',
+      columnName: 'To do',
+      priority: null,
+      assigneeIds: [],
+      dueDate: null,
+      createdAt: '2026-10-30T00:00:00Z',
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Saving...')).not.toBeInTheDocument();
+    });
+    expect(todoColumn).toContainElement(screen.getByTestId('task-card-t-1'));
+  });
+
+  it('reverts card to original column and displays server message when move is refused', async () => {
+    const initialBoardData = {
+      ...mockBoardData,
+      tasks: [
+        {
+          id: 't-1',
+          readableId: 'TES-1',
+          number: 1,
+          boardId: mockBoardData.board.id,
+          title: 'Title only task',
+          description: null,
+          status: ColumnCategory.Backlog,
+          columnId: 'c-backlog',
+          columnName: 'Backlog',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-10-30T00:00:00Z',
+        },
+      ],
+    };
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue(initialBoardData);
+    vi.spyOn(api.board, 'moveTask').mockRejectedValue(
+      new ApiError('Failed to move task: network error', 500, null)
+    );
+
+    renderAt('/tasks');
+
+    const card = await screen.findByTestId('task-card-t-1');
+    const backlogColumn = screen.getByTestId('board-column-BACKLOG');
+    const doneColumn = screen.getByTestId('board-column-DONE');
+
+    const dataTransfer = {
+      data: { 'application/x-task-id': 't-1' },
+      setData: vi.fn(),
+      getData: (key: string) => (key === 'application/x-task-id' ? 't-1' : ''),
+      effectAllowed: 'none',
+      dropEffect: 'none',
+    };
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.drop(doneColumn, { dataTransfer });
+
+    // Expect server error message to appear
+    expect(await screen.findByRole('alert')).toHaveTextContent(/failed to move task: network error/i);
+
+    // Card reverts to original column (backlog)
+    expect(backlogColumn).toContainElement(screen.getByTestId('task-card-t-1'));
+    expect(doneColumn).not.toContainElement(screen.getByTestId('task-card-t-1'));
   });
 });

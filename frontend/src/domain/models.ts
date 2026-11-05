@@ -73,3 +73,8 @@ export interface CreateTaskInput {
   readonly priority?: TaskPriority;
   readonly dueDate?: string;
 }
+
+export interface MoveTaskInput {
+  readonly taskId: string;
+  readonly columnId: string;
+}
