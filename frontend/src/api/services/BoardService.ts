@@ -3,6 +3,7 @@ import { ApiError } from '../errors';
 import {
   type BoardDetails,
   type CreateTaskInput,
+  type MoveTaskInput,
   type TaskItem,
   ColumnCategory,
 } from '../../domain/models';
@@ -216,6 +217,73 @@ export class BoardService {
     }
 
     return result.data.createTask;
+  }
+
+  async moveTask(input: MoveTaskInput): Promise<TaskItem> {
+    const mutation = `
+      mutation MoveTask($input: MoveTaskInput!) {
+        moveTask(input: $input) {
+          id
+          readableId
+          number
+          boardId
+          title
+          description
+          status
+          columnId
+          position
+          priority
+          dueDate
+          column {
+            id
+            name
+            category
+          }
+          assignees {
+            id
+            userName
+          }
+        }
+      }
+    `;
+
+    const result = await this.client.post<GraphQLResponse<{ moveTask: RawTask }>>(
+      '/graphql',
+      { query: mutation, variables: { input } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, result.errors);
+      }
+      throw new ApiError(firstError.message, 400, result.errors);
+    }
+
+    if (!result.data?.moveTask) {
+      throw new ApiError('Failed to move task.', 500, null);
+    }
+
+    const t = result.data.moveTask;
+    return {
+      id: t.id,
+      readableId: t.readableId,
+      number: t.number,
+      boardId: t.boardId,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      columnId: t.columnId,
+      columnName: t.column?.name ?? t.columnName,
+      position: t.position,
+      priority: t.priority,
+      assignees: t.assignees,
+      assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
+      assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
+      dueDate: t.dueDate,
+      createdAt: t.createdAt,
+    };
   }
 
   private isValidUuid(id: string): boolean {

@@ -117,5 +117,59 @@ describe('BoardService', () => {
       service.createTask({ boardId: 'b-1', title: '   ' })
     ).rejects.toThrow('Title cannot be empty or only spaces.');
   });
+
+  it('moves task via MoveTask mutation successfully', async () => {
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: vi.fn().mockResolvedValue({
+        data: {
+          moveTask: {
+            id: 't-1',
+            readableId: 'TES-1',
+            number: 1,
+            boardId: 'b-1',
+            title: 'Moved task',
+            status: ColumnCategory.InProgress,
+            columnId: 'c-progress',
+            column: { id: 'c-progress', name: 'In progress', category: ColumnCategory.InProgress },
+            priority: TaskPriority.High,
+            assignees: [],
+            dueDate: null,
+            createdAt: '2026-10-30T00:00:00Z',
+          },
+        },
+      }),
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+    const moved = await service.moveTask({
+      taskId: 't-1',
+      columnId: 'c-progress',
+    });
+
+    expect(moved.id).toBe('t-1');
+    expect(moved.columnId).toBe('c-progress');
+    expect(moved.columnName).toBe('In progress');
+    expect(moved.status).toBe(ColumnCategory.InProgress);
+  });
+
+  it('throws ApiError when MoveTask fails with GraphQL error', async () => {
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: vi.fn().mockResolvedValue({
+        errors: [{ message: "Column 'c-invalid' was not found on board 'b-1'.", extensions: { code: 'NOT_FOUND' } }],
+      }),
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+
+    await expect(service.moveTask({ taskId: 't-1', columnId: 'c-invalid' })).rejects.toThrow(
+      "Column 'c-invalid' was not found on board 'b-1'."
+    );
+  });
 });
 
