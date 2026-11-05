@@ -171,5 +171,54 @@ describe('BoardService', () => {
       "Column 'c-invalid' was not found on board 'b-1'."
     );
   });
+
+  it('accepts UUIDv7 IDs like the seeded test board and requests valid GraphQL fields', async () => {
+    const postMock = vi.fn().mockResolvedValue({
+      data: {
+        board: {
+          id: '01a1aad8-c24a-73f9-a095-069769796312',
+          projectId: '01a1aad8-c24a-73cd-b1e8-23e9150a4fa7',
+          name: 'Test Board',
+          columns: [
+            { id: '01a1aad8-c24a-7981-bc0e-b8572aa9d513', name: 'Backlog', category: ColumnCategory.Backlog, position: 'A' },
+          ],
+        },
+        tasks: [
+          {
+            id: '01a1aae6-ea53-72e0-a09a-e48651aea223',
+            readableId: 'TES-1',
+            number: 1,
+            boardId: '01a1aad8-c24a-73f9-a095-069769796312',
+            title: 'Design onboarding checklist',
+            status: ColumnCategory.Backlog,
+            columnId: '01a1aad8-c24a-7981-bc0e-b8572aa9d513',
+            column: { id: '01a1aad8-c24a-7981-bc0e-b8572aa9d513', name: 'Backlog', category: ColumnCategory.Backlog },
+            priority: TaskPriority.Medium,
+            assignees: [{ id: '01a1aad8-c24a-73cd-b1e8-23e9150a4fa8', userName: 'Admin User' }],
+          },
+        ],
+      },
+    });
+
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: postMock,
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+    const result = await service.getBoardWithTasks('01a1aad8-c24a-73f9-a095-069769796312');
+
+    expect(result.board.id).toBe('01a1aad8-c24a-73f9-a095-069769796312');
+    expect(result.tasks).toHaveLength(1);
+    expect(result.tasks[0].title).toBe('Design onboarding checklist');
+    expect(result.tasks[0].assigneeNames).toEqual(['Admin User']);
+
+    // Verify GraphQL query does NOT request projectName or members on BoardNode
+    const sentQuery = postMock.mock.calls[0][1].query as string;
+    expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*projectName/);
+    expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*members/);
+  });
 });
 

@@ -10,7 +10,7 @@ export interface TaskCardProps {
 }
 
 export function TaskCard({ task, members, isSaving }: TaskCardProps) {
-  const assigneeNames = getAssigneeNames(task.assigneeIds, members);
+  const assigneeNames = getAssigneeName(task, members);
   const initials = getInitials(assigneeNames);
   const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames || isSaving);
 
@@ -62,10 +62,22 @@ export function TaskCard({ task, members, isSaving }: TaskCardProps) {
   );
 }
 
-function getAssigneeNames(
-  assigneeIds: readonly string[],
+function getAssigneeName(
+  task: TaskItem,
   members?: readonly ProjectMemberModel[]
 ): string | null {
+  if (task.assigneeNames && task.assigneeNames.length > 0 && task.assigneeNames[0]) {
+    return task.assigneeNames.join(', ');
+  }
+
+  if (task.assignees && task.assignees.length > 0) {
+    const validNames = task.assignees.map((a) => a.userName).filter(Boolean);
+    if (validNames.length > 0) {
+      return validNames.join(', ');
+    }
+  }
+
+  const assigneeIds = task.assigneeIds;
   if (!assigneeIds || assigneeIds.length === 0) {
     return null;
   }

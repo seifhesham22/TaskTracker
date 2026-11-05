@@ -460,4 +460,146 @@ describe('Board & Task acceptance tests', () => {
     expect(backlogColumn).toContainElement(screen.getByTestId('task-card-t-1'));
     expect(doneColumn).not.toContainElement(screen.getByTestId('task-card-t-1'));
   });
+
+  it('loads seeded test board with UUIDv7 ID without showing "Board not found"', async () => {
+    const seededBoardId = '01a1aad8-c24a-73f9-a095-069769796312';
+    const seededBoardData = {
+      board: {
+        id: seededBoardId,
+        projectId: '01a1aad8-c24a-73cd-b1e8-23e9150a4fa7',
+        name: 'Test Board',
+        columns: [
+          { id: 'c-b1', name: 'Backlog', category: ColumnCategory.Backlog, position: 'A' },
+          { id: 'c-b2', name: 'Done', category: ColumnCategory.Done, position: 'B' },
+        ],
+      },
+      tasks: [
+        {
+          id: '01a1aae6-ea53-72e0-a09a-e48651aea223',
+          readableId: 'TES-1',
+          number: 1,
+          boardId: seededBoardId,
+          title: 'Design the onboarding checklist for new projects',
+          status: ColumnCategory.Done,
+          columnId: 'c-b2',
+          columnName: 'Done',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-11-05T08:34:54Z',
+        },
+      ],
+    };
+
+    const getSpy = vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue(seededBoardData);
+
+    renderAt(`/tasks?boardId=${seededBoardId}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: /test board/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('board-not-found')).not.toBeInTheDocument();
+    expect(screen.getByText('Design the onboarding checklist for new projects')).toBeInTheDocument();
+    expect(getSpy).toHaveBeenCalledWith(seededBoardId);
+  });
+
+  it('keeps created task visible after reload and maintains strict isolation across boards', async () => {
+    const boardAId = '01a1aad8-c24a-73f9-a095-069769796312';
+    const boardBId = '11111111-2222-4333-8444-555555555555';
+
+    const boardAData = {
+      board: {
+        id: boardAId,
+        projectId: 'p-1',
+        name: 'First Board',
+        columns: [{ id: 'col-a1', name: 'Backlog', category: ColumnCategory.Backlog, position: 'A' }],
+      },
+      tasks: [
+        {
+          id: 'task-a1',
+          readableId: 'TES-1',
+          number: 1,
+          boardId: boardAId,
+          title: 'Existing Board A task',
+          status: ColumnCategory.Backlog,
+          columnId: 'col-a1',
+          columnName: 'Backlog',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-11-05T08:00:00Z',
+        },
+      ],
+    };
+
+    const boardBTasks: TaskItem[] = [];
+    const boardBData = {
+      board: {
+        id: boardBId,
+        projectId: 'p-1',
+        name: 'Second Board',
+        columns: [{ id: 'col-b1', name: 'Backlog', category: ColumnCategory.Backlog, position: 'A' }],
+      },
+      get tasks() {
+        return boardBTasks;
+      },
+    };
+
+    vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async (id: string) => {
+      if (id === boardAId) return { board: boardAData.board, tasks: [...boardAData.tasks] };
+      if (id === boardBId) return { board: boardBData.board, tasks: [...boardBData.tasks] };
+      throw new ApiError(`Board '${id}' was not found.`, 404, null);
+    });
+
+    vi.spyOn(api.board, 'createTask').mockImplementation(async (input) => {
+      const created: TaskItem = {
+        id: 'new-b-task-id',
+        readableId: 'TES-2',
+        number: 2,
+        boardId: input.boardId,
+        title: input.title,
+        status: ColumnCategory.Backlog,
+        columnId: 'col-b1',
+        columnName: 'Backlog',
+        priority: null,
+        assigneeIds: [],
+        dueDate: null,
+        createdAt: '2026-11-05T09:00:00Z',
+      };
+      boardBTasks.push(created);
+      return created;
+    });
+
+    // 1. Visit Second Board
+    const { unmount } = renderAt(`/tasks?boardId=${boardBId}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: /second board/i })).toBeInTheDocument();
+    expect(screen.queryByText('Task created on Second Board')).not.toBeInTheDocument();
+
+    // 2. Create task on Second Board
+    const openBtn = screen.getByTestId('create-task-btn');
+    fireEvent.click(openBtn);
+
+    const titleInput = screen.getByLabelText(/title/i);
+    fireEvent.change(titleInput, { target: { value: 'Task created on Second Board' } });
+
+    const submitBtn = screen.getByRole('button', { name: /^create task$/i });
+    fireEvent.click(submitBtn);
+
+    // Task appears immediately without page reload
+    expect(await screen.findByText('Task created on Second Board')).toBeInTheDocument();
+
+    unmount();
+
+    // 3. Simulate page refresh / reload on Second Board: task must remain visible!
+    const reloadRender = renderAt(`/tasks?boardId=${boardBId}`);
+    expect(await reloadRender.findByRole('heading', { level: 1, name: /second board/i })).toBeInTheDocument();
+    expect(reloadRender.getByText('Task created on Second Board')).toBeInTheDocument();
+
+    reloadRender.unmount();
+
+    // 4. Visit First Board: Second Board's task must NOT appear here
+    const boardARender = renderAt(`/tasks?boardId=${boardAId}`);
+    expect(await boardARender.findByRole('heading', { level: 1, name: /first board/i })).toBeInTheDocument();
+    expect(boardARender.getByText('Existing Board A task')).toBeInTheDocument();
+    expect(boardARender.queryByText('Task created on Second Board')).not.toBeInTheDocument();
+  });
 });
