@@ -13,8 +13,12 @@ export interface BoardViewProps {
   readonly isNotFound: boolean;
   readonly isCreatingTask: boolean;
   readonly createTaskError?: string | null;
+  readonly savingTaskIds?: ReadonlySet<string>;
+  readonly moveError?: string | null;
+  readonly onClearMoveError?: () => void;
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
 }
 
 export function BoardView({
@@ -25,8 +29,12 @@ export function BoardView({
   isNotFound,
   isCreatingTask,
   createTaskError,
+  savingTaskIds,
+  moveError,
+  onClearMoveError,
   onReload,
   onCreateTask,
+  onMoveTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
@@ -132,6 +140,23 @@ export function BoardView({
         }}
       />
 
+      {moveError && (
+        <div className="board-alert board-alert--error" role="alert" data-testid="board-move-error">
+          <img src="/assets/871e4.svg" alt="" width="16" height="16" />
+          <span>{moveError}</span>
+          {onClearMoveError && (
+            <button
+              type="button"
+              className="board-alert__close"
+              aria-label="Dismiss error"
+              onClick={onClearMoveError}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="board-columns-wrapper">
         <div
           ref={scrollContainerRef}
@@ -146,6 +171,8 @@ export function BoardView({
               column={column}
               tasks={colTasks}
               members={board?.members}
+              savingTaskIds={savingTaskIds}
+              onDropTask={onMoveTask}
               onAddTask={(colId) => {
                 setSelectedColumnId(colId);
                 setIsCreateModalOpen(true);

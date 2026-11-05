@@ -6,20 +6,34 @@ import './TaskCard.css';
 export interface TaskCardProps {
   readonly task: TaskItem;
   readonly members?: readonly ProjectMemberModel[];
+  readonly isSaving?: boolean;
 }
 
-export function TaskCard({ task, members }: TaskCardProps) {
+export function TaskCard({ task, members, isSaving }: TaskCardProps) {
   const assigneeNames = getAssigneeNames(task.assigneeIds, members);
   const initials = getInitials(assigneeNames);
-  const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames);
+  const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames || isSaving);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (isSaving) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData('text/plain', task.id);
+    e.dataTransfer.setData('application/x-task-id', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
 
   return (
     <article
-      className="card"
+      className={`card ${isSaving ? 'is-saving' : ''}`}
       data-testid={`task-card-${task.id}`}
       tabIndex={0}
       role="button"
       aria-label={`Task ${task.readableId}: ${task.title}`}
+      aria-busy={isSaving ? 'true' : undefined}
+      draggable={!isSaving}
+      onDragStart={handleDragStart}
     >
       <strong>{task.title}</strong>
 
@@ -27,6 +41,11 @@ export function TaskCard({ task, members }: TaskCardProps) {
         <div className="card-meta">
           {task.priority && <PriorityBadge priority={task.priority} />}
           {task.dueDate && <DueDateLabel dueDate={task.dueDate} status={task.status} />}
+          {isSaving && (
+            <span className="card-saving-badge" role="status" aria-live="polite">
+              Saving...
+            </span>
+          )}
           {assigneeNames && (
             <span
               className="avatar avatar-small"

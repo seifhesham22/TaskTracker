@@ -18,8 +18,12 @@ export function TasksPage() {
     isNotFound,
     isCreatingTask,
     createTaskError,
+    savingTaskIds,
+    moveError,
+    clearMoveError,
     reload,
     handleCreateTask,
+    handleMoveTask,
   } = useBoard(boardId);
 
   return (
@@ -32,8 +36,12 @@ export function TasksPage() {
         isNotFound={isNotFound}
         isCreatingTask={isCreatingTask}
         createTaskError={createTaskError}
+        savingTaskIds={savingTaskIds}
+        moveError={moveError}
+        onClearMoveError={clearMoveError}
         onReload={reload}
         onCreateTask={handleCreateTask}
+        onMoveTask={handleMoveTask}
       />
     </div>
   );
