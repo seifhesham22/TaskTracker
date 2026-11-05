@@ -1,97 +1,150 @@
-.task-card {
+.card {
   display: flex;
+  width: 100%;
+  box-sizing: border-box;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.task-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+.card:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-.task-card__header {
+.card:focus-visible {
+  outline: 2px solid var(--primary, #171717);
+  outline-offset: 1px;
+}
+
+.card strong {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--foreground, #0a0a0a);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
-.task-card__id {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+.card-meta .avatar {
+  margin-left: auto;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 6px;
+  color: #404040;
+  background: var(--muted, #f5f5f5);
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 500;
 }
 
-.task-card__title {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  line-height: 1.4;
-  word-break: break-word;
+.badge img {
+  width: 14px;
+  height: 14px;
 }
 
-.task-card__description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1.4;
-  word-break: break-word;
+.badge-low {
+  background: #f5f5f5;
+  border-color: #e5e5e5;
+  color: #404040;
 }
 
-.task-card__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
+.badge-medium {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
-.task-card__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+.badge-high {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.badge-critical {
+  background: #c10007;
+  border-color: #c10007;
+  color: #ffffff;
+}
+
+.priority-label {
+  display: inline-block;
+  text-transform: lowercase;
+}
+
+.priority-label::first-letter {
   text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
-.task-card__badge--low {
-  background-color: rgba(91, 141, 232, 0.15);
-  color: #7ba3f0;
-}
-
-.task-card__badge--medium {
-  background-color: rgba(232, 148, 91, 0.15);
-  color: #f0aa7b;
-}
-
-.task-card__badge--high {
-  background-color: rgba(232, 91, 91, 0.15);
-  color: #f07b7b;
-}
-
-.task-card__badge--critical {
-  background-color: rgba(220, 38, 38, 0.25);
-  color: #ff6b6b;
-  border: 1px solid rgba(220, 38, 38, 0.4);
-}
-
-.task-card__meta-item {
+.date {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  color: var(--muted-foreground, #636363);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
+.date img {
+  width: 14px;
+  height: 14px;
+}
+
+.date.danger {
+  color: #b91c1c;
+}
+
+.avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 50%;
+  background: var(--muted, #f5f5f5);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--foreground, #0a0a0a);
+}
+
+.avatar-small {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

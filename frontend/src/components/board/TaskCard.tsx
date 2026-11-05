@@ -1,4 +1,6 @@
 import type { ProjectMemberModel, TaskItem } from '../../domain/models';
+import { PriorityBadge } from './PriorityBadge';
+import { DueDateLabel } from './DueDateLabel';
 import './TaskCard.css';
 
 export interface TaskCardProps {
@@ -8,36 +10,31 @@ export interface TaskCardProps {
 
 export function TaskCard({ task, members }: TaskCardProps) {
   const assigneeNames = getAssigneeNames(task.assigneeIds, members);
-  const formattedDueDate = formatDueDate(task.dueDate);
+  const initials = getInitials(assigneeNames);
+  const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames);
 
   return (
-    <article className="task-card" data-testid={`task-card-${task.id}`}>
-      <div className="task-card__header">
-        <span className="task-card__id">{task.readableId}</span>
-        {task.priority && (
-          <span className={`task-card__badge task-card__badge--${task.priority.toLowerCase()}`}>
-            {task.priority}
-          </span>
-        )}
-      </div>
+    <article
+      className="card"
+      data-testid={`task-card-${task.id}`}
+      tabIndex={0}
+      role="button"
+      aria-label={`Task ${task.readableId}: ${task.title}`}
+    >
+      <strong>{task.title}</strong>
 
-      <h3 className="task-card__title">{task.title}</h3>
-
-      {task.description && (
-        <p className="task-card__description">{task.description}</p>
-      )}
-
-      {(assigneeNames || formattedDueDate) && (
-        <div className="task-card__footer">
+      {hasMeta && (
+        <div className="card-meta">
+          {task.priority && <PriorityBadge priority={task.priority} />}
+          {task.dueDate && <DueDateLabel dueDate={task.dueDate} status={task.status} />}
           {assigneeNames && (
-            <span className="task-card__meta-item" title="Assignee" aria-label={`Assignee: ${assigneeNames}`}>
-              👤 {assigneeNames}
-            </span>
-          )}
-
-          {formattedDueDate && (
-            <span className="task-card__meta-item" title="Due date" aria-label={`Due date: ${formattedDueDate}`}>
-              📅 {formattedDueDate}
+            <span
+              className="avatar avatar-small"
+              title={`Assignee: ${assigneeNames}`}
+              aria-label={`Assignee: ${assigneeNames}`}
+            >
+              {initials}
+              <span className="visually-hidden">{assigneeNames}</span>
             </span>
           )}
         </div>
@@ -69,23 +66,12 @@ function getAssigneeNames(
   return names.join(', ');
 }
 
-function formatDueDate(isoString?: string | null): string | null {
-  if (!isoString) {
-    return null;
+function getInitials(name: string | null): string {
+  if (!name) return 'AD';
+  const clean = name.replace(/@.*/, '').trim();
+  const parts = clean.split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
-
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) {
-      return null;
-    }
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
-  } catch {
-    return null;
-  }
+  return clean.slice(0, 2).toUpperCase();
 }
