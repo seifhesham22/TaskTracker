@@ -2,6 +2,8 @@
 
 Returns one board with its columns. This is what the board screen asks for when it opens, also from a link or after a refresh. The same [`Board`](../types.md#board) type comes back from `projects { boards }`, so `columns` works there too.
 
+**Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
 [Back to the API index](../README.md)
 
 ## Arguments
@@ -55,6 +57,7 @@ query {
 | Case                                 | `extensions.code` | Message |
 | ------------------------------------ | ----------------- | ------- |
 | Board does not exist, or was deleted | `NOT_FOUND`       | Board '…' was not found. |
+| No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 

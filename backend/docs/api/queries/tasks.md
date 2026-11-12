@@ -2,6 +2,8 @@
 
 Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `boardId` for the tasks of one board, or leave it out for all tasks. A board with no tasks returns an empty list.
 
+**Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
 [Back to the API index](../README.md)
 
 ## Arguments
@@ -73,6 +75,7 @@ query {
 | Case                 | `extensions.code` | Message |
 | -------------------- | ----------------- | ------- |
 | Board does not exist | `NOT_FOUND`       | Board '…' was not found. |
+| No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 

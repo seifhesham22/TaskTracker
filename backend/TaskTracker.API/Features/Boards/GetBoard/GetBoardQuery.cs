@@ -1,3 +1,4 @@
+using HotChocolate.Authorization;
 using TaskTracker.API.Features.Boards.Nodes;
 
 namespace TaskTracker.API.Features.Boards.GetBoard
@@ -5,6 +6,7 @@ namespace TaskTracker.API.Features.Boards.GetBoard
     [QueryType]
     public class GetBoardQuery
     {
+        [Authorize]
         public Task<BoardNode> GetBoardAsync(
             Guid id,
             [Service] GetBoardHandler handler,

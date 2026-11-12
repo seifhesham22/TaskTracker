@@ -31,6 +31,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-tasktracker};Username=${POSTGRES_USER:-tasktracker};Password=${POSTGRES_PASSWORD:-tasktracker};GSS Encryption Mode=Disable"
+      Jwt__Key: "${JWT_KEY:-local-development-jwt-signing-key-change-me-0123456789}"
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

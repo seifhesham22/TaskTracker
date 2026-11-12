@@ -1,12 +1,17 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using TaskTracker.API.Domain.Entities;
+using TaskTracker.API.Shared.Auth;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Api;
@@ -16,12 +21,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 {
     private const string FrontendOrigin = "http://localhost:5173";
 
-    private readonly WebApplicationFactory<Program> _factory = new WebApplicationFactory<Program>()
-        .WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("ConnectionStrings:DefaultConnection", database.ConnectionString);
-        });
+    private const string ValidPassword = "Valid@Pass123";
+
+    private readonly WebApplicationFactory<Program> _factory = TestApp.Create(database.ConnectionString);
+
+    private string? _token;
+
+    private string Token => _token ??= _factory.Services.GetRequiredService<IAccessTokenService>()
+        .Create(Guid.CreateVersion7(), "tester@test.local").Token;
 
     public void Dispose() => _factory.Dispose();
 
@@ -431,9 +438,9 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     public async Task Register_returns_the_account_without_the_password()
     {
         var email = $"{Guid.NewGuid():N}@test.local";
-        const string password = "Valid@Pass123";
+        const string password = ValidPassword;
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostAnonymousGraphQLAsync($$"""
             mutation { register(input: { email: "{{email}}", password: "{{password}}" }) { id email } }
             """);
 
@@ -442,7 +449,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(email, user.GetProperty("email").GetString());
         Assert.DoesNotContain(password, json.GetRawText());
 
-        var withSecrets = await PostGraphQLAsync($$"""
+        var withSecrets = await PostAnonymousGraphQLAsync($$"""
             mutation { register(input: { email: "{{Guid.NewGuid():N}}@test.local", password: "{{password}}" }) { id password passwordHash } }
             """);
         var messages = withSecrets.GetProperty("errors").EnumerateArray()
@@ -464,9 +471,9 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var mutation = $$"""
             mutation { register(input: { email: "{{email}}", password: "Valid@Pass123" }) { id } }
             """;
-        await PostGraphQLAsync(mutation);
+        await PostAnonymousGraphQLAsync(mutation);
 
-        var json = await PostGraphQLAsync(mutation);
+        var json = await PostAnonymousGraphQLAsync(mutation);
 
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
@@ -476,12 +483,90 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [Fact]
     public async Task Register_without_a_password_is_refused_by_the_schema()
     {
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostAnonymousGraphQLAsync($$"""
             mutation { register(input: { email: "{{Guid.NewGuid():N}}@test.local" }) { id } }
             """);
 
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Contains("password", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Login_returns_a_token_that_identifies_the_user_who_logged_in()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        var userId = await RegisterAsync(email);
+
+        var login = await PostAnonymousGraphQLAsync($$"""
+            mutation { login(input: { email: "{{email}}", password: "{{ValidPassword}}" }) { accessToken tokenType expiresAt user { id email } } }
+            """);
+
+        var payload = login.GetProperty("data").GetProperty("login");
+        Assert.Equal("Bearer", payload.GetProperty("tokenType").GetString());
+        Assert.Equal(userId, payload.GetProperty("user").GetProperty("id").GetString());
+        Assert.True(payload.GetProperty("expiresAt").GetDateTimeOffset() > DateTimeOffset.UtcNow);
+
+        var me = await SendGraphQLAsync("query { me { id email } }", payload.GetProperty("accessToken").GetString());
+
+        Assert.Equal(userId, me.GetProperty("data").GetProperty("me").GetProperty("id").GetString());
+        Assert.Equal(email, me.GetProperty("data").GetProperty("me").GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task A_wrong_password_and_an_unknown_email_get_the_same_INVALID_CREDENTIALS_error()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        await RegisterAsync(email);
+
+        var wrongPassword = await PostAnonymousGraphQLAsync($$"""
+            mutation { login(input: { email: "{{email}}", password: "Wrong@Pass123" }) { accessToken } }
+            """);
+        var unknownEmail = await PostAnonymousGraphQLAsync($$"""
+            mutation { login(input: { email: "{{Guid.NewGuid():N}}@test.local", password: "{{ValidPassword}}" }) { accessToken } }
+            """);
+
+        var first = Assert.Single(wrongPassword.GetProperty("errors").EnumerateArray());
+        var second = Assert.Single(unknownEmail.GetProperty("errors").EnumerateArray());
+        Assert.Equal("INVALID_CREDENTIALS", first.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Invalid email or password.", first.GetProperty("message").GetString());
+        Assert.Equal(first.GetProperty("message").GetString(), second.GetProperty("message").GetString());
+        Assert.Equal(
+            first.GetProperty("extensions").GetProperty("code").GetString(),
+            second.GetProperty("extensions").GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("query { tasks { id } }")]
+    [InlineData("query { projects(userId: \"00000000-0000-0000-0000-000000000001\") { id } }")]
+    [InlineData("query { board(id: \"00000000-0000-0000-0000-000000000001\") { id } }")]
+    [InlineData("query { me { id } }")]
+    [InlineData("mutation { createTask(input: { boardId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
+    [InlineData("mutation { moveTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", columnId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
+    public async Task Protected_operations_are_refused_without_a_token(string query)
+    {
+        var json = await PostAnonymousGraphQLAsync(query);
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
+    }
+
+    [Fact]
+    public async Task A_token_signed_with_another_key_is_refused()
+    {
+        var forged = CreateToken("someone-elses-signing-key-0123456789-abcdefghij", DateTime.UtcNow, DateTime.UtcNow.AddHours(1));
+
+        var json = await SendGraphQLAsync("query { me { id } }", forged);
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
+    }
+
+    [Fact]
+    public async Task An_expired_token_is_refused()
+    {
+        var expired = CreateToken(TestApp.JwtKey, DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1));
+
+        var json = await SendGraphQLAsync("query { me { id } }", expired);
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
     }
 
     [Fact]
@@ -513,12 +598,47 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         return board.GetProperty("columns").EnumerateArray().ToList();
     }
 
-    private async Task<JsonElement> PostGraphQLAsync(string query)
+    private Task<JsonElement> PostGraphQLAsync(string query) => SendGraphQLAsync(query, Token);
+
+    private Task<JsonElement> PostAnonymousGraphQLAsync(string query) => SendGraphQLAsync(query, token: null);
+
+    private async Task<JsonElement> SendGraphQLAsync(string query, string? token)
     {
         using var client = _factory.CreateClient();
+        if (token is not null)
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var response = await client.PostAsJsonAsync("/graphql", new { query });
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
+
+    private async Task<string> RegisterAsync(string email)
+    {
+        var json = await PostAnonymousGraphQLAsync($$"""
+            mutation { register(input: { email: "{{email}}", password: "{{ValidPassword}}" }) { id } }
+            """);
+        return json.GetProperty("data").GetProperty("register").GetProperty("id").GetString()!;
+    }
+
+    private string CreateToken(string signingKey, DateTime notBefore, DateTime expires)
+    {
+        var jwt = _factory.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
+        return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = jwt.Issuer,
+            Audience = jwt.Audience,
+            IssuedAt = notBefore,
+            NotBefore = notBefore,
+            Expires = expires,
+            Claims = new Dictionary<string, object> { [JwtRegisteredClaimNames.Sub] = Guid.CreateVersion7().ToString() },
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)), SecurityAlgorithms.HmacSha256)
+        });
+    }
+
+    private static string ErrorCode(JsonElement json) =>
+        Assert.Single(json.GetProperty("errors").EnumerateArray())
+            .GetProperty("extensions").GetProperty("code").GetString()!;
 
     private async Task<HttpResponseMessage> SendPreflightAsync(string origin)
     {

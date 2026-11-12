@@ -4,6 +4,8 @@ Returns the projects a user is a member of, sorted by name, each with the role t
 
 This is what the sidebar asks for: every project with its boards, in one request.
 
+**Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
 [Back to the API index](../README.md)
 
 ## Arguments
@@ -67,6 +69,7 @@ query {
 | Case                | `extensions.code` | Message |
 | ------------------- | ----------------- | ------- |
 | User does not exist | `NOT_FOUND`       | User '…' was not found. |
+| No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 

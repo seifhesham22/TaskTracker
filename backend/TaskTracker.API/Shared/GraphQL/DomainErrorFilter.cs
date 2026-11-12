@@ -8,10 +8,14 @@ namespace TaskTracker.API.Shared.GraphQL
     {
         public IError OnError(IError error) => error.Exception switch
         {
-            NotFoundException ex => error.WithMessage(ex.Message).WithCode("NOT_FOUND"),
-            BadUserInputException ex => error.WithMessage(ex.Message).WithCode("BAD_USER_INPUT"),
-            DomainException ex => error.WithMessage(ex.Message).WithCode("BAD_USER_INPUT"),
+            NotFoundException ex => Expected(error, ex, "NOT_FOUND"),
+            BadUserInputException ex => Expected(error, ex, "BAD_USER_INPUT"),
+            InvalidCredentialsException ex => Expected(error, ex, "INVALID_CREDENTIALS"),
+            DomainException ex => Expected(error, ex, "BAD_USER_INPUT"),
             _ => error
         };
+
+        private static IError Expected(IError error, Exception exception, string code) =>
+            error.WithMessage(exception.Message).WithCode(code).WithException(null!).RemoveExtension("exception");
     }
 }
