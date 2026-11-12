@@ -12,6 +12,7 @@ namespace TaskTracker.API.Data
         public DbSet<Board> boards => Set<Board>();
         public DbSet<BoardColumn> boardColumns => Set<BoardColumn>();
         public DbSet<TaskAssignee> assignees => Set<TaskAssignee>();
+        public DbSet<RevokedToken> revokedTokens => Set<RevokedToken>();
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }

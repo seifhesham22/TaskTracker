@@ -9,6 +9,7 @@ using TaskTracker.API.Data.DataLoaders;
 using TaskTracker.API.Data.Seeders;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Auth.Login;
+using TaskTracker.API.Features.Auth.Logout;
 using TaskTracker.API.Features.Auth.Register;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.GetProjects;
@@ -45,6 +46,7 @@ builder.Services
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAccessTokenService, JwtAccessTokenService>();
+builder.Services.AddScoped<ITokenRevocationService, TokenRevocationService>();
 
 builder.Services
     .AddAuthentication(x =>
@@ -70,6 +72,10 @@ builder.Services
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = JwtRegisteredClaimNames.Sub
         };
+        bearer.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = RevokedTokenCheck.RejectRevokedTokenAsync
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -82,6 +88,7 @@ builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
 builder.Services.AddScoped<RegisterHandler>();
 builder.Services.AddScoped<LoginHandler>();
+builder.Services.AddScoped<LogoutHandler>();
 builder.Services.AddScoped<GetMeHandler>();
 builder.Services.AddDataLoader<ColumnByIdDataLoader>();
 builder.Services.AddDataLoader<AssigneesByTaskIdDataLoader>();
@@ -101,6 +108,7 @@ builder.Services
     .AddType<MoveTaskMutation>()
     .AddType<RegisterMutation>()
     .AddType<LoginMutation>()
+    .AddType<LogoutMutation>()
     .AddType<MeQuery>()
     .AddErrorFilter<DomainErrorFilter>()
     .ModifyRequestOptions(o => o.IncludeExceptionDetails = builder.Environment.IsDevelopment());

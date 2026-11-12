@@ -8,6 +8,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | --- | --- | --- | --- |
 | [`register`](mutations/register.md) | mutation | no | Creates a user account from an email and a password |
 | [`login`](mutations/login.md) | mutation | no | Checks an email and password and returns an access token |
+| [`logout`](mutations/logout.md) | mutation | yes | Ends the current session, so its token stops working |
 | [`me`](queries/me.md) | query | yes | The user the token belongs to |
 | [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
 | [`projects`](queries/projects.md) | query | yes | The projects a user is a member of, with their boards and members |
@@ -28,10 +29,11 @@ Every type these operations return is described once in [types.md](types.md).
 
    In Nitro, add it under the request's **Headers**.
 3. The token expires after 60 minutes (`expiresAt` in the login response). After that, log in again.
+4. To log out, call [`logout`](mutations/logout.md) with the token. It stops working at once; other sessions are not affected.
 
 The token carries the user's id in its `sub` claim and the email in `email`. On the server, a resolver can take a `ClaimsPrincipal` parameter and call `GetUserId()` on it (from `TaskTracker.API.Shared.Auth`).
 
-A request without a valid token to an operation that needs one gets `AUTH_NOT_AUTHENTICATED`. That includes a missing token, an expired one, and one signed with a different key.
+A request without a valid token to an operation that needs one gets `AUTH_NOT_AUTHENTICATED`. That includes a missing token, an expired one, a logged-out one, and one signed with a different key.
 
 ## How the schema fits together
 
