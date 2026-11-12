@@ -389,6 +389,38 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task MoveTask_refuses_to_complete_a_parent_with_open_subtasks_until_they_are_done()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var (parentId, _) = await CreateTaskThroughTheApiAsync(project.BoardId, "Parent");
+        var (firstId, firstReadableId) = await CreateTaskThroughTheApiAsync(project.BoardId, "First", parentId);
+        var (secondId, secondReadableId) = await CreateTaskThroughTheApiAsync(project.BoardId, "Second", parentId);
+        var completeParent = $$"""
+            mutation { moveTask(input: { taskId: "{{parentId}}", columnId: "{{project.DoneColumnId}}" }) { status } }
+            """;
+
+        var refused = await PostGraphQLAsync(completeParent);
+
+        var error = Assert.Single(refused.GetProperty("errors").EnumerateArray());
+        var extensions = error.GetProperty("extensions");
+        Assert.Equal("BAD_USER_INPUT", extensions.GetProperty("code").GetString());
+        Assert.Equal(
+            new[] { firstReadableId, secondReadableId },
+            extensions.GetProperty("incompleteSubtasks").EnumerateArray().Select(s => s.GetProperty("readableId").GetString()));
+
+        foreach (var subtaskId in new[] { firstId, secondId })
+            await PostGraphQLAsync($$"""
+                mutation { moveTask(input: { taskId: "{{subtaskId}}", columnId: "{{project.DoneColumnId}}" }) { id } }
+                """);
+
+        var accepted = await PostGraphQLAsync(completeParent);
+
+        Assert.Equal("DONE", accepted.GetProperty("data").GetProperty("moveTask").GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task A_subtask_with_an_unknown_parent_comes_back_with_the_NOT_FOUND_code()
     {
         TestProject project;
@@ -842,6 +874,16 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Original title", description: "Original description", priority: LOW }) { id } }
             """);
         return (project.BoardId, json.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString()!);
+    }
+
+    private async Task<(string Id, string ReadableId)> CreateTaskThroughTheApiAsync(Guid boardId, string title, string? parentId = null)
+    {
+        var parent = parentId is null ? "" : $", parentTaskId: \"{parentId}\"";
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{boardId}}", title: "{{title}}"{{parent}} }) { id readableId } }
+            """);
+        var created = json.GetProperty("data").GetProperty("createTask");
+        return (created.GetProperty("id").GetString()!, created.GetProperty("readableId").GetString()!);
     }
 
     private async Task<string> LoginAsync(string email)

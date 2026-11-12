@@ -19,6 +19,7 @@ using TaskTracker.API.Features.Tasks.MoveTask;
 using TaskTracker.API.Features.Tasks.UpdateTask;
 using TaskTracker.API.Features.Users.Me;
 using TaskTracker.API.Shared.Auth;
+using TaskTracker.API.Shared.Completion;
 using TaskTracker.API.Shared.GraphQL;
 using TaskTracker.API.Shared.Positions;
 
@@ -82,6 +83,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITaskPositionService, TaskPositionService>();
+builder.Services.AddScoped<ITaskCompletionGuard, TaskCompletionGuard>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();

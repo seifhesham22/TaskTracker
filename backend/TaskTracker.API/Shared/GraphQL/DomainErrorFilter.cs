@@ -9,6 +9,15 @@ namespace TaskTracker.API.Shared.GraphQL
         public IError OnError(IError error) => error.Exception switch
         {
             NotFoundException ex => Expected(error, ex, "NOT_FOUND"),
+            IncompleteSubtasksException ex => Expected(error, ex, "BAD_USER_INPUT")
+                .SetExtension("incompleteSubtasks", ex.Subtasks
+                    .Select(s => new Dictionary<string, object?>
+                    {
+                        ["id"] = s.Id.ToString(),
+                        ["readableId"] = s.ReadableId,
+                        ["title"] = s.Title
+                    })
+                    .ToList()),
             BadUserInputException ex => Expected(error, ex, "BAD_USER_INPUT"),
             InvalidCredentialsException ex => Expected(error, ex, "INVALID_CREDENTIALS"),
             DomainException ex => Expected(error, ex, "BAD_USER_INPUT"),

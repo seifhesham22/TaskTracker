@@ -57,6 +57,25 @@ public class DomainErrorFilterTests
     }
 
     [Fact]
+    public void Incomplete_subtasks_get_the_BAD_USER_INPUT_code_and_are_listed_in_the_extensions()
+    {
+        var subtaskId = Guid.NewGuid();
+        var exception = new IncompleteSubtasksException(
+            "TES-1 can't be completed while this subtask is not done: TES-2 (Write tests).",
+            [new IncompleteSubtask(subtaskId, "TES-2", "Write tests")]);
+
+        var error = _filter.OnError(ErrorFrom(exception));
+
+        Assert.Equal("BAD_USER_INPUT", error.Code);
+        Assert.Equal(exception.Message, error.Message);
+        var listed = Assert.IsType<List<Dictionary<string, object?>>>(error.Extensions!["incompleteSubtasks"]);
+        var subtask = Assert.Single(listed);
+        Assert.Equal(subtaskId.ToString(), subtask["id"]);
+        Assert.Equal("TES-2", subtask["readableId"]);
+        Assert.Equal("Write tests", subtask["title"]);
+    }
+
+    [Fact]
     public void Other_errors_are_left_unchanged()
     {
         var original = ErrorFrom(new InvalidOperationException("Something broke"));
