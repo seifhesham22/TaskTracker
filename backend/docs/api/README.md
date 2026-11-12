@@ -11,6 +11,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`board`](queries/board.md) | query | One board with its columns |
 | [`createTask`](mutations/createTask.md) | mutation | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |
+| [`register`](mutations/register.md) | mutation | Creates a user account from an email and a password |
 
 Every type these operations return is described once in [types.md](types.md).
 

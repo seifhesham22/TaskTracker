@@ -4,6 +4,7 @@ using TaskTracker.API.Data;
 using TaskTracker.API.Data.DataLoaders;
 using TaskTracker.API.Data.Seeders;
 using TaskTracker.API.Domain.Entities;
+using TaskTracker.API.Features.Auth.Register;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Tasks.CreateTask;
@@ -25,6 +26,7 @@ builder.Services
     {
         x.Password.RequiredLength = 10;
         x.Password.RequireUppercase = true;
+        x.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
@@ -34,6 +36,7 @@ builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
+builder.Services.AddScoped<RegisterHandler>();
 builder.Services.AddDataLoader<ColumnByIdDataLoader>();
 builder.Services.AddDataLoader<AssigneesByTaskIdDataLoader>();
 builder.Services.AddDataLoader<MembersByProjectIdDataLoader>();
@@ -49,6 +52,7 @@ builder.Services
     .AddType<GetBoardQuery>()
     .AddType<CreateTaskMutation>()
     .AddType<MoveTaskMutation>()
+    .AddType<RegisterMutation>()
     .AddErrorFilter<DomainErrorFilter>()
     .ModifyRequestOptions(o => o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
 

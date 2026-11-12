@@ -67,5 +67,6 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | [`board`](docs/api/queries/board.md) | query | One board with its columns |
 | [`createTask`](docs/api/mutations/createTask.md) | mutation | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](docs/api/mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |
+| [`register`](docs/api/mutations/register.md) | mutation | Creates a user account from an email and a password |
 
 The types are described in [docs/api/types.md](docs/api/types.md), and how errors work in [docs/api/README.md](docs/api/README.md#errors).
