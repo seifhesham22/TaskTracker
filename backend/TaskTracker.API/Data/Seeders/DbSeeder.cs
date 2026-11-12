@@ -45,10 +45,8 @@ namespace TaskTracker.API.Data.Seeders
                 if (await userManager.FindByEmailAsync(u.Email) is not null)
                     continue;
 
-                var newUser = new User
+                var newUser = new User(u.Email)
                 {
-                    Email = u.Email,
-                    UserName = u.Email,
                     EmailConfirmed = true
                 };
 

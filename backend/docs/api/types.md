@@ -11,6 +11,7 @@ A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-4
 - [Project](#project)
 - [ProjectMember](#projectmember)
 - [Assignee](#assignee)
+- [User](#user)
 - [Enums](#enums): [ColumnCategory](#columncategory), [TaskPriority](#taskpriority), [ProjectRole](#projectrole)
 
 ## Task
@@ -114,6 +115,15 @@ Returned by [`projects`](queries/projects.md).
 | ---------- | -------- | ----- |
 | `id`       | `UUID!`  | The user's id |
 | `userName` | `String` | |
+
+## User
+
+A user account. Returned by [`register`](mutations/register.md). It has no password field of any kind.
+
+| Field   | Type      | Notes |
+| ------- | --------- | ----- |
+| `id`    | `UUID!`   | |
+| `email` | `String!` | Also the account's user name |
 
 ## Enums
 

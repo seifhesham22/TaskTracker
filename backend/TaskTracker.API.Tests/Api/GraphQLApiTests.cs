@@ -428,6 +428,63 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Register_returns_the_account_without_the_password()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        const string password = "Valid@Pass123";
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { register(input: { email: "{{email}}", password: "{{password}}" }) { id email } }
+            """);
+
+        var user = json.GetProperty("data").GetProperty("register");
+        Assert.True(Guid.TryParse(user.GetProperty("id").GetString(), out _));
+        Assert.Equal(email, user.GetProperty("email").GetString());
+        Assert.DoesNotContain(password, json.GetRawText());
+
+        var withSecrets = await PostGraphQLAsync($$"""
+            mutation { register(input: { email: "{{Guid.NewGuid():N}}@test.local", password: "{{password}}" }) { id password passwordHash } }
+            """);
+        var messages = withSecrets.GetProperty("errors").EnumerateArray()
+            .Select(e => e.GetProperty("message").GetString())
+            .ToList();
+        Assert.Equal(
+            new[]
+            {
+                "The field `password` does not exist on the type `User`.",
+                "The field `passwordHash` does not exist on the type `User`."
+            },
+            messages);
+    }
+
+    [Fact]
+    public async Task Register_with_an_email_that_is_already_registered_comes_back_with_BAD_USER_INPUT()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        var mutation = $$"""
+            mutation { register(input: { email: "{{email}}", password: "Valid@Pass123" }) { id } }
+            """;
+        await PostGraphQLAsync(mutation);
+
+        var json = await PostGraphQLAsync(mutation);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"An account with the email '{email}' already exists.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Register_without_a_password_is_refused_by_the_schema()
+    {
+        var json = await PostGraphQLAsync($$"""
+            mutation { register(input: { email: "{{Guid.NewGuid():N}}@test.local" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Contains("password", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()

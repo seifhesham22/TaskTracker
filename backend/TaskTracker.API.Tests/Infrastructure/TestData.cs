@@ -74,8 +74,7 @@ public static class TestData
 
     private static User NewUser()
     {
-        var email = $"{Guid.NewGuid():N}@test.local";
-        return new User { Id = Guid.NewGuid(), UserName = email, Email = email };
+        return new User($"{Guid.NewGuid():N}@test.local");
     }
 
     private static BoardColumn NewColumn(string name, ColumnCategory category, string position) =>
