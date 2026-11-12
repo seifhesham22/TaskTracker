@@ -16,5 +16,6 @@ namespace TaskTracker.API.Features.Tasks
         IReadOnlyList<Guid> AssigneeIds,
         DateTimeOffset? DueDate,
         DateTime CreatedAt,
-        Guid? ParentTaskId);
+        Guid? ParentTaskId,
+        DateTimeOffset? StartDate);
 }

@@ -16,6 +16,7 @@ using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Features.Tasks.MoveTask;
+using TaskTracker.API.Features.Tasks.UpdateTask;
 using TaskTracker.API.Features.Users.Me;
 using TaskTracker.API.Shared.Auth;
 using TaskTracker.API.Shared.GraphQL;
@@ -86,6 +87,7 @@ builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
+builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<RegisterHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<LogoutHandler>();
@@ -106,6 +108,7 @@ builder.Services
     .AddType<GetBoardQuery>()
     .AddType<CreateTaskMutation>()
     .AddType<MoveTaskMutation>()
+    .AddType<UpdateTaskMutation>()
     .AddType<RegisterMutation>()
     .AddType<LoginMutation>()
     .AddType<LogoutMutation>()

@@ -542,6 +542,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("query { me { id } }")]
     [InlineData("mutation { createTask(input: { boardId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
     [InlineData("mutation { moveTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", columnId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
+    [InlineData("mutation { updateTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
     {
         var json = await PostAnonymousGraphQLAsync(query);
@@ -567,6 +568,124 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var json = await SendGraphQLAsync("query { me { id } }", expired);
 
         Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
+    }
+
+    [Fact]
+    public async Task CreateTask_with_a_start_date_returns_it_and_the_tasks_query_shows_it()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "With dates", startDate: "2026-11-02T00:00:00Z", dueDate: "2026-11-09T00:00:00Z" }) { startDate dueDate } }
+            """);
+
+        var created = json.GetProperty("data").GetProperty("createTask");
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero), created.GetProperty("startDate").GetDateTimeOffset());
+
+        var tasks = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}") { startDate dueDate } }
+            """);
+        var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero), task.GetProperty("startDate").GetDateTimeOffset());
+        Assert.Equal(new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero), task.GetProperty("dueDate").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task CreateTask_with_a_due_date_before_the_start_date_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Bad dates", startDate: "2026-11-09T00:00:00Z", dueDate: "2026-11-02T00:00:00Z" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("The due date cannot be before the start date.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task UpdateTask_saves_the_changes_and_the_tasks_query_shows_them()
+    {
+        var (boardId, taskId) = await GivenTaskThroughTheApiAsync();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation {
+              updateTask(input: {
+                taskId: "{{taskId}}"
+                title: "Updated title"
+                description: "Updated description"
+                priority: HIGH
+                startDate: "2026-11-02T00:00:00Z"
+                dueDate: "2026-11-09T00:00:00Z"
+              }) { id title description priority startDate dueDate }
+            }
+            """);
+
+        var updated = json.GetProperty("data").GetProperty("updateTask");
+        Assert.Equal("Updated title", updated.GetProperty("title").GetString());
+        Assert.Equal("HIGH", updated.GetProperty("priority").GetString());
+
+        var tasks = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{boardId}}") { id title description priority startDate dueDate } }
+            """);
+        var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal("Updated title", task.GetProperty("title").GetString());
+        Assert.Equal("Updated description", task.GetProperty("description").GetString());
+        Assert.Equal("HIGH", task.GetProperty("priority").GetString());
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero), task.GetProperty("startDate").GetDateTimeOffset());
+        Assert.Equal(new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero), task.GetProperty("dueDate").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task UpdateTask_clears_a_field_sent_as_null_and_keeps_the_fields_left_out()
+    {
+        var (_, taskId) = await GivenTaskThroughTheApiAsync();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { updateTask(input: { taskId: "{{taskId}}", description: null }) { title description priority } }
+            """);
+
+        var updated = json.GetProperty("data").GetProperty("updateTask");
+        Assert.Equal(JsonValueKind.Null, updated.GetProperty("description").ValueKind);
+        Assert.Equal("Original title", updated.GetProperty("title").GetString());
+        Assert.Equal("LOW", updated.GetProperty("priority").GetString());
+    }
+
+    [Fact]
+    public async Task UpdateTask_with_an_empty_title_comes_back_with_BAD_USER_INPUT_and_changes_nothing()
+    {
+        var (boardId, taskId) = await GivenTaskThroughTheApiAsync();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { updateTask(input: { taskId: "{{taskId}}", title: "", priority: CRITICAL }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Title cannot be empty or only spaces.", error.GetProperty("message").GetString());
+
+        var tasks = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{boardId}}") { title priority } }
+            """);
+        var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal("Original title", task.GetProperty("title").GetString());
+        Assert.Equal("LOW", task.GetProperty("priority").GetString());
+    }
+
+    [Fact]
+    public async Task UpdateTask_without_a_task_id_is_refused_by_the_schema()
+    {
+        var json = await PostGraphQLAsync("""
+            mutation { updateTask(input: { title: "No id" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Contains("taskId", error.GetProperty("message").GetString());
     }
 
     [Fact]
@@ -686,6 +805,18 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             mutation { register(input: { email: "{{email}}", password: "{{ValidPassword}}" }) { id } }
             """);
         return json.GetProperty("data").GetProperty("register").GetProperty("id").GetString()!;
+    }
+
+    private async Task<(Guid BoardId, string TaskId)> GivenTaskThroughTheApiAsync()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Original title", description: "Original description", priority: LOW }) { id } }
+            """);
+        return (project.BoardId, json.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString()!);
     }
 
     private async Task<string> LoginAsync(string email)

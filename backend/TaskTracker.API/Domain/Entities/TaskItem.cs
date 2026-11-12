@@ -22,7 +22,7 @@ namespace TaskTracker.API.Domain.Entities
         public string Title { get; private set; } = string.Empty;
         public string? DescriptionJson { get; private set; }
         public TaskPriority? Priority { get; set; }
-        public DateTime? StartDate { get; set; }
+        public DateTime? StartDate { get; private set; }
         public DateTime? DueDate { get; private set; }
         public decimal? EstimateHours { get; set; }
         public int? StoryPoints { get; set; }
@@ -74,7 +74,21 @@ namespace TaskTracker.API.Domain.Entities
         public string? GetDescription() =>
             DescriptionJson is null ? null : JsonSerializer.Deserialize<string>(DescriptionJson);
 
-        public void SetDueDate(DateTimeOffset? dueDate) => DueDate = dueDate?.UtcDateTime;
+        public void SetStartDate(DateTimeOffset? startDate) => SetDates(startDate?.UtcDateTime, DueDate);
+
+        public void SetDueDate(DateTimeOffset? dueDate) => SetDates(StartDate, dueDate?.UtcDateTime);
+
+        public void Reschedule(DateTimeOffset? startDate, DateTimeOffset? dueDate) =>
+            SetDates(startDate?.UtcDateTime, dueDate?.UtcDateTime);
+
+        private void SetDates(DateTime? startDate, DateTime? dueDate)
+        {
+            if (startDate is DateTime start && dueDate is DateTime due && due < start)
+                throw new DomainException("The due date cannot be before the start date.");
+
+            StartDate = startDate;
+            DueDate = dueDate;
+        }
 
         public void AssignTo(Guid userId)
         {
