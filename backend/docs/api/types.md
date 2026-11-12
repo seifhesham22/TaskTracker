@@ -59,6 +59,7 @@ The task as returned by [`createTask`](mutations/createTask.md). It is a flat sh
 | `dueDate`      | `DateTime`           | `null` when not set |
 | `createdAt`    | `DateTime!`          | |
 | `parentTaskId` | `UUID`               | `null` for a task without a parent |
+| `startDate`    | `DateTime`           | `null` when not set |
 
 ## Board
 

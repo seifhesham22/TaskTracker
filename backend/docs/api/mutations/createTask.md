@@ -16,7 +16,8 @@ Creates a task in a column of a board. The task's status is the category of that
 | `description`  | `String`       | no       | |
 | `assigneeId`   | `UUID`         | no       | Must be a member of the board's project |
 | `priority`     | [`TaskPriority`](../types.md#taskpriority) | no | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
-| `dueDate`      | `DateTime`     | no       | ISO 8601, e.g. `2026-11-05T00:00:00Z` |
+| `startDate`    | `DateTime`     | no       | ISO 8601, e.g. `2026-11-02T00:00:00Z` |
+| `dueDate`      | `DateTime`     | no       | ISO 8601, e.g. `2026-11-05T00:00:00Z`. Not before `startDate` |
 | `parentTaskId` | `UUID`         | no       | Makes the task a subtask. The parent must be on the same board |
 
 ## Returns
@@ -34,6 +35,7 @@ mutation {
       description: "Some details"
       assigneeId: "01a18766-479c-7ec2-be3f-3c3a00989ad6"
       priority: HIGH
+      startDate: "2026-11-02T00:00:00Z"
       dueDate: "2026-11-05T00:00:00Z"
     }
   ) {
@@ -45,6 +47,7 @@ mutation {
     description
     priority
     assigneeIds
+    startDate
     dueDate
     parentTaskId
   }
@@ -65,6 +68,7 @@ mutation {
       "description": "Some details",
       "priority": "HIGH",
       "assigneeIds": ["01a18766-479c-7ec2-be3f-3c3a00989ad6"],
+      "startDate": "2026-11-02T00:00:00Z",
       "dueDate": "2026-11-05T00:00:00Z",
       "parentTaskId": null
     }
@@ -84,6 +88,7 @@ mutation {
 | Board has no columns (and no `columnId` was sent) | `BAD_USER_INPUT`  | This board has no columns, so the task can't get a status. |
 | Parent task does not exist, or was deleted        | `NOT_FOUND`       | Parent task '…' was not found. |
 | Parent task is on another board                   | `BAD_USER_INPUT`  | Parent task '…' is on another board. A subtask must be on the same board as its parent. |
+| Due date before the start date                    | `BAD_USER_INPUT`  | The due date cannot be before the start date. |
 | Title missing completely                          | (none)            | Refused by the schema: `title` is a required field and cannot be null. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 

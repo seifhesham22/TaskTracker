@@ -35,7 +35,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 input.Priority);
 
             task.SetDescription(input.Description);
-            task.SetDueDate(input.DueDate);
+            task.Reschedule(input.StartDate, input.DueDate);
             task.ParentTaskId = input.ParentTaskId;
 
             if (input.AssigneeId is Guid newAssigneeId)
@@ -58,7 +58,8 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 task.Assignees.Select(a => a.UserId).ToList(),
                 input.DueDate,
                 task.CreatedAt,
-                task.ParentTaskId);
+                task.ParentTaskId,
+                input.StartDate);
         }
 
         private async Task<BoardInfo> GetBoardAsync(Guid boardId, Guid? columnId, CancellationToken ct) =>

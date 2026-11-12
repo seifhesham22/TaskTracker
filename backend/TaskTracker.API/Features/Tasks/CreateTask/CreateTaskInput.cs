@@ -10,5 +10,6 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
         Guid? AssigneeId,
         TaskPriority? Priority,
         DateTimeOffset? DueDate,
-        Guid? ParentTaskId = null);
+        Guid? ParentTaskId = null,
+        DateTimeOffset? StartDate = null);
 }

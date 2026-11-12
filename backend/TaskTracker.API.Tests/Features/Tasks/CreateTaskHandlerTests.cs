@@ -252,6 +252,51 @@ public class CreateTaskHandlerTests(PostgresFixture database)
         Assert.Equal($"Parent task '{parent.Id}' was not found.", error.Message);
     }
 
+    [Fact]
+    public async Task Saves_and_returns_the_start_date()
+    {
+        var project = await GivenProjectAsync();
+        var start = new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero);
+        var due = new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero);
+
+        var task = await CreateTaskAsync(TitleOnly(project.BoardId) with { StartDate = start, DueDate = due });
+
+        Assert.Equal(start, task.StartDate);
+        Assert.Equal(due, task.DueDate);
+        await using var db = database.CreateDbContext();
+        var saved = await db.Set<TaskItem>().SingleAsync(t => t.Id == task.Id);
+        Assert.Equal(start.UtcDateTime, saved.StartDate);
+        Assert.Equal(due.UtcDateTime, saved.DueDate);
+    }
+
+    [Fact]
+    public async Task Accepts_a_start_date_without_a_due_date()
+    {
+        var project = await GivenProjectAsync();
+        var start = new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero);
+
+        var task = await CreateTaskAsync(TitleOnly(project.BoardId) with { StartDate = start });
+
+        Assert.Equal(start, task.StartDate);
+        Assert.Null(task.DueDate);
+    }
+
+    [Fact]
+    public async Task Refuses_a_due_date_before_the_start_date_and_creates_nothing()
+    {
+        var project = await GivenProjectAsync();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => CreateTaskAsync(TitleOnly(project.BoardId, "Never saved") with
+        {
+            StartDate = new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero),
+            DueDate = new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero)
+        }));
+
+        Assert.Equal("The due date cannot be before the start date.", error.Message);
+        await using var db = database.CreateDbContext();
+        Assert.False(await db.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
     private async Task<TestProject> GivenProjectAsync()
     {
         await using var db = database.CreateDbContext();
