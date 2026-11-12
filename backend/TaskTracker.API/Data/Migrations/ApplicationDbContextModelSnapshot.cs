@@ -332,6 +332,30 @@ namespace TaskTracker.API.Data.Migrations
                     b.ToTable("project_members", (string)null);
                 });
 
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.RevokedToken", b =>
+                {
+                    b.Property<string>("TokenId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TokenId");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("revoked_tokens", (string)null);
+                });
+
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskAssignee", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -595,6 +619,15 @@ namespace TaskTracker.API.Data.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.RevokedToken", b =>
+                {
+                    b.HasOne("TaskTracker.API.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskAssignee", b =>

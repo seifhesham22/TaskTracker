@@ -74,6 +74,7 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | [`moveTask`](docs/api/mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |
 | [`register`](docs/api/mutations/register.md) | mutation | Creates a user account from an email and a password |
 | [`login`](docs/api/mutations/login.md) | mutation | Checks an email and password and returns an access token |
+| [`logout`](docs/api/mutations/logout.md) | mutation | Ends the current session, so its token stops working |
 | [`me`](docs/api/queries/me.md) | query | The user the access token belongs to |
 
 Everything except `register` and `login` needs the token from `login`; see [Authentication](docs/api/README.md#authentication).

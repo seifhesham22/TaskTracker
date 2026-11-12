@@ -570,6 +570,74 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Logout_ends_the_session_so_its_token_no_longer_works()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        await RegisterAsync(email);
+        var token = await LoginAsync(email);
+        var before = await SendGraphQLAsync("query { me { email } }", token);
+        Assert.Equal(email, before.GetProperty("data").GetProperty("me").GetProperty("email").GetString());
+
+        var logout = await SendGraphQLAsync("mutation { logout }", token);
+
+        Assert.True(logout.GetProperty("data").GetProperty("logout").GetBoolean());
+        var after = await SendGraphQLAsync("query { me { email } }", token);
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(after));
+    }
+
+    [Fact]
+    public async Task Logout_does_not_end_other_users_sessions()
+    {
+        var mine = $"{Guid.NewGuid():N}@test.local";
+        var theirs = $"{Guid.NewGuid():N}@test.local";
+        await RegisterAsync(mine);
+        await RegisterAsync(theirs);
+        var myToken = await LoginAsync(mine);
+        var theirToken = await LoginAsync(theirs);
+
+        await SendGraphQLAsync("mutation { logout }", myToken);
+
+        var json = await SendGraphQLAsync("query { me { email } }", theirToken);
+        Assert.Equal(theirs, json.GetProperty("data").GetProperty("me").GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Logout_ends_only_the_current_session_of_the_same_user()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        await RegisterAsync(email);
+        var laptop = await LoginAsync(email);
+        var phone = await LoginAsync(email);
+
+        await SendGraphQLAsync("mutation { logout }", laptop);
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(await SendGraphQLAsync("query { me { email } }", laptop)));
+        var stillIn = await SendGraphQLAsync("query { me { email } }", phone);
+        Assert.Equal(email, stillIn.GetProperty("data").GetProperty("me").GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Logging_out_again_with_an_ended_session_is_refused_safely()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        await RegisterAsync(email);
+        var token = await LoginAsync(email);
+        await SendGraphQLAsync("mutation { logout }", token);
+
+        var json = await SendGraphQLAsync("mutation { logout }", token);
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
+    }
+
+    [Fact]
+    public async Task Logout_without_a_token_is_refused()
+    {
+        var json = await PostAnonymousGraphQLAsync("mutation { logout }");
+
+        Assert.Equal("AUTH_NOT_AUTHENTICATED", ErrorCode(json));
+    }
+
+    [Fact]
     public async Task Cors_allows_any_origin()
     {
         var policy = await _factory.Services.GetRequiredService<ICorsPolicyProvider>()
@@ -618,6 +686,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             mutation { register(input: { email: "{{email}}", password: "{{ValidPassword}}" }) { id } }
             """);
         return json.GetProperty("data").GetProperty("register").GetProperty("id").GetString()!;
+    }
+
+    private async Task<string> LoginAsync(string email)
+    {
+        var json = await PostAnonymousGraphQLAsync($$"""
+            mutation { login(input: { email: "{{email}}", password: "{{ValidPassword}}" }) { accessToken } }
+            """);
+        return json.GetProperty("data").GetProperty("login").GetProperty("accessToken").GetString()!;
     }
 
     private string CreateToken(string signingKey, DateTime notBefore, DateTime expires)
