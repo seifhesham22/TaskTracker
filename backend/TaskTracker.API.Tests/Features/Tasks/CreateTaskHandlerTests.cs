@@ -219,7 +219,7 @@ public class CreateTaskHandlerTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task Refuses_a_parent_on_another_board()
+    public async Task Creates_a_subtask_under_a_parent_on_another_board_of_the_same_project()
     {
         var project = await GivenProjectAsync();
         Guid otherBoardId;
@@ -227,12 +227,27 @@ public class CreateTaskHandlerTests(PostgresFixture database)
             (otherBoardId, _) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
         var parent = await CreateTaskAsync(TitleOnly(otherBoardId, "On another board"));
 
+        var child = await CreateTaskAsync(TitleOnly(project.BoardId, "Child") with { ParentTaskId = parent.Id });
+
+        Assert.Equal(parent.Id, child.ParentTaskId);
+        Assert.Equal(project.BoardId, child.BoardId);
+    }
+
+    [Fact]
+    public async Task Refuses_a_parent_in_another_project_and_creates_nothing()
+    {
+        var project = await GivenProjectAsync();
+        var otherProject = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(TitleOnly(otherProject.BoardId, "In another project"));
+
         var error = await Assert.ThrowsAsync<BadUserInputException>(() =>
-            CreateTaskAsync(TitleOnly(project.BoardId) with { ParentTaskId = parent.Id }));
+            CreateTaskAsync(TitleOnly(project.BoardId, "Never saved") with { ParentTaskId = parent.Id }));
 
         Assert.Equal(
-            $"Parent task '{parent.Id}' is on another board. A subtask must be on the same board as its parent.",
+            $"Parent task '{parent.Id}' is in another project. A subtask must be in the same project as its parent.",
             error.Message);
+        await using var db = database.CreateDbContext();
+        Assert.False(await db.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
     }
 
     [Fact]

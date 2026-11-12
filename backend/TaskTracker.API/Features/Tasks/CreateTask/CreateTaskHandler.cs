@@ -24,7 +24,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 await EnsureProjectMemberAsync(board, assigneeId, ct);
 
             if (input.ParentTaskId is Guid parentTaskId)
-                await EnsureParentOnBoardAsync(board, parentTaskId, ct);
+                await EnsureParentInProjectAsync(board, parentTaskId, ct);
 
             var task = new TaskItem(
                 board.ProjectId,
@@ -87,17 +87,17 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                     $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
         }
 
-        private async Task EnsureParentOnBoardAsync(BoardInfo board, Guid parentTaskId, CancellationToken ct)
+        private async Task EnsureParentInProjectAsync(BoardInfo board, Guid parentTaskId, CancellationToken ct)
         {
-            var parentBoardId = await db.Set<TaskItem>()
+            var parentProjectId = await db.Set<TaskItem>()
                 .Where(t => t.Id == parentTaskId)
-                .Select(t => (Guid?)t.BoardId)
+                .Select(t => (Guid?)t.ProjectId)
                 .FirstOrDefaultAsync(ct)
                 ?? throw new NotFoundException($"Parent task '{parentTaskId}' was not found.");
 
-            if (parentBoardId != board.Id)
+            if (parentProjectId != board.ProjectId)
                 throw new BadUserInputException(
-                    $"Parent task '{parentTaskId}' is on another board. A subtask must be on the same board as its parent.");
+                    $"Parent task '{parentTaskId}' is in another project. A subtask must be in the same project as its parent.");
         }
     }
 }
