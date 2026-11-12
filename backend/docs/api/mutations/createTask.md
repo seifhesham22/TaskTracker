@@ -18,7 +18,7 @@ Creates a task in a column of a board. The task's status is the category of that
 | `priority`     | [`TaskPriority`](../types.md#taskpriority) | no | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
 | `startDate`    | `DateTime`     | no       | ISO 8601, e.g. `2026-11-02T00:00:00Z` |
 | `dueDate`      | `DateTime`     | no       | ISO 8601, e.g. `2026-11-05T00:00:00Z`. Not before `startDate` |
-| `parentTaskId` | `UUID`         | no       | Makes the task a subtask. The parent must be on the same board |
+| `parentTaskId` | `UUID`         | no       | Makes the task a subtask. The parent must be in the same project (it can be on another board of that project) |
 
 ## Returns
 
@@ -87,7 +87,7 @@ mutation {
 | Column is not on that board                       | `NOT_FOUND`       | Column '…' was not found on board '…'. |
 | Board has no columns (and no `columnId` was sent) | `BAD_USER_INPUT`  | This board has no columns, so the task can't get a status. |
 | Parent task does not exist, or was deleted        | `NOT_FOUND`       | Parent task '…' was not found. |
-| Parent task is on another board                   | `BAD_USER_INPUT`  | Parent task '…' is on another board. A subtask must be on the same board as its parent. |
+| Parent task is in another project                 | `BAD_USER_INPUT`  | Parent task '…' is in another project. A subtask must be in the same project as its parent. |
 | Due date before the start date                    | `BAD_USER_INPUT`  | The due date cannot be before the start date. |
 | Title missing completely                          | (none)            | Refused by the schema: `title` is a required field and cannot be null. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |

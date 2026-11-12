@@ -364,6 +364,31 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task A_subtask_with_a_parent_in_another_project_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project, otherProject;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            otherProject = await TestData.CreateProjectAsync(db);
+        }
+        var parentJson = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{otherProject.BoardId}}", title: "Parent elsewhere" }) { id } }
+            """);
+        var parentId = parentJson.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            $"Parent task '{parentId}' is in another project. A subtask must be in the same project as its parent.",
+            error.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task A_subtask_with_an_unknown_parent_comes_back_with_the_NOT_FOUND_code()
     {
         TestProject project;
