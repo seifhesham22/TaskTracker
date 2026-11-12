@@ -12,6 +12,7 @@ A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-4
 - [ProjectMember](#projectmember)
 - [Assignee](#assignee)
 - [User](#user)
+- [LoginPayload](#loginpayload)
 - [Enums](#enums): [ColumnCategory](#columncategory), [TaskPriority](#taskpriority), [ProjectRole](#projectrole)
 
 ## Task
@@ -118,12 +119,23 @@ Returned by [`projects`](queries/projects.md).
 
 ## User
 
-A user account. Returned by [`register`](mutations/register.md). It has no password field of any kind.
+A user account. Returned by [`register`](mutations/register.md), [`me`](queries/me.md) and inside [`LoginPayload`](#loginpayload). It has no password field of any kind.
 
 | Field   | Type      | Notes |
 | ------- | --------- | ----- |
 | `id`    | `UUID!`   | |
 | `email` | `String!` | Also the account's user name |
+
+## LoginPayload
+
+Returned by [`login`](mutations/login.md).
+
+| Field         | Type                | Notes |
+| ------------- | ------------------- | ----- |
+| `accessToken` | `String!`           | A JWT. Send it as `Authorization: Bearer <accessToken>` |
+| `tokenType`   | `String!`           | Always `Bearer` |
+| `expiresAt`   | `DateTime!`         | When the token stops working (60 minutes after login) |
+| `user`        | [`User!`](#user)    | The user who logged in |
 
 ## Enums
 

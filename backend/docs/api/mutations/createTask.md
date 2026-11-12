@@ -2,6 +2,8 @@
 
 Creates a task in a column of a board. The task's status is the category of that column (a column "In review" with category `IN_PROGRESS` gives the task status `IN_PROGRESS`). Without a `columnId`, the task goes into the board's first column, at the bottom. The database gives the task the next number in its project. With a `parentTaskId`, the new task is a subtask of that task.
 
+**Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
 [Back to the API index](../README.md)
 
 ## Input
@@ -83,6 +85,7 @@ mutation {
 | Parent task does not exist, or was deleted        | `NOT_FOUND`       | Parent task '…' was not found. |
 | Parent task is on another board                   | `BAD_USER_INPUT`  | Parent task '…' is on another board. A subtask must be on the same board as its parent. |
 | Title missing completely                          | (none)            | Refused by the schema: `title` is a required field and cannot be null. |
+| No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 

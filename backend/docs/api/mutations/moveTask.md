@@ -4,6 +4,8 @@ Moves a task to another column of its board. Because a task's status is the cate
 
 The response is the same [`Task`](../types.md#task) type the [`tasks`](../queries/tasks.md) query returns, so a GraphQL client can update the task everywhere it is shown.
 
+**Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
 [Back to the API index](../README.md)
 
 ## Input
@@ -61,6 +63,7 @@ mutation {
 | --------------------------------- | ----------------- | ------- |
 | Task does not exist               | `NOT_FOUND`       | Task '…' was not found. |
 | Column is not on the task's board | `NOT_FOUND`       | Column '…' was not found on board '…'. |
+| No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 

@@ -37,6 +37,26 @@ public class DomainErrorFilterTests
     }
 
     [Fact]
+    public void Invalid_credentials_get_the_INVALID_CREDENTIALS_code_and_the_generic_message()
+    {
+        var error = _filter.OnError(ErrorFrom(new InvalidCredentialsException("Invalid email or password.")));
+
+        Assert.Equal("INVALID_CREDENTIALS", error.Code);
+        Assert.Equal("Invalid email or password.", error.Message);
+    }
+
+    [Fact]
+    public void Expected_errors_carry_no_exception_details()
+    {
+        var withDetails = ErrorFrom(new InvalidCredentialsException("Invalid email or password.")).SetExtension("exception", "stack trace");
+
+        var error = _filter.OnError(withDetails);
+
+        Assert.Null(error.Exception);
+        Assert.False(error.Extensions?.ContainsKey("exception") ?? false);
+    }
+
+    [Fact]
     public void Other_errors_are_left_unchanged()
     {
         var original = ErrorFrom(new InvalidOperationException("Something broke"));

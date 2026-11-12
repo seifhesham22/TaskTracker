@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -16,12 +15,7 @@ public class RegisterHandlerTests(PostgresFixture database) : IDisposable
 {
     private const string ValidPassword = "Valid@Pass123";
 
-    private readonly WebApplicationFactory<Program> _factory = new WebApplicationFactory<Program>()
-        .WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("ConnectionStrings:DefaultConnection", database.ConnectionString);
-        });
+    private readonly WebApplicationFactory<Program> _factory = TestApp.Create(database.ConnectionString);
 
     public void Dispose() => _factory.Dispose();
 
