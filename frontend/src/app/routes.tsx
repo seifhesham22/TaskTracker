@@ -1,9 +1,12 @@
 import type { RouteObject } from 'react-router';
 import { AppLayout } from '../layouts/AppLayout';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { RegisterPage } from '../pages/RegisterPage';
 import { TasksPage } from '../pages/TasksPage';
 
 export const routes: RouteObject[] = [
+  { path: '/register', element: <RegisterPage /> },
+  { path: '/login', element: <RegisterPage /> /* placeholder – US-2 will replace */ },
   {
     path: '/',
     element: <AppLayout />,
