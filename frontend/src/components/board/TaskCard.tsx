@@ -7,9 +7,10 @@ export interface TaskCardProps {
   readonly task: TaskItem;
   readonly members?: readonly ProjectMemberModel[];
   readonly isSaving?: boolean;
+  readonly onSelect?: (task: TaskItem) => void;
 }
 
-export function TaskCard({ task, members, isSaving }: TaskCardProps) {
+export function TaskCard({ task, members, isSaving, onSelect }: TaskCardProps) {
   const assigneeNames = getAssigneeName(task, members);
   const initials = getInitials(assigneeNames);
   const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames || isSaving);
@@ -24,6 +25,19 @@ export function TaskCard({ task, members, isSaving }: TaskCardProps) {
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const handleClick = () => {
+    if (!isSaving && onSelect) {
+      onSelect(task);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !isSaving && onSelect) {
+      e.preventDefault();
+      onSelect(task);
+    }
+  };
+
   return (
     <article
       className={`card ${isSaving ? 'is-saving' : ''}`}
@@ -34,6 +48,8 @@ export function TaskCard({ task, members, isSaving }: TaskCardProps) {
       aria-busy={isSaving ? 'true' : undefined}
       draggable={!isSaving}
       onDragStart={handleDragStart}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <strong>{task.title}</strong>
 

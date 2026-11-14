@@ -20,7 +20,9 @@ export function TasksPage() {
     createTaskError,
     savingTaskIds,
     moveError,
+    incompleteSubtasksError,
     clearMoveError,
+    clearIncompleteSubtasksError,
     reload,
     handleCreateTask,
     handleMoveTask,
@@ -38,7 +40,9 @@ export function TasksPage() {
         createTaskError={createTaskError}
         savingTaskIds={savingTaskIds}
         moveError={moveError}
+        incompleteSubtasksError={incompleteSubtasksError}
         onClearMoveError={clearMoveError}
+        onClearIncompleteSubtasksError={clearIncompleteSubtasksError}
         onReload={reload}
         onCreateTask={handleCreateTask}
         onMoveTask={handleMoveTask}

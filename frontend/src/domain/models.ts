@@ -39,6 +39,7 @@ export interface TaskItem {
   readonly dueDate?: string | null;
   readonly position?: string;
   readonly createdAt?: string;
+  readonly parentTaskId?: string | null;
 }
 
 export interface BoardColumnModel {

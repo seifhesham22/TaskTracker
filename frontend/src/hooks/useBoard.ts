@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from '../api';
+import { api, ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../api';
 import type { BoardDetails, CreateTaskInput, TaskItem } from '../domain/models';
+
+export interface IncompleteSubtaskFailure {
+  readonly taskId: string;
+  readonly message: string;
+  readonly incompleteSubtasks: readonly IncompleteSubtaskDto[];
+}
 
 export interface UseBoardState {
   readonly board: BoardDetails | null;
@@ -12,7 +18,9 @@ export interface UseBoardState {
   readonly createTaskError: string | null;
   readonly savingTaskIds: ReadonlySet<string>;
   readonly moveError: string | null;
+  readonly incompleteSubtasksError: IncompleteSubtaskFailure | null;
   readonly clearMoveError: () => void;
+  readonly clearIncompleteSubtasksError: () => void;
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
@@ -30,6 +38,7 @@ export function useBoard(boardId: string): UseBoardState {
 
   const [savingTaskIds, setSavingTaskIds] = useState<ReadonlySet<string>>(new Set<string>());
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [incompleteSubtasksError, setIncompleteSubtasksError] = useState<IncompleteSubtaskFailure | null>(null);
 
   const fetchBoardData = useCallback(async () => {
     setIsLoading(true);
@@ -128,17 +137,33 @@ export function useBoard(boardId: string): UseBoardState {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? optimisticTask : t)));
     setSavingTaskIds((prev) => new Set(prev).add(taskId));
     setMoveError(null);
+    setIncompleteSubtasksError(null);
 
     try {
       const updatedTask = await api.board.moveTask({ taskId, columnId: targetColumnId });
       // The new status shows everywhere the task appears on the page, from the same response.
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, ...updatedTask, parentTaskId: updatedTask.parentTaskId ?? t.parentTaskId }
+            : t
+        )
+      );
       return true;
     } catch (err: unknown) {
-      // If the change is refused (network error), the card stays where it was and the server's message is shown.
+      // If the change is refused (network error or validation guard), the card stays where it was.
       setTasks(previousTasks);
-      const msg = err instanceof Error ? err.message : 'Server refused to move task.';
-      setMoveError(msg);
+      if (err instanceof IncompleteSubtasksApiError) {
+        setIncompleteSubtasksError({
+          taskId,
+          message: err.message,
+          incompleteSubtasks: err.incompleteSubtasks,
+        });
+        setMoveError(err.message);
+      } else {
+        const msg = err instanceof Error ? err.message : 'Server refused to move task.';
+        setMoveError(msg);
+      }
       return false;
     } finally {
       setSavingTaskIds((prev) => {
@@ -153,6 +178,10 @@ export function useBoard(boardId: string): UseBoardState {
     setMoveError(null);
   }, []);
 
+  const clearIncompleteSubtasksError = useCallback(() => {
+    setIncompleteSubtasksError(null);
+  }, []);
+
   return {
     board,
     tasks,
@@ -163,7 +192,9 @@ export function useBoard(boardId: string): UseBoardState {
     createTaskError,
     savingTaskIds,
     moveError,
+    incompleteSubtasksError,
     clearMoveError,
+    clearIncompleteSubtasksError,
     reload: fetchBoardData,
     handleCreateTask,
     handleMoveTask,

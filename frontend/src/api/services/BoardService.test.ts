@@ -220,5 +220,88 @@ describe('BoardService', () => {
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*projectName/);
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*members/);
   });
+
+  it('throws IncompleteSubtasksApiError when moveTask is rejected due to incomplete subtasks', async () => {
+    const postMock = vi.fn().mockResolvedValue({
+      errors: [
+        {
+          message:
+            "TES-24 can't be completed while these 2 subtasks are not done: TES-26 (Review checklist), TES-27 (Confirm date).",
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            incompleteSubtasks: [
+              { id: 'sub-1', readableId: 'TES-26', title: 'Review checklist' },
+              { id: 'sub-2', readableId: 'TES-27', title: 'Confirm date' },
+            ],
+          },
+        },
+      ],
+    });
+
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: postMock,
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+
+    await expect(
+      service.moveTask({ taskId: 't-parent', columnId: 'col-done' })
+    ).rejects.toThrowError(
+      "TES-24 can't be completed while these 2 subtasks are not done: TES-26 (Review checklist), TES-27 (Confirm date)."
+    );
+
+    try {
+      await service.moveTask({ taskId: 't-parent', columnId: 'col-done' });
+    } catch (err: unknown) {
+      const error = err as import('../errors').IncompleteSubtasksApiError;
+      expect(error.name).toBe('IncompleteSubtasksApiError');
+      expect(error.incompleteSubtasks).toHaveLength(2);
+      expect(error.incompleteSubtasks[0]).toEqual({
+        id: 'sub-1',
+        readableId: 'TES-26',
+        title: 'Review checklist',
+      });
+      expect(error.incompleteSubtasks[1]).toEqual({
+        id: 'sub-2',
+        readableId: 'TES-27',
+        title: 'Confirm date',
+      });
+    }
+  });
+
+  it('preserves parentTaskId when moveTask succeeds', async () => {
+    const postMock = vi.fn().mockResolvedValue({
+      data: {
+        moveTask: {
+          id: 'sub-1',
+          readableId: 'TES-26',
+          number: 26,
+          boardId: 'b-1',
+          title: 'Review checklist',
+          status: ColumnCategory.Done,
+          columnId: 'col-done',
+          column: { id: 'col-done', name: 'Done', category: ColumnCategory.Done },
+          parentTaskId: 'parent-1',
+          createdAt: '2026-10-30T00:00:00Z',
+        },
+      },
+    });
+
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: postMock,
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+    const moved = await service.moveTask({ taskId: 'sub-1', columnId: 'col-done' });
+
+    expect(moved.parentTaskId).toBe('parent-1');
+    expect(moved.status).toBe(ColumnCategory.Done);
+  });
 });
 
