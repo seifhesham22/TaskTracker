@@ -739,5 +739,78 @@ describe('Board & Task acceptance tests', () => {
       expect(reloaded.getByTestId('subtask-item-subtask-1')).toHaveTextContent('TES-25 · Done');
       expect(reloaded.getByTestId('subtask-item-subtask-new-28')).toHaveTextContent('TES-28 · To do');
     });
+
+    it('preserves subtask relationship and subtask logo when subtask status changes', async () => {
+      const parentTask: TaskItem = {
+        id: 'parent-task-1',
+        readableId: 'TES-24',
+        number: 24,
+        boardId: mockBoardData.board.id,
+        title: 'Prepare the project launch',
+        status: ColumnCategory.InProgress,
+        columnId: 'c-progress',
+        columnName: 'In progress',
+        priority: TaskPriority.High,
+        assigneeIds: [],
+        createdAt: '2026-11-01T00:00:00Z',
+      };
+
+      let subtask: TaskItem = {
+        id: 'subtask-1',
+        readableId: 'TES-25',
+        number: 25,
+        boardId: mockBoardData.board.id,
+        title: 'Agree on launch milestones',
+        status: ColumnCategory.ToDo,
+        columnId: 'c-todo',
+        columnName: 'To do',
+        parentTaskId: 'parent-task-1',
+        assigneeIds: [],
+        createdAt: '2026-11-01T01:00:00Z',
+      };
+
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        ...mockBoardData,
+        tasks: [parentTask, subtask],
+      }));
+
+      vi.spyOn(api.board, 'moveTask').mockImplementation(async ({ taskId, columnId }) => {
+        expect(taskId).toBe('subtask-1');
+        const col = mockBoardData.board.columns.find((c) => c.id === columnId)!;
+        subtask = {
+          ...subtask,
+          columnId: col.id,
+          columnName: col.name,
+          status: col.category,
+        };
+        return subtask;
+      });
+
+      renderAt('/tasks');
+
+      // Subtask initially has subtask badge on the board
+      const subtaskCard = await screen.findByTestId('task-card-subtask-1');
+      expect(subtaskCard).toHaveClass('card--subtask');
+      expect(screen.getByTestId('subtask-badge-subtask-1')).toHaveTextContent(/↳ Subtask/i);
+
+      // Move subtask to In Progress via drag-and-drop
+      const progressColumn = screen.getByTestId('board-column-IN_PROGRESS');
+      fireEvent.drop(progressColumn, {
+        dataTransfer: {
+          getData: (format: string) => (format === 'text/plain' ? 'subtask-1' : ''),
+        },
+      });
+
+      // Verify subtask card STILL has subtask badge and class after moving
+      await waitFor(() => {
+        expect(screen.getByTestId('subtask-badge-subtask-1')).toHaveTextContent(/↳ Subtask/i);
+      });
+      expect(screen.getByTestId('task-card-subtask-1')).toHaveClass('card--subtask');
+
+      // Open parent task details: subtask is STILL present under parent with updated status
+      fireEvent.click(screen.getByTestId('open-task-parent-task-1'));
+      expect(await screen.findByTestId('parent-task-details-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('subtask-item-subtask-1')).toHaveTextContent('TES-25 · In progress');
+    });
   });
 });

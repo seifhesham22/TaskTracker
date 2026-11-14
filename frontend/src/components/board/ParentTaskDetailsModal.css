@@ -192,6 +192,16 @@
   gap: 4px;
 }
 
+.subtask-item-card--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.subtask-item-card--clickable:hover {
+  border-color: #a3a3a3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
 .subtask-item-eyebrow {
   margin: 0;
   font-size: 12px;

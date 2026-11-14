@@ -136,6 +136,7 @@ describe('BoardService', () => {
             assignees: [],
             dueDate: null,
             createdAt: '2026-10-30T00:00:00Z',
+            parentTaskId: 'p-1',
           },
         },
       }),
@@ -153,6 +154,7 @@ describe('BoardService', () => {
     expect(moved.columnId).toBe('c-progress');
     expect(moved.columnName).toBe('In progress');
     expect(moved.status).toBe(ColumnCategory.InProgress);
+    expect(moved.parentTaskId).toBe('p-1');
   });
 
   it('throws ApiError when MoveTask fails with GraphQL error', async () => {

@@ -133,7 +133,9 @@ export function useBoard(boardId: string): UseBoardState {
     try {
       const updatedTask = await api.board.moveTask({ taskId, columnId: targetColumnId });
       // The new status shows everywhere the task appears on the page, from the same response.
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask, parentTaskId: updatedTask.parentTaskId ?? t.parentTaskId } : t))
+      );
       return true;
     } catch (err: unknown) {
       // If the change is refused (network error), the card stays where it was and the server's message is shown.

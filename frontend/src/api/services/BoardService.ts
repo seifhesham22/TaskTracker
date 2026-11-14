@@ -297,6 +297,7 @@ export class BoardService {
       assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
       dueDate: t.dueDate,
       createdAt: t.createdAt,
+      parentTaskId: t.parentTaskId ?? null,
     };
   }
 

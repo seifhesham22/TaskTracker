@@ -251,6 +251,8 @@ export function BoardView({
           setShowSubtaskCreatedBanner(false);
         }}
         onAddSubtask={handleOpenAddSubtask}
+        onMoveTask={onMoveTask}
+        columns={board?.columns}
       />
 
       <CreateSubtaskModal

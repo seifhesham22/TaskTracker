@@ -1,5 +1,5 @@
 import { useId, useMemo } from 'react';
-import { ColumnCategory, type TaskItem } from '../../domain/models';
+import { ColumnCategory, type BoardColumnModel, type TaskItem } from '../../domain/models';
 import './ParentTaskDetailsModal.css';
 
 export interface ParentTaskDetailsModalProps {
@@ -10,6 +10,8 @@ export interface ParentTaskDetailsModalProps {
   readonly showSuccessBanner?: boolean;
   readonly onClose: () => void;
   readonly onAddSubtask: () => void;
+  readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly columns?: readonly BoardColumnModel[];
 }
 
 export function ParentTaskDetailsModal({
@@ -20,6 +22,8 @@ export function ParentTaskDetailsModal({
   showSuccessBanner = false,
   onClose,
   onAddSubtask,
+  onMoveTask,
+  columns,
 }: ParentTaskDetailsModalProps) {
   const headingId = useId();
 
@@ -40,6 +44,39 @@ export function ParentTaskDetailsModal({
     if (e.key === 'Escape') {
       onClose();
     }
+  };
+
+  const handleToggleSubtask = async (sub: TaskItem) => {
+    if (!onMoveTask || !columns || columns.length === 0) return;
+    const isDone = sub.status === ColumnCategory.Done;
+    if (isDone) {
+      const targetCol =
+        columns.find((c) => c.category === ColumnCategory.ToDo) ||
+        columns.find((c) => c.category === ColumnCategory.Backlog) ||
+        columns[0];
+      if (targetCol && targetCol.id !== sub.columnId) {
+        await onMoveTask(sub.id, targetCol.id);
+      }
+    } else {
+      const targetCol = columns.find((c) => c.category === ColumnCategory.Done);
+      if (targetCol && targetCol.id !== sub.columnId) {
+        await onMoveTask(sub.id, targetCol.id);
+      }
+    }
+  };
+
+  const isParentDone = task.status === ColumnCategory.Done;
+
+  const handleMarkComplete = async () => {
+    if (!onMoveTask || !columns || isParentDone) {
+      onClose();
+      return;
+    }
+    const doneCol = columns.find((c) => c.category === ColumnCategory.Done);
+    if (doneCol && doneCol.id !== task.columnId) {
+      await onMoveTask(task.id, doneCol.id);
+    }
+    onClose();
   };
 
   const displayProject = projectName || 'Project';
@@ -127,12 +164,27 @@ export function ParentTaskDetailsModal({
                 subtasks.map((sub) => {
                   const subStatusLabel = formatStatus(sub.status, sub.columnName);
                   const subStatusIcon = getStatusIcon(sub.status);
+                  const canToggle = Boolean(onMoveTask && columns && columns.length > 0);
+
                   return (
                     <div
                       key={sub.id}
-                      className="subtask-item-card"
-                      role="listitem"
+                      className={`subtask-item-card ${canToggle ? 'subtask-item-card--clickable' : ''}`}
+                      role={canToggle ? 'button' : 'listitem'}
+                      tabIndex={canToggle ? 0 : undefined}
                       data-testid={`subtask-item-${sub.id}`}
+                      onClick={canToggle ? () => handleToggleSubtask(sub) : undefined}
+                      onKeyDown={
+                        canToggle
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleToggleSubtask(sub);
+                              }
+                            }
+                          : undefined
+                      }
+                      title={canToggle ? `Click to toggle status (currently ${subStatusLabel})` : undefined}
                     >
                       <p className="subtask-item-eyebrow">
                         {sub.readableId} · {subStatusLabel}
@@ -161,10 +213,10 @@ export function ParentTaskDetailsModal({
           <button
             type="button"
             className="task-details-button task-details-button-primary"
-            onClick={onClose}
+            onClick={handleMarkComplete}
             data-testid="close-task-details-button"
           >
-            Close
+            {isParentDone ? 'Close' : 'Mark complete'}
           </button>
         </div>
       </div>
