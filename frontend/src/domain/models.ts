@@ -36,6 +36,7 @@ export interface TaskItem {
   readonly assignees?: readonly TaskAssignee[];
   readonly assigneeIds: readonly string[];
   readonly assigneeNames?: readonly string[];
+  readonly startDate?: string | null;
   readonly dueDate?: string | null;
   readonly position?: string;
   readonly createdAt?: string;
@@ -77,4 +78,13 @@ export interface CreateTaskInput {
 export interface MoveTaskInput {
   readonly taskId: string;
   readonly columnId: string;
+}
+
+export interface UpdateTaskInput {
+  readonly taskId: string;
+  readonly title?: string;
+  readonly description?: string | null;
+  readonly priority?: TaskPriority | null;
+  readonly startDate?: string | null;
+  readonly dueDate?: string | null;
 }

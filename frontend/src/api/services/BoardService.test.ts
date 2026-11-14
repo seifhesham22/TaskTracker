@@ -220,5 +220,103 @@ describe('BoardService', () => {
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*projectName/);
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*members/);
   });
+
+  describe('updateTask', () => {
+    it('updates task successfully and returns mapped TaskItem', async () => {
+      const mockUpdated = {
+        id: 't-1',
+        readableId: 'TES-1',
+        number: 1,
+        boardId: 'b-1',
+        title: 'Updated title',
+        description: 'Updated desc',
+        status: ColumnCategory.Backlog,
+        columnId: 'c-1',
+        column: { id: 'c-1', name: 'Backlog', category: ColumnCategory.Backlog },
+        priority: TaskPriority.High,
+        startDate: '2026-11-16T00:00:00Z',
+        dueDate: '2026-11-20T00:00:00Z',
+        assignees: [{ id: 'u-1', userName: 'Alice' }],
+      };
+
+      const postMock = vi.fn().mockResolvedValue({
+        data: { updateTask: mockUpdated },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const result = await service.updateTask({
+        taskId: 't-1',
+        title: 'Updated title',
+        description: 'Updated desc',
+        priority: TaskPriority.High,
+        startDate: '2026-11-16T00:00:00Z',
+        dueDate: '2026-11-20T00:00:00Z',
+      });
+
+      expect(result.id).toBe('t-1');
+      expect(result.title).toBe('Updated title');
+      expect(result.priority).toBe(TaskPriority.High);
+      expect(result.startDate).toBe('2026-11-16T00:00:00Z');
+      expect(result.dueDate).toBe('2026-11-20T00:00:00Z');
+      expect(postMock).toHaveBeenCalledWith(
+        '/graphql',
+        expect.objectContaining({
+          variables: {
+            input: {
+              taskId: 't-1',
+              title: 'Updated title',
+              description: 'Updated desc',
+              priority: TaskPriority.High,
+              startDate: '2026-11-16T00:00:00Z',
+              dueDate: '2026-11-20T00:00:00Z',
+            },
+          },
+        })
+      );
+    });
+
+    it('throws 404 ApiError when task is not found', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [{ message: "Task 't-unknown' was not found.", extensions: { code: 'NOT_FOUND' } }],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.updateTask({ taskId: 't-unknown', title: 'New' })).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+
+    it('throws 400 ApiError when input is invalid', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [{ message: 'Title cannot be empty.', extensions: { code: 'BAD_USER_INPUT' } }],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.updateTask({ taskId: 't-1', title: '' })).rejects.toMatchObject({
+        status: 400,
+      });
+    });
+  });
 });
 

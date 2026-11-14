@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../api';
@@ -601,5 +601,195 @@ describe('Board & Task acceptance tests', () => {
     expect(await boardARender.findByRole('heading', { level: 1, name: /first board/i })).toBeInTheDocument();
     expect(boardARender.getByText('Existing Board A task')).toBeInTheDocument();
     expect(boardARender.queryByText('Task created on Second Board')).not.toBeInTheDocument();
+  });
+
+  describe('[US-11] Web task editing functionality', () => {
+    const editBoardId = '01a1aad8-c24a-73f9-a095-069769796312';
+    const initialTask: TaskItem = {
+      id: 'task-orig-1',
+      readableId: 'TES-24',
+      number: 24,
+      boardId: editBoardId,
+      title: 'Plan the project launch',
+      description: 'Agree on milestones and assign the launch checklist',
+      status: ColumnCategory.ToDo,
+      columnId: 'col-todo',
+      columnName: 'To do',
+      priority: TaskPriority.Medium,
+      assigneeIds: ['u-1'],
+      startDate: '2026-11-16T00:00:00Z',
+      dueDate: '2026-11-20T00:00:00Z',
+      createdAt: '2026-11-01T00:00:00Z',
+    };
+
+    const boardWithTask = {
+      board: {
+        id: editBoardId,
+        projectId: 'p-1',
+        projectName: 'Test Project',
+        name: 'Project Launch Board',
+        columns: [
+          { id: 'col-todo', name: 'To do', category: ColumnCategory.ToDo, position: 'A' },
+        ],
+        members: [{ userId: 'u-1', userName: 'admin@local.test', email: 'admin@local.test' }],
+      },
+      tasks: [initialTask],
+    };
+
+    it('opens an existing task and selects edit, modifies all 5 fields, and saves updates', async () => {
+      let currentTaskState = { ...initialTask };
+
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        board: boardWithTask.board,
+        tasks: [currentTaskState],
+      }));
+
+      const updateSpy = vi.spyOn(api.board, 'updateTask').mockImplementation(async (input) => {
+        currentTaskState = {
+          ...currentTaskState,
+          title: input.title ?? currentTaskState.title,
+          description: input.description !== undefined ? input.description : currentTaskState.description,
+          priority: input.priority !== undefined ? input.priority : currentTaskState.priority,
+          startDate: input.startDate !== undefined ? input.startDate : currentTaskState.startDate,
+          dueDate: input.dueDate !== undefined ? input.dueDate : currentTaskState.dueDate,
+        };
+        return currentTaskState;
+      });
+
+      renderAt(`/tasks?boardId=${editBoardId}`);
+
+      // 1. Open existing task by clicking on card
+      const card = await screen.findByTestId('task-card-task-orig-1');
+      expect(card).toBeInTheDocument();
+      fireEvent.click(card);
+
+      // 2. Task Details modal opens
+      const detailsDialog = await screen.findByTestId('task-details-dialog');
+      expect(within(detailsDialog).getByRole('heading', { level: 3, name: /task details/i })).toBeInTheDocument();
+      expect(within(detailsDialog).getByText('Plan the project launch')).toBeInTheDocument();
+
+      // 3. Click "Edit task"
+      const editBtn = within(detailsDialog).getByTestId('open-edit-task-btn');
+      fireEvent.click(editBtn);
+
+      // 4. Form displays existing values
+      expect(await screen.findByRole('heading', { level: 3, name: /edit task/i })).toBeInTheDocument();
+      const titleInput = screen.getByLabelText(/title \*/i);
+      const descInput = screen.getByLabelText(/description/i);
+      const prioritySelect = screen.getByLabelText(/priority/i);
+      const startInput = screen.getByLabelText(/start date/i);
+      const dueInput = screen.getByLabelText(/due date/i);
+
+      expect(titleInput).toHaveValue('Plan the project launch');
+      expect(descInput).toHaveValue('Agree on milestones and assign the launch checklist');
+      expect(prioritySelect).toHaveValue(TaskPriority.Medium);
+      expect(startInput).toHaveValue('2026-11-16');
+      expect(dueInput).toHaveValue('2026-11-20');
+
+      // 5. Modify each of the five editable fields
+      fireEvent.change(titleInput, { target: { value: 'Prepare the project launch' } });
+      fireEvent.change(descInput, { target: { value: 'Agree on milestones and execute the launch checklist' } });
+      fireEvent.change(prioritySelect, { target: { value: TaskPriority.High } });
+      fireEvent.change(startInput, { target: { value: '2026-11-17' } });
+      fireEvent.change(dueInput, { target: { value: '2026-11-22' } });
+
+      // 6. Save changes
+      const saveBtn = screen.getByRole('button', { name: /save changes/i });
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => {
+        expect(updateSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            taskId: 'task-orig-1',
+            title: 'Prepare the project launch',
+            priority: TaskPriority.High,
+          })
+        );
+      });
+
+      // 7. Verify Task Details reflects updated values and shows "✓ Task updated" banner
+      const updatedDetailsDialog = await screen.findByTestId('task-details-dialog');
+      expect(await screen.findByTestId('task-updated-banner')).toHaveTextContent('✓ Task updated');
+      expect(within(updatedDetailsDialog).getByText('Prepare the project launch')).toBeInTheDocument();
+      expect(within(updatedDetailsDialog).getByText(/Priority: High/i)).toBeInTheDocument();
+      expect(within(updatedDetailsDialog).getByText(/Start date: Nov 17, 2026/i)).toBeInTheDocument();
+      expect(within(updatedDetailsDialog).getByText(/Due date: Nov 22, 2026/i)).toBeInTheDocument();
+
+      // Close task details
+      const closeBtn = within(updatedDetailsDialog).getByRole('button', { name: /close/i });
+      fireEvent.click(closeBtn);
+
+      // 8. Verify board also reflects updated title and priority badge
+      expect(await within(card).findByText('Prepare the project launch')).toBeInTheDocument();
+      expect(within(card).getByText('HIGH')).toBeInTheDocument();
+    });
+
+    it('rejects invalid inputs with validation messages and cancels unsaved changes', async () => {
+      vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue({
+        board: boardWithTask.board,
+        tasks: [initialTask],
+      });
+
+      renderAt(`/tasks?boardId=${editBoardId}`);
+
+      const editBtn = await screen.findByTestId('edit-task-button-task-orig-1');
+      fireEvent.click(editBtn);
+
+      const titleInput = await screen.findByLabelText(/title \*/i);
+      const dueInput = screen.getByLabelText(/due date/i);
+
+      // Blank title
+      fireEvent.change(titleInput, { target: { value: '   ' } });
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+      expect(await screen.findByText('Title is required.')).toBeInTheDocument();
+
+      // Invalid dates (due date earlier than start date)
+      fireEvent.change(titleInput, { target: { value: 'Valid Title' } });
+      fireEvent.change(dueInput, { target: { value: '2026-11-01' } }); // before start 2026-11-16
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+      expect(await screen.findByText('Due date must be on or after the start date.')).toBeInTheDocument();
+
+      // Cancel editing with unsaved changes: discard dialog appears
+      const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+      fireEvent.click(cancelBtn);
+      expect(screen.getByRole('heading', { level: 3, name: /discard changes\?/i })).toBeInTheDocument();
+
+      // Confirm discard: editor closes without modifying original task on board
+      fireEvent.click(screen.getByRole('button', { name: /^discard changes$/i }));
+      expect(screen.queryByRole('heading', { level: 3, name: /edit task/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Plan the project launch')).toBeInTheDocument();
+    });
+
+    it('reloads the task and verifies that saved changes remain', async () => {
+      let taskData = { ...initialTask };
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        board: boardWithTask.board,
+        tasks: [taskData],
+      }));
+      vi.spyOn(api.board, 'updateTask').mockImplementation(async (input) => {
+        taskData = {
+          ...taskData,
+          title: input.title || taskData.title,
+        };
+        return taskData;
+      });
+
+      const { unmount } = renderAt(`/tasks?boardId=${editBoardId}`);
+
+      // Open and edit
+      const editBtn = await screen.findByTestId('edit-task-button-task-orig-1');
+      fireEvent.click(editBtn);
+
+      const titleInput = await screen.findByLabelText(/title \*/i);
+      fireEvent.change(titleInput, { target: { value: 'Persisted Edit Title' } });
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+      await screen.findByTestId('task-updated-banner');
+      unmount();
+
+      // Simulate full reload of board
+      const reloadRender = renderAt(`/tasks?boardId=${editBoardId}`);
+      expect(await reloadRender.findByText('Persisted Edit Title')).toBeInTheDocument();
+    });
   });
 });

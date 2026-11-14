@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BoardDetails, CreateTaskInput, TaskItem } from '../../domain/models';
+import type { BoardDetails, CreateTaskInput, TaskItem, UpdateTaskInput } from '../../domain/models';
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
+import { EditTaskModal } from './EditTaskModal';
+import { TaskDetailsModal } from './TaskDetailsModal';
 import './BoardView.css';
 
 export interface BoardViewProps {
@@ -19,6 +21,7 @@ export interface BoardViewProps {
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly onUpdateTask?: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
 
 export function BoardView({
@@ -35,9 +38,14 @@ export function BoardView({
   onReload,
   onCreateTask,
   onMoveTask,
+  onUpdateTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
+  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [justUpdatedTaskId, setJustUpdatedTaskId] = useState<string | null>(null);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +185,15 @@ export function BoardView({
                 setSelectedColumnId(colId);
                 setIsCreateModalOpen(true);
               }}
+              onSelectTask={(task) => {
+                setSelectedTask(task);
+                setIsDetailsModalOpen(true);
+              }}
+              onEditTask={(task) => {
+                setSelectedTask(task);
+                setIsDetailsModalOpen(false);
+                setIsEditModalOpen(true);
+              }}
             />
           ))}
         </div>
@@ -198,6 +215,44 @@ export function BoardView({
             setSelectedColumnId(undefined);
           }}
           onSubmit={onCreateTask}
+        />
+      )}
+
+      {selectedTask && (
+        <TaskDetailsModal
+          task={selectedTask}
+          projectName={board?.projectName || board?.name}
+          isOpen={isDetailsModalOpen}
+          justUpdated={Boolean(justUpdatedTaskId === selectedTask.id)}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setJustUpdatedTaskId(null);
+          }}
+          onEdit={() => {
+            setIsDetailsModalOpen(false);
+            setIsEditModalOpen(true);
+          }}
+        />
+      )}
+
+      {selectedTask && (
+        <EditTaskModal
+          task={selectedTask}
+          projectName={board?.projectName || board?.name}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+          }}
+          onSubmit={async (input) => {
+            if (!onUpdateTask) return false;
+            return await onUpdateTask(input);
+          }}
+          onSuccess={(updatedTask) => {
+            setSelectedTask(updatedTask);
+            setJustUpdatedTaskId(updatedTask.id);
+            setIsEditModalOpen(false);
+            setIsDetailsModalOpen(true);
+          }}
         />
       )}
     </div>
