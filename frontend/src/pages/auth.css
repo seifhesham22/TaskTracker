@@ -1,0 +1,280 @@
+.auth-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--background, #ffffff);
+}
+
+.auth-brand-header {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 40px;
+  gap: 12px;
+  height: 106px;
+  width: 100%;
+}
+
+.auth-brand-header .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.auth-brand-header .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--primary, #171717);
+  flex-shrink: 0;
+}
+
+.auth-brand-header .brand-mark img {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.auth-brand-header .brand-name {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+  color: var(--foreground, #0a0a0a);
+}
+
+.auth-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1 1 auto;
+  padding: 64px 24px;
+  gap: 24px;
+}
+
+.auth-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 456px;
+  max-width: 100%;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e5e5);
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 12px 32px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.auth-introduction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.auth-heading {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 40px;
+  color: var(--foreground, #0a0a0a);
+  margin: 0;
+}
+
+.auth-subtitle {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  color: var(--muted-foreground, #636363);
+  margin: 0;
+}
+
+.auth-required-notice {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--muted-foreground, #636363);
+  margin: 0;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.auth-field-label {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--foreground, #0a0a0a);
+}
+
+.auth-input {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e5e5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  font-family: 'Geist', var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  color: var(--foreground, #0a0a0a);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.auth-input::placeholder {
+  color: var(--muted-foreground, #636363);
+}
+
+.auth-input:focus {
+  border-color: var(--ring, #a1a1a1);
+  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.25);
+}
+
+.auth-input[aria-invalid="true"] {
+  border: 1px solid var(--destructive, #e7000b);
+  box-shadow: 0 0 0 3px rgba(231, 0, 11, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.auth-field-error {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--destructive, #e7000b);
+  margin: 0;
+}
+
+.auth-password-toggle {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-decoration: underline;
+  color: var(--foreground, #0a0a0a);
+  cursor: pointer;
+}
+
+.auth-password-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-button {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 20px;
+  gap: 8px;
+  background: var(--primary, #171717);
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-family: 'Geist', var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  color: var(--primary-foreground, #fafafa);
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  background: #262626;
+}
+
+.auth-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-link-row {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--foreground, #0a0a0a);
+  margin: 0;
+}
+
+.auth-link-row a {
+  color: var(--foreground, #0a0a0a);
+  text-decoration: underline;
+}
+
+.auth-form-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--destructive, #e7000b);
+}
+
+/* Loading state: opacity 0.6 on inputs and toggle */
+.auth-form--loading .auth-input,
+.auth-form--loading .auth-password-toggle {
+  opacity: 0.6;
+}
+
+.auth-footer {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: center;
+  color: var(--muted-foreground, #636363);
+  margin: 0;
+}
+
+.auth-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: 'Geist', var(--font-sans);
+  font-size: 16px;
+  color: var(--muted-foreground, #636363);
+}
