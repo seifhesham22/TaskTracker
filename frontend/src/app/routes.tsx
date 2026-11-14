@@ -4,9 +4,14 @@ import { AppLayout } from '../layouts/AppLayout';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProjectsPage } from '../pages/ProjectsPage';
+import { RegisterPage } from '../pages/RegisterPage';
 import { TasksPage } from '../pages/TasksPage';
 
 export const routes: RouteObject[] = [
+  {
+    path: '/register',
+    element: <RegisterPage />,
+  },
   {
     path: '/login',
     element: <LoginPage />,

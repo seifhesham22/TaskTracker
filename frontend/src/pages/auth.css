@@ -259,6 +259,24 @@
   opacity: 0.6;
 }
 
+/* Success confirmation screen */
+.auth-success {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100%;
+}
+
+.auth-success-marker {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--foreground, #0a0a0a);
+  margin: 0;
+}
+
 .auth-footer {
   font-family: 'Geist', var(--font-sans);
   font-size: 12px;

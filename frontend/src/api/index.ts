@@ -28,4 +28,11 @@ export type { HttpClient, RequestOptions } from './HttpClient';
 export type { ApiStatus } from './services/SystemService';
 export { BoardService } from './services/BoardService';
 export { AuthService, AuthError } from './services/AuthService';
-export type { AuthUser, LoginInput, LoginResult, ProjectSummary } from './services/AuthService';
+export type {
+  RegisterInput,
+  RegisterResult,
+  AuthUser,
+  LoginInput,
+  LoginResult,
+  ProjectSummary,
+} from './services/AuthService';
