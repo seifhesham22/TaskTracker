@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BoardService } from './BoardService';
-import { ColumnCategory, TaskPriority } from '../../domain/models';
+import { ColumnCategory, type TaskItem, TaskPriority } from '../../domain/models';
 import type { HttpClient } from '../HttpClient';
 
 describe('BoardService', () => {
@@ -219,6 +219,65 @@ describe('BoardService', () => {
     const sentQuery = postMock.mock.calls[0][1].query as string;
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*projectName/);
     expect(sentQuery).not.toMatch(/board\s*\([^)]*\)\s*\{[^}]*members/);
+  });
+
+  it('creates subtask via createSubtask method', async () => {
+    const postMock = vi.fn().mockResolvedValue({
+      data: {
+        createTask: {
+          id: 't-sub-1',
+          readableId: 'TES-28',
+          number: 28,
+          boardId: 'b-1',
+          title: 'Prepare the release notes',
+          status: ColumnCategory.ToDo,
+          columnId: 'c-1',
+          columnName: 'To do',
+          priority: null,
+          assigneeIds: [],
+          dueDate: null,
+          createdAt: '2026-11-01T00:00:00Z',
+          parentTaskId: 't-parent-1',
+        },
+      },
+    });
+
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: postMock,
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+    const parentTask: TaskItem = {
+      id: 't-parent-1',
+      readableId: 'TES-24',
+      number: 24,
+      boardId: 'b-1',
+      title: 'Prepare the project launch',
+      status: ColumnCategory.InProgress,
+      columnId: 'c-1',
+      assigneeIds: [],
+    };
+
+    const subtask = await service.createSubtask(parentTask, 'Prepare the release notes');
+
+    expect(subtask.id).toBe('t-sub-1');
+    expect(subtask.parentTaskId).toBe('t-parent-1');
+    expect(postMock).toHaveBeenCalledWith(
+      '/graphql',
+      expect.objectContaining({
+        variables: {
+          input: {
+            boardId: 'b-1',
+            columnId: 'c-1',
+            title: 'Prepare the release notes',
+            parentTaskId: 't-parent-1',
+          },
+        },
+      })
+    );
   });
 });
 

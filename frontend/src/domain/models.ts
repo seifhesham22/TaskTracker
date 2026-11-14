@@ -39,6 +39,7 @@ export interface TaskItem {
   readonly dueDate?: string | null;
   readonly position?: string;
   readonly createdAt?: string;
+  readonly parentTaskId?: string | null;
 }
 
 export interface BoardColumnModel {
@@ -72,6 +73,15 @@ export interface CreateTaskInput {
   readonly assigneeId?: string;
   readonly priority?: TaskPriority;
   readonly dueDate?: string;
+  readonly parentTaskId?: string | null;
+}
+
+export interface SubtaskEditorInput {
+  readonly title: string;
+}
+
+export interface SubtaskValidationErrors {
+  readonly title?: string;
 }
 
 export interface MoveTaskInput {

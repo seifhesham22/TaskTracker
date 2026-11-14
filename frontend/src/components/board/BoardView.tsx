@@ -3,6 +3,8 @@ import type { BoardDetails, CreateTaskInput, TaskItem } from '../../domain/model
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
+import { ParentTaskDetailsModal } from './ParentTaskDetailsModal';
+import { CreateSubtaskModal } from './CreateSubtaskModal';
 import './BoardView.css';
 
 export interface BoardViewProps {
@@ -18,6 +20,7 @@ export interface BoardViewProps {
   readonly onClearMoveError?: () => void;
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly onCreateSubtask?: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
 }
 
@@ -34,12 +37,21 @@ export function BoardView({
   onClearMoveError,
   onReload,
   onCreateTask,
+  onCreateSubtask,
   onMoveTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<TaskItem | null>(null);
+  const [parentTaskForSubtask, setParentTaskForSubtask] = useState<TaskItem | null>(null);
+  const [showSubtaskCreatedBanner, setShowSubtaskCreatedBanner] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const activeDetailsTask = useMemo(() => {
+    if (!selectedTaskForDetails) return null;
+    return tasks.find((t) => t.id === selectedTaskForDetails.id) ?? selectedTaskForDetails;
+  }, [selectedTaskForDetails, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -53,10 +65,14 @@ export function BoardView({
       return [];
     }
 
-    const sortedColumns = [...board.columns].sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
+    const sortedColumns = [...board.columns].sort((a, b) =>
+      a.position < b.position ? -1 : a.position > b.position ? 1 : 0
+    );
 
     return sortedColumns.map((col) => {
-      const colTasks = tasks.filter((t) => t.columnId === col.id || (!t.columnId && t.status === col.category));
+      const colTasks = tasks.filter(
+        (t) => t.columnId === col.id || (!t.columnId && t.status === col.category)
+      );
       return {
         column: col,
         tasks: colTasks,
@@ -128,6 +144,27 @@ export function BoardView({
 
   const selectedColumn = board?.columns.find((c) => c.id === selectedColumnId);
 
+  const handleSelectTask = (task: TaskItem) => {
+    setSelectedTaskForDetails(task);
+    setShowSubtaskCreatedBanner(false);
+  };
+
+  const handleOpenAddSubtask = () => {
+    if (activeDetailsTask) {
+      setParentTaskForSubtask(activeDetailsTask);
+    }
+  };
+
+  const handleSubtaskSubmit = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    if (!onCreateSubtask) return false;
+    const success = await onCreateSubtask(parentTask, title);
+    if (success) {
+      setShowSubtaskCreatedBanner(true);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className="board-view" data-testid="board-view">
       <BoardHeader
@@ -170,9 +207,11 @@ export function BoardView({
               key={column.id}
               column={column}
               tasks={colTasks}
+              allTasks={tasks}
               members={board?.members}
               savingTaskIds={savingTaskIds}
               onDropTask={onMoveTask}
+              onSelectTask={handleSelectTask}
               onAddTask={(colId) => {
                 setSelectedColumnId(colId);
                 setIsCreateModalOpen(true);
@@ -200,6 +239,27 @@ export function BoardView({
           onSubmit={onCreateTask}
         />
       )}
+
+      <ParentTaskDetailsModal
+        task={activeDetailsTask}
+        allTasks={tasks}
+        projectName={board?.projectName}
+        isOpen={Boolean(activeDetailsTask) && !parentTaskForSubtask}
+        showSuccessBanner={showSubtaskCreatedBanner}
+        onClose={() => {
+          setSelectedTaskForDetails(null);
+          setShowSubtaskCreatedBanner(false);
+        }}
+        onAddSubtask={handleOpenAddSubtask}
+      />
+
+      <CreateSubtaskModal
+        parentTask={parentTaskForSubtask}
+        projectName={board?.projectName}
+        isOpen={Boolean(parentTaskForSubtask)}
+        onClose={() => setParentTaskForSubtask(null)}
+        onSubmit={handleSubtaskSubmit}
+      />
     </div>
   );
 }

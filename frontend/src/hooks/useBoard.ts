@@ -15,6 +15,7 @@ export interface UseBoardState {
   readonly clearMoveError: () => void;
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
 }
 
@@ -149,6 +150,16 @@ export function useBoard(boardId: string): UseBoardState {
     }
   };
 
+  const handleCreateSubtask = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    try {
+      const newSubtask = await api.board.createSubtask(parentTask, title);
+      setTasks((prevTasks) => [...prevTasks, newSubtask]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const clearMoveError = useCallback(() => {
     setMoveError(null);
   }, []);
@@ -166,6 +177,7 @@ export function useBoard(boardId: string): UseBoardState {
     clearMoveError,
     reload: fetchBoardData,
     handleCreateTask,
+    handleCreateSubtask,
     handleMoveTask,
   };
 }

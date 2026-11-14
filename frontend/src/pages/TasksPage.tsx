@@ -23,6 +23,7 @@ export function TasksPage() {
     clearMoveError,
     reload,
     handleCreateTask,
+    handleCreateSubtask,
     handleMoveTask,
   } = useBoard(boardId);
 
@@ -41,6 +42,7 @@ export function TasksPage() {
         onClearMoveError={clearMoveError}
         onReload={reload}
         onCreateTask={handleCreateTask}
+        onCreateSubtask={handleCreateSubtask}
         onMoveTask={handleMoveTask}
       />
     </div>

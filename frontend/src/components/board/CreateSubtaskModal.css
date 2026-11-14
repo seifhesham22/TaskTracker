@@ -1,0 +1,241 @@
+.subtask-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.subtask-modal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 16px;
+  width: 100%;
+  max-width: 600px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.subtask-modal-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0;
+  gap: 16px;
+  width: 100%;
+}
+
+.subtask-modal-eyebrow {
+  margin: 0;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  line-height: 19px;
+  color: #636363;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subtask-modal-title {
+  margin: 0;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #0a0a0a;
+}
+
+.subtask-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 24px;
+  color: #636363;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.subtask-modal-close:hover:not(:disabled) {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.subtask-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.subtask-parent-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  width: 100%;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.subtask-parent-label {
+  margin: 0;
+  font-size: 12px;
+  line-height: 19px;
+  color: #636363;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.subtask-parent-name {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 700;
+  color: #0a0a0a;
+}
+
+.subtask-error-banner {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  background: #fff5f5;
+  border: 1px solid #f1b8bc;
+  border-radius: 8px;
+  color: #a60009;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.subtask-field-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 6px;
+}
+
+.subtask-field-label {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #0a0a0a;
+}
+
+.subtask-field-input {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 12px;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 22px;
+  color: #0a0a0a;
+  outline: none;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.subtask-field-input:focus {
+  border-color: #0a0a0a;
+}
+
+.subtask-field-input.has-error {
+  border: 1px solid #e7000b;
+}
+
+.subtask-field-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.subtask-field-error {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: #c10007;
+}
+
+.subtask-field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+}
+
+.subtask-modal-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 4px 0 0;
+  gap: 12px;
+  width: 100%;
+}
+
+.subtask-button {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 16px;
+  flex: 1;
+  height: 48px;
+  min-height: 48px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.subtask-button-cancel {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  color: #171717;
+}
+
+.subtask-button-cancel:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.subtask-button-submit {
+  background: #171717;
+  border: 1px solid #171717;
+  color: #fafafa;
+}
+
+.subtask-button-submit:hover:not(:disabled) {
+  background: #262626;
+}
+
+.subtask-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

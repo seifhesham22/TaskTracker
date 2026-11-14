@@ -51,6 +51,7 @@ interface RawTask {
   priority?: TaskItem['priority'];
   dueDate?: string | null;
   createdAt?: string;
+  parentTaskId?: string | null;
   column?: {
     id: string;
     name: string;
@@ -96,6 +97,7 @@ export class BoardService {
           position
           priority
           dueDate
+          parentTaskId
           column {
             id
             name
@@ -160,6 +162,7 @@ export class BoardService {
           assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
           dueDate: t.dueDate,
           createdAt: t.createdAt,
+          parentTaskId: t.parentTaskId ?? null,
         }));
 
         return { board, tasks };
@@ -194,6 +197,7 @@ export class BoardService {
           assigneeIds
           dueDate
           createdAt
+          parentTaskId
         }
       }
     `;
@@ -219,6 +223,15 @@ export class BoardService {
     return result.data.createTask;
   }
 
+  async createSubtask(parentTask: TaskItem, title: string): Promise<TaskItem> {
+    return this.createTask({
+      boardId: parentTask.boardId,
+      columnId: parentTask.columnId,
+      title: title.trim(),
+      parentTaskId: parentTask.id,
+    });
+  }
+
   async moveTask(input: MoveTaskInput): Promise<TaskItem> {
     const mutation = `
       mutation MoveTask($input: MoveTaskInput!) {
@@ -234,6 +247,7 @@ export class BoardService {
           position
           priority
           dueDate
+          parentTaskId
           column {
             id
             name
