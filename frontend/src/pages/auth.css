@@ -20,6 +20,7 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
 }
 
 .auth-brand-header .brand-mark {
@@ -66,6 +67,7 @@
   padding: 32px;
   background: #ffffff;
   border: 1px solid var(--border, #e5e5e5);
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 12px 32px rgba(0, 0, 0, 0.08);
   border-radius: 16px;
 }
 
@@ -233,6 +235,7 @@
 }
 
 .auth-link-row a {
+  color: var(--foreground, #0a0a0a);
   text-decoration: underline;
 }
 
@@ -282,4 +285,14 @@
   text-align: center;
   color: var(--muted-foreground, #636363);
   margin: 0;
+}
+
+.auth-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: 'Geist', var(--font-sans);
+  font-size: 16px;
+  color: var(--muted-foreground, #636363);
 }

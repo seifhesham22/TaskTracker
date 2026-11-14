@@ -2,13 +2,18 @@
  * API layer composition root: the single entry point pages use to talk to the backend.
  * Add new services here (e.g. tasks, auth) so they share one configured HttpClient.
  */
+import { defaultTokenStorage } from '../auth/TokenStorage';
 import { appConfig } from '../config/AppConfig';
 import { FetchHttpClient } from './HttpClient';
 import { AuthService } from './services/AuthService';
 import { BoardService } from './services/BoardService';
 import { SystemService } from './services/SystemService';
 
-const httpClient = new FetchHttpClient(appConfig.apiBaseUrl);
+const httpClient = new FetchHttpClient(
+  appConfig.apiBaseUrl,
+  undefined,
+  () => defaultTokenStorage.getToken(),
+);
 
 export const api = {
   system: new SystemService(httpClient),
@@ -23,4 +28,11 @@ export type { HttpClient, RequestOptions } from './HttpClient';
 export type { ApiStatus } from './services/SystemService';
 export { BoardService } from './services/BoardService';
 export { AuthService, AuthError } from './services/AuthService';
-export type { RegisterInput, RegisterResult } from './services/AuthService';
+export type {
+  RegisterInput,
+  RegisterResult,
+  AuthUser,
+  LoginInput,
+  LoginResult,
+  ProjectSummary,
+} from './services/AuthService';

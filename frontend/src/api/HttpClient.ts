@@ -18,10 +18,16 @@ type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
 export class FetchHttpClient implements HttpClient {
   private readonly baseUrl: string | null;
   private readonly fetchFn: FetchFn;
+  private readonly tokenProvider?: () => string | null;
 
-  constructor(baseUrl: string | null, fetchFn: FetchFn = (input, init) => fetch(input, init)) {
+  constructor(
+    baseUrl: string | null,
+    fetchFn: FetchFn = (input, init) => fetch(input, init),
+    tokenProvider?: () => string | null,
+  ) {
     this.baseUrl = baseUrl;
     this.fetchFn = fetchFn;
+    this.tokenProvider = tokenProvider;
   }
 
   get<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -72,6 +78,12 @@ export class FetchHttpClient implements HttpClient {
     }
     if (hasBody && !result.has('Content-Type')) {
       result.set('Content-Type', 'application/json');
+    }
+    if (this.tokenProvider && !result.has('Authorization')) {
+      const token = this.tokenProvider();
+      if (token) {
+        result.set('Authorization', `Bearer ${token}`);
+      }
     }
     return result;
   }

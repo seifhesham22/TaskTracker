@@ -1,20 +1,35 @@
 import type { RouteObject } from 'react-router';
+import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { AppLayout } from '../layouts/AppLayout';
+import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { ProjectsPage } from '../pages/ProjectsPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { TasksPage } from '../pages/TasksPage';
 
 export const routes: RouteObject[] = [
-  { path: '/register', element: <RegisterPage /> },
-  { path: '/login', element: <RegisterPage /> /* placeholder – US-2 will replace */ },
   {
-    path: '/',
-    element: <AppLayout />,
+    path: '/register',
+    element: <RegisterPage />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    element: <ProtectedRoute />,
     children: [
-      { index: true, element: <TasksPage /> },
-      { path: 'tasks', element: <TasksPage /> },
-      { path: 'boards/:boardId', element: <TasksPage /> },
-      { path: '*', element: <NotFoundPage /> },
+      {
+        path: '/',
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <TasksPage /> },
+          { path: 'projects', element: <ProjectsPage /> },
+          { path: 'tasks', element: <TasksPage /> },
+          { path: 'boards/:boardId', element: <TasksPage /> },
+          { path: '*', element: <NotFoundPage /> },
+        ],
+      },
     ],
   },
 ];
