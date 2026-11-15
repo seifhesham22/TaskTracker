@@ -9,12 +9,23 @@ export interface TaskCardProps {
   readonly isSaving?: boolean;
   readonly subtaskCount?: number;
   readonly onSelect?: (task: TaskItem) => void;
+  readonly onSelectTask?: (task: TaskItem) => void;
+  readonly onEditTask?: (task: TaskItem) => void;
 }
 
-export function TaskCard({ task, members, isSaving, subtaskCount, onSelect }: TaskCardProps) {
+export function TaskCard({
+  task,
+  members,
+  isSaving,
+  subtaskCount,
+  onSelect,
+  onSelectTask,
+  onEditTask,
+}: TaskCardProps) {
   const assigneeNames = getAssigneeName(task, members);
   const initials = getInitials(assigneeNames);
   const isSubtask = Boolean(task.parentTaskId);
+  const selectHandler = onSelectTask || onSelect;
   const hasMeta = Boolean(
     task.priority ||
       task.dueDate ||
@@ -33,17 +44,36 @@ export function TaskCard({ task, members, isSaving, subtaskCount, onSelect }: Ta
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isSaving) return;
     if ((e.target as HTMLElement).closest('button, a')) {
       return;
     }
-    onSelect?.(task);
+    if (onSelectTask) {
+      onSelectTask(task);
+    } else if (onSelect) {
+      onSelect(task);
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (isSaving) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onSelect?.(task);
+      if (onSelectTask) {
+        onSelectTask(task);
+      } else if (onSelect) {
+        onSelect(task);
+      }
+    }
+  };
+
+  const handleDetailsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(task);
+    } else if (onSelectTask) {
+      onSelectTask(task);
     }
   };
 
@@ -57,8 +87,8 @@ export function TaskCard({ task, members, isSaving, subtaskCount, onSelect }: Ta
       aria-busy={isSaving ? 'true' : undefined}
       draggable={!isSaving}
       onDragStart={handleDragStart}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
     >
       <div className="card-header-row">
         <span className="card-readable-id">{task.readableId}</span>
@@ -71,20 +101,33 @@ export function TaskCard({ task, members, isSaving, subtaskCount, onSelect }: Ta
             <span className="card-subtask-icon">↳</span> Subtask
           </span>
         )}
-        {onSelect && (
-          <button
-            type="button"
-            className="card-details-button"
-            aria-label={`View details for ${task.readableId}`}
-            data-testid={`open-task-${task.id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(task);
-            }}
-          >
-            Details
-          </button>
-        )}
+        <div className="card-actions">
+          {onEditTask && (
+            <button
+              type="button"
+              className="card-edit-btn"
+              aria-label={`Edit task ${task.readableId}`}
+              data-testid={`edit-task-button-${task.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTask(task);
+              }}
+            >
+              Edit
+            </button>
+          )}
+          {selectHandler && (
+            <button
+              type="button"
+              className="card-details-button"
+              aria-label={`View details for ${task.readableId}`}
+              data-testid={`open-task-${task.id}`}
+              onClick={handleDetailsClick}
+            >
+              Details
+            </button>
+          )}
+        </div>
       </div>
 
       <strong>{task.title}</strong>

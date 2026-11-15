@@ -5,6 +5,7 @@ import {
   type CreateTaskInput,
   type MoveTaskInput,
   type TaskItem,
+  type UpdateTaskInput,
   ColumnCategory,
 } from '../../domain/models';
 
@@ -49,6 +50,7 @@ interface RawTask {
   columnName?: string;
   position?: string;
   priority?: TaskItem['priority'];
+  startDate?: string | null;
   dueDate?: string | null;
   createdAt?: string;
   parentTaskId?: string | null;
@@ -96,6 +98,7 @@ export class BoardService {
           columnId
           position
           priority
+          startDate
           dueDate
           parentTaskId
           column {
@@ -160,6 +163,7 @@ export class BoardService {
           assignees: t.assignees,
           assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
           assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
+          startDate: t.startDate,
           dueDate: t.dueDate,
           createdAt: t.createdAt,
           parentTaskId: t.parentTaskId ?? null,
@@ -246,6 +250,7 @@ export class BoardService {
           columnId
           position
           priority
+          startDate
           dueDate
           parentTaskId
           column {
@@ -295,6 +300,78 @@ export class BoardService {
       assignees: t.assignees,
       assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
       assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
+      startDate: t.startDate,
+      dueDate: t.dueDate,
+      createdAt: t.createdAt,
+      parentTaskId: t.parentTaskId ?? null,
+    };
+  }
+
+  async updateTask(input: UpdateTaskInput): Promise<TaskItem> {
+    const mutation = `
+      mutation UpdateTask($input: UpdateTaskInput!) {
+        updateTask(input: $input) {
+          id
+          readableId
+          number
+          boardId
+          title
+          description
+          status
+          columnId
+          position
+          priority
+          startDate
+          dueDate
+          createdAt
+          column {
+            id
+            name
+            category
+          }
+          assignees {
+            id
+            userName
+          }
+        }
+      }
+    `;
+
+    const result = await this.client.post<GraphQLResponse<{ updateTask: RawTask }>>(
+      '/graphql',
+      { query: mutation, variables: { input } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, result.errors);
+      }
+      throw new ApiError(firstError.message, 400, result.errors);
+    }
+
+    if (!result.data?.updateTask) {
+      throw new ApiError('Failed to update task.', 500, null);
+    }
+
+    const t = result.data.updateTask;
+    return {
+      id: t.id,
+      readableId: t.readableId,
+      number: t.number,
+      boardId: t.boardId,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      columnId: t.columnId,
+      columnName: t.column?.name ?? t.columnName,
+      position: t.position,
+      priority: t.priority,
+      assignees: t.assignees,
+      assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
+      assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
+      startDate: t.startDate,
       dueDate: t.dueDate,
       createdAt: t.createdAt,
       parentTaskId: t.parentTaskId ?? null,

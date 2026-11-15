@@ -12,7 +12,9 @@ export interface BoardColumnProps {
   readonly savingTaskIds?: ReadonlySet<string>;
   readonly onAddTask?: (columnId: string) => void;
   readonly onDropTask?: (taskId: string, targetColumnId: string) => void;
+  readonly onSelect?: (task: TaskItem) => void;
   readonly onSelectTask?: (task: TaskItem) => void;
+  readonly onEditTask?: (task: TaskItem) => void;
 }
 
 export function BoardColumn({
@@ -23,7 +25,9 @@ export function BoardColumn({
   savingTaskIds,
   onAddTask,
   onDropTask,
+  onSelect,
   onSelectTask,
+  onEditTask,
 }: BoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -95,7 +99,9 @@ export function BoardColumn({
                 members={members}
                 isSaving={savingTaskIds?.has(task.id)}
                 subtaskCount={subtaskCount}
-                onSelect={onSelectTask}
+                onSelect={onSelect}
+                onSelectTask={onSelectTask}
+                onEditTask={onEditTask}
               />
             </div>
           );
