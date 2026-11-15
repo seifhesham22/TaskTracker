@@ -14,6 +14,7 @@ using TaskTracker.API.Features.Auth.Register;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Tasks.CreateTask;
+using TaskTracker.API.Features.Tasks.GetBacklog;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Features.Tasks.MoveTask;
 using TaskTracker.API.Features.Tasks.UpdateTask;
@@ -86,6 +87,7 @@ builder.Services.AddScoped<ITaskPositionService, TaskPositionService>();
 builder.Services.AddScoped<ITaskCompletionGuard, TaskCompletionGuard>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
+builder.Services.AddScoped<GetBacklogHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
@@ -105,7 +107,9 @@ builder.Services
     .AddQueryType()
     .AddMutationType()
     .AddAuthorization()
+    .AddFiltering()
     .AddType<GetTasksQuery>()
+    .AddType<GetBacklogQuery>()
     .AddType<GetProjectsQuery>()
     .AddType<GetBoardQuery>()
     .AddType<CreateTaskMutation>()

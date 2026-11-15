@@ -51,6 +51,21 @@ public static class TestData
         return user.Id;
     }
 
+    public static async Task<Guid> AddMemberAsync(ApplicationDbContext db, Guid projectId, ProjectRole role)
+    {
+        var user = NewUser();
+        db.Users.Add(user);
+        db.projectMembers.Add(new ProjectMember
+        {
+            ProjectId = projectId,
+            UserId = user.Id,
+            ProjectRole = role,
+            JoinedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        return user.Id;
+    }
+
     public static async Task<(Guid BoardId, Guid ColumnId)> CreateBoardWithColumnAsync(ApplicationDbContext db, Guid projectId)
     {
         var column = NewColumn("Other column", ColumnCategory.ToDo, "V");

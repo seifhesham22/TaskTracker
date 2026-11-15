@@ -600,6 +600,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { createTask(input: { boardId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
     [InlineData("mutation { moveTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", columnId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
     [InlineData("mutation { updateTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
+    [InlineData("query { backlog(projectId: \"00000000-0000-0000-0000-000000000001\") { totalCount } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
     {
         var json = await PostAnonymousGraphQLAsync(query);
@@ -745,6 +746,161 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Contains("taskId", error.GetProperty("message").GetString());
     }
 
+    [Theory]
+    [InlineData("where: { status: { eq: IN_PROGRESS } }", "Login API|Signup API")]
+    [InlineData("where: { priority: { in: [HIGH, CRITICAL] } }", "Login API|Signup API|Login tests")]
+    [InlineData("where: { status: { neq: DONE }, priority: { eq: HIGH } }", "Login API|Signup API")]
+    [InlineData("where: { or: [{ status: { eq: BACKLOG } }, { priority: { eq: CRITICAL } }] }", "Login page|Login tests")]
+    [InlineData("search: \"LOGIN\"", "Login page|Login API|Login tests")]
+    [InlineData("search: \"login\", where: { priority: { eq: HIGH } }", "Login API")]
+    public async Task Backlog_applies_the_search_and_the_filters_sent_by_the_frontend(string arguments, string expected)
+    {
+        var project = await GivenBacklogAsync();
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { backlog(projectId: "{{project.ProjectId}}", {{arguments}}) { items { title } } }
+            """);
+
+        Assert.Equal(expected.Split('|'), BacklogTitles(json));
+    }
+
+    [Fact]
+    public async Task Backlog_takes_the_filter_as_a_variable_within_the_cost_limit()
+    {
+        var project = await GivenBacklogAsync();
+
+        var json = await SendGraphQLAsync(
+            """
+            query Backlog($projectId: UUID!, $search: String, $where: BacklogFilterInput, $page: Int!, $pageSize: Int!) {
+              backlog(projectId: $projectId, search: $search, where: $where, page: $page, pageSize: $pageSize) {
+                items {
+                  id readableId title description priority status startDate dueDate parentTaskId boardId columnId position
+                  column { id name category }
+                  assignees { id userName }
+                }
+                totalCount page pageSize totalPages hasNextPage hasPreviousPage
+              }
+            }
+            """,
+            TokenFor(project.MemberId),
+            new
+            {
+                projectId = project.ProjectId,
+                search = (string?)null,
+                where = new { status = new { @in = new[] { "BACKLOG", "DONE" } } },
+                page = 1,
+                pageSize = 20
+            });
+
+        Assert.Equal(new[] { "Login page", "Login tests" }, BacklogTitles(json));
+    }
+
+    [Fact]
+    public async Task Backlog_can_list_only_the_tasks_that_are_not_subtasks()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var (parentId, _) = await CreateTaskThroughTheApiAsync(project.BoardId, "Parent");
+        await CreateTaskThroughTheApiAsync(project.BoardId, "Child", parentId);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { backlog(projectId: "{{project.ProjectId}}", where: { parentTaskId: { eq: null } }) { items { title } } }
+            """);
+
+        Assert.Equal(new[] { "Parent" }, BacklogTitles(json));
+    }
+
+    [Fact]
+    public async Task Backlog_returns_the_requested_page_with_its_metadata()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        foreach (var title in new[] { "One", "Two", "Three" })
+            await CreateTaskThroughTheApiAsync(project.BoardId, title);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query {
+              backlog(projectId: "{{project.ProjectId}}", page: 2, pageSize: 2) {
+                items { readableId title status }
+                totalCount page pageSize totalPages hasNextPage hasPreviousPage
+              }
+            }
+            """);
+
+        Assert.Equal(new[] { "Three" }, BacklogTitles(json));
+        var backlog = json.GetProperty("data").GetProperty("backlog");
+        var item = Assert.Single(backlog.GetProperty("items").EnumerateArray());
+        Assert.Equal($"{project.Key}-3", item.GetProperty("readableId").GetString());
+        Assert.Equal("BACKLOG", item.GetProperty("status").GetString());
+        Assert.Equal(3, backlog.GetProperty("totalCount").GetInt32());
+        Assert.Equal(2, backlog.GetProperty("page").GetInt32());
+        Assert.Equal(2, backlog.GetProperty("pageSize").GetInt32());
+        Assert.Equal(2, backlog.GetProperty("totalPages").GetInt32());
+        Assert.False(backlog.GetProperty("hasNextPage").GetBoolean());
+        Assert.True(backlog.GetProperty("hasPreviousPage").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Backlog_with_a_page_size_over_the_limit_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { backlog(projectId: "{{project.ProjectId}}", pageSize: 500) { totalCount } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Page size must be between 1 and 100.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Backlog_of_an_unknown_project_comes_back_with_the_NOT_FOUND_code()
+    {
+        var projectId = Guid.NewGuid();
+
+        var json = await PostGraphQLAsync($$"""
+            query { backlog(projectId: "{{projectId}}") { totalCount } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Project '{projectId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Backlog_of_a_project_the_user_is_not_a_member_of_comes_back_with_NOT_FOUND_and_no_tasks()
+    {
+        var project = await GivenBacklogAsync();
+
+        var json = await PostGraphQLAsync($$"""
+            query { backlog(projectId: "{{project.ProjectId}}") { totalCount items { title } } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Project '{project.ProjectId}' was not found.", error.GetProperty("message").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
+    }
+
+    [Theory]
+    [InlineData("where: { title: { eq: \"x\" } }", "title")]
+    [InlineData("where: { createdBy: { passwordHash: { eq: \"x\" } } }", "createdBy")]
+    public async Task Backlog_refuses_filters_on_fields_it_does_not_offer(string arguments, string field)
+    {
+        var json = await PostGraphQLAsync($$"""
+            query { backlog(projectId: "{{Guid.NewGuid()}}", {{arguments}}) { totalCount } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Contains($"`{field}`", error.GetProperty("message").GetString());
+        Assert.False(json.TryGetProperty("data", out var data) && data.ValueKind != JsonValueKind.Null);
+    }
+
     [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
@@ -846,14 +1002,49 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private Task<JsonElement> PostAnonymousGraphQLAsync(string query) => SendGraphQLAsync(query, token: null);
 
-    private async Task<JsonElement> SendGraphQLAsync(string query, string? token)
+    private Task<JsonElement> PostGraphQLAsMemberAsync(TestProject project, string query) =>
+        SendGraphQLAsync(query, TokenFor(project.MemberId));
+
+    private string TokenFor(Guid userId) =>
+        _factory.Services.GetRequiredService<IAccessTokenService>().Create(userId, $"{userId:N}@test.local").Token;
+
+    private async Task<JsonElement> SendGraphQLAsync(string query, string? token, object? variables = null)
     {
         using var client = _factory.CreateClient();
         if (token is not null)
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var response = await client.PostAsJsonAsync("/graphql", new { query });
+        var response = await client.PostAsJsonAsync("/graphql", new { query, variables });
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private async Task<TestProject> GivenBacklogAsync()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        await CreateTaskInColumnAsync(project.BoardId, project.InProgressColumnId, "Login API", "HIGH");
+        await CreateTaskInColumnAsync(project.BoardId, project.BacklogColumnId, "Login page", "LOW");
+        await CreateTaskInColumnAsync(project.BoardId, project.DoneColumnId, "Login tests", "CRITICAL");
+        await CreateTaskInColumnAsync(project.BoardId, project.InProgressColumnId, "Signup API", "HIGH");
+        return project;
+    }
+
+    private async Task CreateTaskInColumnAsync(Guid boardId, Guid columnId, string title, string priority)
+    {
+        var json = await PostGraphQLAsync($$"""
+            mutation { createTask(input: { boardId: "{{boardId}}", columnId: "{{columnId}}", title: "{{title}}", priority: {{priority}} }) { id } }
+            """);
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+    }
+
+    private static string[] BacklogTitles(JsonElement json)
+    {
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        return json.GetProperty("data").GetProperty("backlog").GetProperty("items").EnumerateArray()
+            .Select(t => t.GetProperty("title").GetString()!)
+            .ToArray();
     }
 
     private async Task<string> RegisterAsync(string email)
