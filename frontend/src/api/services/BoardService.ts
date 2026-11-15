@@ -1,5 +1,5 @@
 import type { HttpClient } from '../HttpClient';
-import { ApiError } from '../errors';
+import { ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../errors';
 import {
   type BoardDetails,
   type CreateTaskInput,
@@ -16,9 +16,15 @@ export const DEFAULT_COLUMN_CATEGORIES: readonly { readonly category: ColumnCate
   { category: ColumnCategory.Done, name: 'Done', color: '#2A9D8F' },
 ] as const;
 
+export interface GraphQLErrorExtension {
+  readonly code?: string;
+  readonly incompleteSubtasks?: readonly IncompleteSubtaskDto[];
+  readonly [key: string]: unknown;
+}
+
 export interface GraphQLResponse<T> {
   readonly data?: T | null;
-  readonly errors?: readonly { readonly message: string; readonly extensions?: { readonly code?: string } }[];
+  readonly errors?: readonly { readonly message: string; readonly extensions?: GraphQLErrorExtension }[];
 }
 
 interface RawColumn {
@@ -273,6 +279,16 @@ export class BoardService {
 
     if (result.errors && result.errors.length > 0) {
       const firstError = result.errors[0];
+      const incompleteSubtasks = firstError.extensions?.incompleteSubtasks as
+        | readonly IncompleteSubtaskDto[]
+        | undefined;
+      if (incompleteSubtasks && Array.isArray(incompleteSubtasks)) {
+        throw new IncompleteSubtasksApiError(
+          firstError.message,
+          incompleteSubtasks,
+          result.errors
+        );
+      }
       const code = firstError.extensions?.code;
       if (code === 'NOT_FOUND') {
         throw new ApiError(firstError.message, 404, result.errors);

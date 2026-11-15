@@ -11,6 +11,27 @@ export class ApiError extends Error {
   }
 }
 
+export interface IncompleteSubtaskDto {
+  readonly id: string;
+  readonly readableId: string;
+  readonly title: string;
+}
+
+/** Thrown when parent task completion is rejected due to incomplete subtasks. */
+export class IncompleteSubtasksApiError extends ApiError {
+  readonly incompleteSubtasks: readonly IncompleteSubtaskDto[];
+
+  constructor(
+    message: string,
+    incompleteSubtasks: readonly IncompleteSubtaskDto[],
+    body: unknown
+  ) {
+    super(message, 400, body);
+    this.name = 'IncompleteSubtasksApiError';
+    this.incompleteSubtasks = incompleteSubtasks;
+  }
+}
+
 /** A request was attempted while VITE_API_URL is not configured. */
 export class ApiConfigurationError extends Error {
   constructor() {

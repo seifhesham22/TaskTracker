@@ -23,7 +23,8 @@ export const api = {
 
 export type Api = typeof api;
 
-export { ApiConfigurationError, ApiError } from './errors';
+export { ApiConfigurationError, ApiError, IncompleteSubtasksApiError } from './errors';
+export type { IncompleteSubtaskDto } from './errors';
 export type { HttpClient, RequestOptions } from './HttpClient';
 export type { ApiStatus } from './services/SystemService';
 export { BoardService } from './services/BoardService';

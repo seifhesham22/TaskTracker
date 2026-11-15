@@ -603,6 +603,163 @@ describe('Board & Task acceptance tests', () => {
     expect(boardARender.queryByText('Task created on Second Board')).not.toBeInTheDocument();
   });
 
+  it('rejects parent task completion when incomplete subtasks exist, identifies children, preserves status, and succeeds once children are done', async () => {
+    const parentTaskId = 'parent-task-1';
+    const subtask1Id = 'subtask-1';
+    const subtask2Id = 'subtask-2';
+
+    let parentTask: TaskItem = {
+      id: parentTaskId,
+      readableId: 'TES-24',
+      number: 24,
+      boardId: mockBoardData.board.id,
+      title: 'Prepare release v1',
+      description: 'Finish all release requirements',
+      status: ColumnCategory.InProgress,
+      columnId: 'c-progress',
+      columnName: 'In progress',
+      priority: TaskPriority.High,
+      assigneeIds: [],
+    };
+
+    let subtask1: TaskItem = {
+      id: subtask1Id,
+      readableId: 'TES-26',
+      number: 26,
+      boardId: mockBoardData.board.id,
+      title: 'Review launch checklist',
+      status: ColumnCategory.InProgress,
+      columnId: 'c-progress',
+      columnName: 'In progress',
+      parentTaskId: parentTaskId,
+      assigneeIds: [],
+    };
+
+    let subtask2: TaskItem = {
+      id: subtask2Id,
+      readableId: 'TES-27',
+      number: 27,
+      boardId: mockBoardData.board.id,
+      title: 'Confirm release date',
+      status: ColumnCategory.ToDo,
+      columnId: 'c-todo',
+      columnName: 'To do',
+      parentTaskId: parentTaskId,
+      assigneeIds: [],
+    };
+
+    vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+      ...mockBoardData,
+      tasks: [parentTask, subtask1, subtask2],
+    }));
+
+    vi.spyOn(api.board, 'moveTask').mockImplementation(async ({ taskId, columnId }) => {
+      if (taskId === parentTaskId && columnId === 'c-done') {
+        // If subtasks are not done, reject!
+        if (subtask1.status !== ColumnCategory.Done || subtask2.status !== ColumnCategory.Done) {
+          const { IncompleteSubtasksApiError } = await import('../api');
+          throw new IncompleteSubtasksApiError(
+            "TES-24 can't be completed while these 2 subtasks are not done: TES-26 (Review launch checklist), TES-27 (Confirm release date).",
+            [
+              { id: subtask1Id, readableId: 'TES-26', title: 'Review launch checklist' },
+              { id: subtask2Id, readableId: 'TES-27', title: 'Confirm release date' },
+            ],
+            {}
+          );
+        }
+        parentTask = {
+          ...parentTask,
+          status: ColumnCategory.Done,
+          columnId: 'c-done',
+          columnName: 'Done',
+        };
+        return parentTask;
+      }
+
+      if (taskId === subtask1Id && columnId === 'c-done') {
+        subtask1 = { ...subtask1, status: ColumnCategory.Done, columnId: 'c-done', columnName: 'Done' };
+        return subtask1;
+      }
+
+      if (taskId === subtask2Id && columnId === 'c-done') {
+        subtask2 = { ...subtask2, status: ColumnCategory.Done, columnId: 'c-done', columnName: 'Done' };
+        return subtask2;
+      }
+
+      return parentTask;
+    });
+
+    renderAt('/tasks');
+
+    // 1. Open parent task containing incomplete subtasks
+    const openParentDetailsBtn = await screen.findByTestId(`open-task-${parentTaskId}`);
+    fireEvent.click(openParentDetailsBtn);
+
+    // Modal opens
+    expect(await screen.findByTestId('parent-task-details-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('In progress');
+    expect(screen.getByTestId('subtasks-count')).toHaveTextContent('0 / 2 done');
+
+    // 2. Attempt to mark it as completed
+    const markCompleteBtn = screen.getByTestId('mark-complete-button');
+    fireEvent.click(markCompleteBtn);
+
+    // 3. Verify that an appropriate error message appears
+    expect(await screen.findByTestId('parent-completion-blocked-banner')).toBeInTheDocument();
+    expect(screen.getByText('Complete 2 subtasks first')).toBeInTheDocument();
+    expect(
+      screen.getByText('This parent task can’t be completed while its subtasks are still in progress.')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('parent-completion-error-message')).toHaveTextContent(
+      "TES-24 can't be completed while these 2 subtasks are not done: TES-26 (Review launch checklist), TES-27 (Confirm release date)."
+    );
+
+    // 4. Verify that the incomplete children are identified
+    expect(screen.getByText('Incomplete subtasks')).toBeInTheDocument();
+    expect(screen.getByTestId('subtasks-count')).toHaveTextContent('2 remaining');
+    expect(screen.getByTestId(`incomplete-subtask-${subtask1Id}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`incomplete-subtask-${subtask2Id}`)).toBeInTheDocument();
+    expect(screen.getByText('Open each subtask above to finish the remaining work.')).toBeInTheDocument();
+
+    // 5. Verify that the parent status does not change
+    expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('In progress');
+
+    // 6. Complete subtasks via convenient access (Open subtask -> Complete this subtask)
+    fireEvent.click(screen.getByTestId(`open-subtask-${subtask1Id}`));
+    expect(await screen.findByTestId(`subtask-detail-view-${subtask1Id}`)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('complete-subtask-btn'));
+
+    await waitFor(() => {
+      expect(subtask1.status).toBe(ColumnCategory.Done);
+    });
+
+    fireEvent.click(screen.getByTestId('back-to-parent-btn'));
+
+    // Complete second subtask
+    fireEvent.click(screen.getByTestId(`open-subtask-${subtask2Id}`));
+    fireEvent.click(screen.getByTestId('complete-subtask-btn'));
+
+    await waitFor(() => {
+      expect(subtask2.status).toBe(ColumnCategory.Done);
+    });
+
+    fireEvent.click(screen.getByTestId('back-to-parent-btn'));
+
+    // Ready state: All subtasks are complete
+    expect(await screen.findByTestId('all-subtasks-complete-banner')).toBeInTheDocument();
+    expect(screen.getByText('All subtasks are complete.')).toBeInTheDocument();
+    expect(screen.getByTestId('subtasks-count')).toHaveTextContent('2 / 2 done');
+
+    // 7. Retry the parent completion -> Verify that completion is accepted
+    const retryCompleteBtn = screen.getByTestId('mark-complete-button');
+    fireEvent.click(retryCompleteBtn);
+
+    expect(await screen.findByTestId('task-completed-banner')).toBeInTheDocument();
+    expect(screen.getByText('✓ Task completed')).toBeInTheDocument();
+    expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('Done');
+    expect(screen.getByTestId('parent-completed-button')).toBeDisabled();
+  });
+
   describe('US-13 Web subtask creation functionality', () => {
     it('creates a subtask under a parent task, renders validation errors, visually distinguishes them, and persists relationship across reloads', async () => {
       const parentTask: TaskItem = {
