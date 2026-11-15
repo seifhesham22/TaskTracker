@@ -15,6 +15,7 @@ export interface UseBoardState {
   readonly clearMoveError: () => void;
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly handleUpdateTask: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
@@ -133,7 +134,9 @@ export function useBoard(boardId: string): UseBoardState {
     try {
       const updatedTask = await api.board.moveTask({ taskId, columnId: targetColumnId });
       // The new status shows everywhere the task appears on the page, from the same response.
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask, parentTaskId: updatedTask.parentTaskId ?? t.parentTaskId } : t))
+      );
       return true;
     } catch (err: unknown) {
       // If the change is refused (network error), the card stays where it was and the server's message is shown.
@@ -150,9 +153,25 @@ export function useBoard(boardId: string): UseBoardState {
     }
   };
 
+  const handleCreateSubtask = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    try {
+      const newSubtask = await api.board.createSubtask(parentTask, title);
+      setTasks((prevTasks) => [...prevTasks, newSubtask]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleUpdateTask = async (input: UpdateTaskInput): Promise<TaskItem> => {
     const updated = await api.board.updateTask(input);
-    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === updated.id
+          ? { ...t, ...updated, parentTaskId: updated.parentTaskId ?? t.parentTaskId }
+          : t
+      )
+    );
     return updated;
   };
 
@@ -173,6 +192,7 @@ export function useBoard(boardId: string): UseBoardState {
     clearMoveError,
     reload: fetchBoardData,
     handleCreateTask,
+    handleCreateSubtask,
     handleMoveTask,
     handleUpdateTask,
   };

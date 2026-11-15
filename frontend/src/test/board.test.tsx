@@ -603,6 +603,217 @@ describe('Board & Task acceptance tests', () => {
     expect(boardARender.queryByText('Task created on Second Board')).not.toBeInTheDocument();
   });
 
+  describe('US-13 Web subtask creation functionality', () => {
+    it('creates a subtask under a parent task, renders validation errors, visually distinguishes them, and persists relationship across reloads', async () => {
+      const parentTask: TaskItem = {
+        id: 'parent-task-1',
+        readableId: 'TES-24',
+        number: 24,
+        boardId: mockBoardData.board.id,
+        title: 'Prepare the project launch',
+        description: 'Agree on milestones and assign the launch checklist.',
+        status: ColumnCategory.InProgress,
+        columnId: 'c-progress',
+        columnName: 'In progress',
+        priority: TaskPriority.High,
+        assigneeIds: [],
+        createdAt: '2026-11-01T00:00:00Z',
+      };
+
+      const existingSubtask: TaskItem = {
+        id: 'subtask-1',
+        readableId: 'TES-25',
+        number: 25,
+        boardId: mockBoardData.board.id,
+        title: 'Agree on launch milestones',
+        status: ColumnCategory.Done,
+        columnId: 'c-done',
+        columnName: 'Done',
+        parentTaskId: 'parent-task-1',
+        assigneeIds: [],
+        createdAt: '2026-11-01T01:00:00Z',
+      };
+
+      const tasksDatabase: TaskItem[] = [parentTask, existingSubtask];
+
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        ...mockBoardData,
+        tasks: [...tasksDatabase],
+      }));
+
+      vi.spyOn(api.board, 'createSubtask').mockImplementation(async (parent, title) => {
+        const newSub: TaskItem = {
+          id: 'subtask-new-28',
+          readableId: 'TES-28',
+          number: 28,
+          boardId: parent.boardId,
+          title: title.trim(),
+          status: ColumnCategory.ToDo,
+          columnId: 'c-todo',
+          columnName: 'To do',
+          parentTaskId: parent.id,
+          assigneeIds: [],
+          createdAt: '2026-11-01T02:00:00Z',
+        };
+        tasksDatabase.push(newSub);
+        return newSub;
+      });
+
+      // 1. Render board
+      const { unmount } = renderAt('/tasks');
+
+      // Verify visual distinction on the board:
+      // Parent task has subtask count badge and no subtask pill
+      const parentCard = await screen.findByTestId('task-card-parent-task-1');
+      expect(parentCard).toBeInTheDocument();
+      expect(screen.getByTestId('subtasks-count-parent-task-1')).toHaveTextContent(/1 subtask/i);
+      expect(screen.queryByTestId('subtask-badge-parent-task-1')).not.toBeInTheDocument();
+
+      // Existing subtask has subtask class and distinctive '↳ Subtask' indicator
+      const subtaskCard = screen.getByTestId('task-card-subtask-1');
+      expect(subtaskCard).toHaveClass('card--subtask');
+      expect(screen.getByTestId('subtask-badge-subtask-1')).toHaveTextContent(/↳ Subtask/i);
+
+      // 2. Open the parent task
+      const openParentDetailsBtn = screen.getByTestId('open-task-parent-task-1');
+      fireEvent.click(openParentDetailsBtn);
+
+      const detailsModal = await screen.findByTestId('parent-task-details-modal');
+      expect(detailsModal).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Prepare the project launch' })).toBeInTheDocument();
+      expect(screen.getByTestId('subtasks-completion-count')).toHaveTextContent('1 / 1 done');
+      expect(screen.getByTestId('subtask-item-subtask-1')).toHaveTextContent('TES-25 · Done');
+
+      // 3. Select Add subtask
+      const addSubtaskBtn = screen.getByTestId('add-subtask-button');
+      fireEvent.click(addSubtaskBtn);
+
+      const createSubtaskModal = await screen.findByTestId('create-subtask-modal');
+      expect(createSubtaskModal).toBeInTheDocument();
+      expect(screen.getByText('TES-24 · Prepare the project launch')).toBeInTheDocument();
+
+      // 4. Try submitting an empty title and verify validation
+      const submitBtn = screen.getByTestId('submit-create-subtask');
+      fireEvent.click(submitBtn);
+
+      const errorMsg = await screen.findByTestId('subtask-title-error');
+      expect(errorMsg).toHaveTextContent('Subtask title is required.');
+
+      // 5. Enter a title and save
+      const titleInput = screen.getByTestId('subtask-title-input');
+      fireEvent.change(titleInput, { target: { value: 'Prepare the release notes' } });
+      fireEvent.click(submitBtn);
+
+      // 6. Verify that the subtask creation modal closes and success banner appears on parent details
+      await waitFor(() => {
+        expect(screen.queryByTestId('create-subtask-modal')).not.toBeInTheDocument();
+      });
+
+      const successBanner = await screen.findByTestId('subtask-created-banner');
+      expect(successBanner).toHaveTextContent('✓ Subtask created');
+
+      // 7. Verify new subtask appears under the correct parent with updated count
+      expect(screen.getByTestId('subtasks-completion-count')).toHaveTextContent('1 / 2 done');
+      expect(screen.getByTestId('subtask-item-subtask-new-28')).toHaveTextContent('TES-28 · To do');
+      expect(screen.getByTestId('subtask-item-subtask-new-28')).toHaveTextContent('Prepare the release notes');
+
+      unmount();
+
+      // 8. Reload the board / parent task and verify relationship remains correct
+      const reloaded = renderAt('/tasks');
+
+      // Board has 2 subtasks now for parent
+      const reloadedParentCard = await reloaded.findByTestId('task-card-parent-task-1');
+      expect(reloadedParentCard).toBeInTheDocument();
+      expect(reloaded.getByTestId('subtasks-count-parent-task-1')).toHaveTextContent(/2 subtasks/i);
+
+      // Newly created subtask card on board is visually distinct
+      const newSubCard = reloaded.getByTestId('task-card-subtask-new-28');
+      expect(newSubCard).toHaveClass('card--subtask');
+      expect(reloaded.getByTestId('subtask-badge-subtask-new-28')).toHaveTextContent(/↳ Subtask/i);
+
+      // Open parent task after reload and verify child tasks are intact
+      fireEvent.click(reloaded.getByTestId('open-task-parent-task-1'));
+      expect(await reloaded.findByTestId('parent-task-details-modal')).toBeInTheDocument();
+      expect(reloaded.getByTestId('subtasks-completion-count')).toHaveTextContent('1 / 2 done');
+      expect(reloaded.getByTestId('subtask-item-subtask-1')).toHaveTextContent('TES-25 · Done');
+      expect(reloaded.getByTestId('subtask-item-subtask-new-28')).toHaveTextContent('TES-28 · To do');
+    });
+
+    it('preserves subtask relationship and subtask logo when subtask status changes', async () => {
+      const parentTask: TaskItem = {
+        id: 'parent-task-1',
+        readableId: 'TES-24',
+        number: 24,
+        boardId: mockBoardData.board.id,
+        title: 'Prepare the project launch',
+        status: ColumnCategory.InProgress,
+        columnId: 'c-progress',
+        columnName: 'In progress',
+        priority: TaskPriority.High,
+        assigneeIds: [],
+        createdAt: '2026-11-01T00:00:00Z',
+      };
+
+      let subtask: TaskItem = {
+        id: 'subtask-1',
+        readableId: 'TES-25',
+        number: 25,
+        boardId: mockBoardData.board.id,
+        title: 'Agree on launch milestones',
+        status: ColumnCategory.ToDo,
+        columnId: 'c-todo',
+        columnName: 'To do',
+        parentTaskId: 'parent-task-1',
+        assigneeIds: [],
+        createdAt: '2026-11-01T01:00:00Z',
+      };
+
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        ...mockBoardData,
+        tasks: [parentTask, subtask],
+      }));
+
+      vi.spyOn(api.board, 'moveTask').mockImplementation(async ({ taskId, columnId }) => {
+        expect(taskId).toBe('subtask-1');
+        const col = mockBoardData.board.columns.find((c) => c.id === columnId)!;
+        subtask = {
+          ...subtask,
+          columnId: col.id,
+          columnName: col.name,
+          status: col.category,
+        };
+        return subtask;
+      });
+
+      renderAt('/tasks');
+
+      // Subtask initially has subtask badge on the board
+      const subtaskCard = await screen.findByTestId('task-card-subtask-1');
+      expect(subtaskCard).toHaveClass('card--subtask');
+      expect(screen.getByTestId('subtask-badge-subtask-1')).toHaveTextContent(/↳ Subtask/i);
+
+      // Move subtask to In Progress via drag-and-drop
+      const progressColumn = screen.getByTestId('board-column-IN_PROGRESS');
+      fireEvent.drop(progressColumn, {
+        dataTransfer: {
+          getData: (format: string) => (format === 'text/plain' ? 'subtask-1' : ''),
+        },
+      });
+
+      // Verify subtask card STILL has subtask badge and class after moving
+      await waitFor(() => {
+        expect(screen.getByTestId('subtask-badge-subtask-1')).toHaveTextContent(/↳ Subtask/i);
+      });
+      expect(screen.getByTestId('task-card-subtask-1')).toHaveClass('card--subtask');
+
+      // Open parent task details: subtask is STILL present under parent with updated status
+      fireEvent.click(screen.getByTestId('open-task-parent-task-1'));
+      expect(await screen.findByTestId('parent-task-details-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('subtask-item-subtask-1')).toHaveTextContent('TES-25 · In progress');
+    });
+  });
+
   describe('[US-11] Web task editing functionality', () => {
     const editBoardId = '01a1aad8-c24a-73f9-a095-069769796312';
     const initialTask: TaskItem = {

@@ -3,6 +3,8 @@ import type { BoardDetails, CreateTaskInput, TaskItem, UpdateTaskInput } from '.
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
+import { ParentTaskDetailsModal } from './ParentTaskDetailsModal';
+import { CreateSubtaskModal } from './CreateSubtaskModal';
 import { EditTaskModal } from './EditTaskModal';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import './BoardView.css';
@@ -20,6 +22,7 @@ export interface BoardViewProps {
   readonly onClearMoveError?: () => void;
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly onCreateSubtask?: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly onUpdateTask?: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
@@ -37,17 +40,28 @@ export function BoardView({
   onClearMoveError,
   onReload,
   onCreateTask,
+  onCreateSubtask,
   onMoveTask,
   onUpdateTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
-  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<TaskItem | null>(null);
+  const [parentTaskForSubtask, setParentTaskForSubtask] = useState<TaskItem | null>(null);
+  const [showSubtaskCreatedBanner, setShowSubtaskCreatedBanner] = useState(false);
+
+  const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<TaskItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [taskDetailsAfterEdit, setTaskDetailsAfterEdit] = useState<TaskItem | null>(null);
+  const [isTaskDetailsAfterEditOpen, setIsTaskDetailsAfterEditOpen] = useState(false);
   const [justUpdatedTaskId, setJustUpdatedTaskId] = useState<string | null>(null);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const activeDetailsTask = useMemo(() => {
+    if (!selectedTaskForDetails) return null;
+    return tasks.find((t) => t.id === selectedTaskForDetails.id) ?? selectedTaskForDetails;
+  }, [selectedTaskForDetails, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -61,10 +75,14 @@ export function BoardView({
       return [];
     }
 
-    const sortedColumns = [...board.columns].sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
+    const sortedColumns = [...board.columns].sort((a, b) =>
+      a.position < b.position ? -1 : a.position > b.position ? 1 : 0
+    );
 
     return sortedColumns.map((col) => {
-      const colTasks = tasks.filter((t) => t.columnId === col.id || (!t.columnId && t.status === col.category));
+      const colTasks = tasks.filter(
+        (t) => t.columnId === col.id || (!t.columnId && t.status === col.category)
+      );
       return {
         column: col,
         tasks: colTasks,
@@ -136,6 +154,40 @@ export function BoardView({
 
   const selectedColumn = board?.columns.find((c) => c.id === selectedColumnId);
 
+  const handleOpenParentDetails = (task: TaskItem) => {
+    setIsTaskDetailsAfterEditOpen(false);
+    setSelectedTaskForDetails(task);
+    setShowSubtaskCreatedBanner(false);
+  };
+
+  const handleCardSelect = (task: TaskItem) => {
+    setSelectedTaskForDetails(null);
+    setTaskDetailsAfterEdit(task);
+    setIsTaskDetailsAfterEditOpen(true);
+  };
+
+  const handleEditTask = (task: TaskItem) => {
+    setSelectedTaskForEdit(task);
+    setIsEditModalOpen(true);
+    setIsTaskDetailsAfterEditOpen(false);
+  };
+
+  const handleOpenAddSubtask = () => {
+    if (activeDetailsTask) {
+      setParentTaskForSubtask(activeDetailsTask);
+    }
+  };
+
+  const handleSubtaskSubmit = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    if (!onCreateSubtask) return false;
+    const success = await onCreateSubtask(parentTask, title);
+    if (success) {
+      setShowSubtaskCreatedBanner(true);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className="board-view" data-testid="board-view">
       <BoardHeader
@@ -178,21 +230,16 @@ export function BoardView({
               key={column.id}
               column={column}
               tasks={colTasks}
+              allTasks={tasks}
               members={board?.members}
               savingTaskIds={savingTaskIds}
               onDropTask={onMoveTask}
+              onSelect={handleOpenParentDetails}
+              onSelectTask={handleCardSelect}
+              onEditTask={handleEditTask}
               onAddTask={(colId) => {
                 setSelectedColumnId(colId);
                 setIsCreateModalOpen(true);
-              }}
-              onSelectTask={(task) => {
-                setSelectedTask(task);
-                setIsDetailsModalOpen(true);
-              }}
-              onEditTask={(task) => {
-                setSelectedTask(task);
-                setIsDetailsModalOpen(false);
-                setIsEditModalOpen(true);
               }}
             />
           ))}
@@ -218,40 +265,67 @@ export function BoardView({
         />
       )}
 
-      {selectedTask && (
+      <ParentTaskDetailsModal
+        task={activeDetailsTask}
+        allTasks={tasks}
+        projectName={board?.projectName}
+        isOpen={Boolean(activeDetailsTask) && !parentTaskForSubtask}
+        showSuccessBanner={showSubtaskCreatedBanner}
+        onClose={() => {
+          setSelectedTaskForDetails(null);
+          setShowSubtaskCreatedBanner(false);
+        }}
+        onAddSubtask={handleOpenAddSubtask}
+        onMoveTask={onMoveTask}
+        columns={board?.columns}
+      />
+
+      <CreateSubtaskModal
+        parentTask={parentTaskForSubtask}
+        projectName={board?.projectName}
+        isOpen={Boolean(parentTaskForSubtask)}
+        onClose={() => setParentTaskForSubtask(null)}
+        onSubmit={handleSubtaskSubmit}
+      />
+
+      {taskDetailsAfterEdit && (
         <TaskDetailsModal
-          task={selectedTask}
+          task={taskDetailsAfterEdit}
           projectName={board?.projectName || board?.name}
-          isOpen={isDetailsModalOpen}
-          justUpdated={Boolean(justUpdatedTaskId === selectedTask.id)}
+          isOpen={isTaskDetailsAfterEditOpen}
+          justUpdated={Boolean(justUpdatedTaskId === taskDetailsAfterEdit.id)}
           onClose={() => {
-            setIsDetailsModalOpen(false);
+            setIsTaskDetailsAfterEditOpen(false);
             setJustUpdatedTaskId(null);
+            setTaskDetailsAfterEdit(null);
           }}
           onEdit={() => {
-            setIsDetailsModalOpen(false);
+            setIsTaskDetailsAfterEditOpen(false);
+            setSelectedTaskForEdit(taskDetailsAfterEdit);
             setIsEditModalOpen(true);
           }}
         />
       )}
 
-      {selectedTask && (
+      {selectedTaskForEdit && (
         <EditTaskModal
-          task={selectedTask}
+          task={selectedTaskForEdit}
           projectName={board?.projectName || board?.name}
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
+            setSelectedTaskForEdit(null);
           }}
           onSubmit={async (input) => {
             if (!onUpdateTask) return false;
             return await onUpdateTask(input);
           }}
           onSuccess={(updatedTask) => {
-            setSelectedTask(updatedTask);
+            setSelectedTaskForEdit(null);
+            setTaskDetailsAfterEdit(updatedTask);
             setJustUpdatedTaskId(updatedTask.id);
             setIsEditModalOpen(false);
-            setIsDetailsModalOpen(true);
+            setIsTaskDetailsAfterEditOpen(true);
           }}
         />
       )}
