@@ -63,6 +63,8 @@ query Backlog($projectId: UUID!, $search: String, $where: BacklogFilterInput, $p
       status
       column { name }
       assignees { id userName }
+      blocks { readableId }
+      blockedBy { readableId }
     }
     totalCount
     page
@@ -116,7 +118,9 @@ query {
           "priority": "HIGH",
           "status": "IN_PROGRESS",
           "column": { "name": "In progress" },
-          "assignees": []
+          "assignees": [],
+          "blocks": [{ "readableId": "TES-5" }],
+          "blockedBy": [{ "readableId": "TES-1" }]
         }
       ],
       "totalCount": 1,
@@ -146,6 +150,7 @@ query {
 - A page after the last one is not an error: `items` is empty and `totalCount` and `totalPages` still tell the real size.
 - An empty project returns `totalCount: 0` and `totalPages: 0`.
 - `totalCount` counts only what matches the search and the filters.
+- Each item is a full [`Task`](../types.md#task), so `blocks` and `blockedBy` show its dependencies here too (see [`addTaskDependency`](../mutations/addTaskDependency.md)). Like `column` and `assignees`, they are loaded with DataLoaders: one SQL query each for the whole page.
 - Get a project id from the [`projects`](projects.md) query, or `SELECT "Id", "Key" FROM projects;`. To try it in Nitro, [`login`](../mutations/login.md) as a member of that project and use that token. The seeded users are members of the seeded `TES` project (see [Seed data](../../../README.md#seed-data)).
 - Page, page size and search are checked before membership, so a wrong value comes back as `BAD_USER_INPUT` for anyone. That tells nothing about the project.
 - The [`tasks`](tasks.md) query stays as it is for the board screen: a board needs all of its tasks at once, not pages.

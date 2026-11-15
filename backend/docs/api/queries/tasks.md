@@ -35,6 +35,14 @@ query {
       id
       userName
     }
+    blocks {
+      readableId
+      title
+    }
+    blockedBy {
+      readableId
+      title
+    }
   }
 }
 ```
@@ -53,7 +61,9 @@ query {
         "dueDate": null,
         "status": "BACKLOG",
         "column": { "name": "Backlog", "category": "BACKLOG" },
-        "assignees": []
+        "assignees": [],
+        "blocks": [{ "readableId": "TES-2", "title": "Full task" }],
+        "blockedBy": []
       },
       {
         "readableId": "TES-2",
@@ -63,7 +73,9 @@ query {
         "dueDate": "2026-11-05T00:00:00Z",
         "status": "BACKLOG",
         "column": { "name": "Backlog", "category": "BACKLOG" },
-        "assignees": [{ "id": "01a18766-479c-7ec2-be3f-3c3a00989ad6", "userName": "user1@local.test" }]
+        "assignees": [{ "id": "01a18766-479c-7ec2-be3f-3c3a00989ad6", "userName": "user1@local.test" }],
+        "blocks": [],
+        "blockedBy": [{ "readableId": "TES-1", "title": "Title only" }]
       }
     ]
   }
@@ -80,4 +92,5 @@ query {
 ## Notes
 
 - Get a board id with `SELECT "Id" FROM boards;`.
-- `status`, `column` and `assignees` are loaded with DataLoaders: one SQL query each for all the tasks in the response, and only when the query asks for them.
+- `status`, `column`, `assignees`, `blocks` and `blockedBy` are loaded with DataLoaders: one SQL query each for all the tasks in the response, and only when the query asks for them.
+- `blocks` lists the tasks this task blocks (its dependents), and `blockedBy` lists the tasks that block it (its predecessors). Here TES-1 blocks TES-2. Dependencies are added with [`addTaskDependency`](../mutations/addTaskDependency.md).
