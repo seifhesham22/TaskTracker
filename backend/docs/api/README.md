@@ -11,6 +11,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`logout`](mutations/logout.md) | mutation | yes | Ends the current session, so its token stops working |
 | [`me`](queries/me.md) | query | yes | The user the token belongs to |
 | [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
+| [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`projects`](queries/projects.md) | query | yes | The projects a user is a member of, with their boards and members |
 | [`board`](queries/board.md) | query | yes | One board with its columns |
 | [`createTask`](mutations/createTask.md) | mutation | yes | Creates a task, or a subtask, in a column of a board |
@@ -45,6 +46,7 @@ me ──► User
 projects(userId) ──► Project ──► boards ──► Board ──► columns ──► Column
 board(id) ────────────────────────────────► Board ──► columns ──► Column
 tasks(boardId) ──► Task ──► column, status, assignees
+backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──► items ──► Task
 ```
 
 The `Board` reached through `projects { boards }` and the one from `board(id)` is the same type, so its fields work the same either way.
@@ -80,3 +82,5 @@ Each operation page lists the cases and messages for that operation.
 ## Not there yet
 
 [`projects`](queries/projects.md) still takes the user's id as an argument. It can switch to the user from the token, like [`me`](queries/me.md).
+
+Only [`backlog`](queries/backlog.md) checks that the user is a member of the project. The other operations need a token but don't check membership yet.

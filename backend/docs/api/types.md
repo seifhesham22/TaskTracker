@@ -5,6 +5,7 @@ Every type the [GraphQL API](README.md) returns, described once. Operation pages
 A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-48b5-7fb8-a04c-13e1bf648def`. `DateTime` is ISO 8601 in UTC, for example `2026-11-05T00:00:00Z`.
 
 - [Task](#task)
+- [BacklogPage](#backlogpage)
 - [TaskDto](#taskdto)
 - [Board](#board)
 - [Column](#column)
@@ -17,7 +18,7 @@ A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-4
 
 ## Task
 
-A task on a board. Returned by [`tasks`](queries/tasks.md) and [`moveTask`](mutations/moveTask.md).
+A task on a board. Returned by [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) (in `items`), [`moveTask`](mutations/moveTask.md) and [`updateTask`](mutations/updateTask.md).
 
 | Field          | Type                 | Notes |
 | -------------- | -------------------- | ----- |
@@ -38,6 +39,20 @@ A task on a board. Returned by [`tasks`](queries/tasks.md) and [`moveTask`](muta
 | `assignees`    | [`[Assignee!]!`](#assignee) | An empty list when nobody is assigned |
 
 `status`, `column` and `assignees` are loaded with DataLoaders (`status` and `column` share one).
+
+## BacklogPage
+
+One page of a project's tasks. Returned by [`backlog`](queries/backlog.md).
+
+| Field             | Type                 | Notes |
+| ----------------- | -------------------- | ----- |
+| `items`           | [`[Task!]!`](#task)  | The tasks of this page, in backlog order. Empty after the last page |
+| `totalCount`      | `Int!`               | All the tasks that match the search and the filters, on every page |
+| `page`            | `Int!`               | The page that was asked for, from 1 |
+| `pageSize`        | `Int!`               | The page size that was asked for |
+| `totalPages`      | `Int!`               | `0` when nothing matches |
+| `hasNextPage`     | `Boolean!`           | `page < totalPages` |
+| `hasPreviousPage` | `Boolean!`           | `page > 1` |
 
 ## TaskDto
 
