@@ -371,6 +371,27 @@ namespace TaskTracker.API.Data.Migrations
                     b.ToTable("task_assignee", (string)null);
                 });
 
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskDependency", b =>
+                {
+                    b.Property<Guid>("BlockingTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlockedTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("BlockingTaskId", "BlockedTaskId");
+
+                    b.HasIndex("BlockedTaskId");
+
+                    b.ToTable("task_dependencies", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_task_dependencies_NotSelf", "\"BlockingTaskId\" <> \"BlockedTaskId\"");
+                        });
+                });
+
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -647,6 +668,25 @@ namespace TaskTracker.API.Data.Migrations
                     b.Navigation("Task");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskDependency", b =>
+                {
+                    b.HasOne("TaskTracker.API.Domain.Entities.TaskItem", "BlockedTask")
+                        .WithMany()
+                        .HasForeignKey("BlockedTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskTracker.API.Domain.Entities.TaskItem", "BlockingTask")
+                        .WithMany()
+                        .HasForeignKey("BlockingTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlockedTask");
+
+                    b.Navigation("BlockingTask");
                 });
 
             modelBuilder.Entity("TaskTracker.API.Domain.Entities.TaskItem", b =>

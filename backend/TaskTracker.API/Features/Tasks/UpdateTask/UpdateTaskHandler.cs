@@ -1,19 +1,14 @@
-using Microsoft.EntityFrameworkCore;
 using TaskTracker.API.Data;
-using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Tasks.GetTasks;
-using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Tasks;
 
 namespace TaskTracker.API.Features.Tasks.UpdateTask
 {
-    public class UpdateTaskHandler(ApplicationDbContext db)
+    public class UpdateTaskHandler(ApplicationDbContext db, ITaskLookupService tasks)
     {
         public async Task<TaskNode> HandleAsync(UpdateTaskInput input, CancellationToken ct)
         {
-            var task = await db.Set<TaskItem>()
-                .Include(t => t.Project)
-                .FirstOrDefaultAsync(t => t.Id == input.TaskId, ct)
-                ?? throw new NotFoundException($"Task '{input.TaskId}' was not found.");
+            var task = await tasks.GetAsync(input.TaskId, ct);
 
             if (input.Title.HasValue)
                 task.Rename(input.Title.Value ?? string.Empty);

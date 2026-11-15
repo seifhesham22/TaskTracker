@@ -46,6 +46,15 @@ public class DomainErrorFilterTests
     }
 
     [Fact]
+    public void Forbidden_gets_the_AUTH_NOT_AUTHORIZED_code_and_its_own_message()
+    {
+        var error = _filter.OnError(ErrorFrom(new ForbiddenException("Only writers and owners of the project can add dependencies.")));
+
+        Assert.Equal("AUTH_NOT_AUTHORIZED", error.Code);
+        Assert.Equal("Only writers and owners of the project can add dependencies.", error.Message);
+    }
+
+    [Fact]
     public void Expected_errors_carry_no_exception_details()
     {
         var withDetails = ErrorFrom(new InvalidCredentialsException("Invalid email or password.")).SetExtension("exception", "stack trace");

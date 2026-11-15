@@ -13,6 +13,7 @@ using TaskTracker.API.Features.Auth.Logout;
 using TaskTracker.API.Features.Auth.Register;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.GetProjects;
+using TaskTracker.API.Features.Tasks.AddTaskDependency;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetBacklog;
 using TaskTracker.API.Features.Tasks.GetTasks;
@@ -21,8 +22,11 @@ using TaskTracker.API.Features.Tasks.UpdateTask;
 using TaskTracker.API.Features.Users.Me;
 using TaskTracker.API.Shared.Auth;
 using TaskTracker.API.Shared.Completion;
+using TaskTracker.API.Shared.Dependencies;
 using TaskTracker.API.Shared.GraphQL;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Shared.Positions;
+using TaskTracker.API.Shared.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -85,6 +89,9 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ITaskPositionService, TaskPositionService>();
 builder.Services.AddScoped<ITaskCompletionGuard, TaskCompletionGuard>();
+builder.Services.AddScoped<IProjectMembershipService, ProjectMembershipService>();
+builder.Services.AddScoped<ITaskLookupService, TaskLookupService>();
+builder.Services.AddScoped<ITaskDependencyCycleGuard, TaskDependencyCycleGuard>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetBacklogHandler>();
@@ -92,6 +99,7 @@ builder.Services.AddScoped<GetProjectsHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
+builder.Services.AddScoped<AddTaskDependencyHandler>();
 builder.Services.AddScoped<RegisterHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<LogoutHandler>();
@@ -101,6 +109,8 @@ builder.Services.AddDataLoader<AssigneesByTaskIdDataLoader>();
 builder.Services.AddDataLoader<MembersByProjectIdDataLoader>();
 builder.Services.AddDataLoader<BoardsByProjectIdDataLoader>();
 builder.Services.AddDataLoader<ColumnsByBoardIdDataLoader>();
+builder.Services.AddDataLoader<TasksBlockedByTaskIdDataLoader>();
+builder.Services.AddDataLoader<TasksBlockingTaskIdDataLoader>();
 
 builder.Services
     .AddGraphQLServer()
@@ -115,6 +125,7 @@ builder.Services
     .AddType<CreateTaskMutation>()
     .AddType<MoveTaskMutation>()
     .AddType<UpdateTaskMutation>()
+    .AddType<AddTaskDependencyMutation>()
     .AddType<RegisterMutation>()
     .AddType<LoginMutation>()
     .AddType<LogoutMutation>()

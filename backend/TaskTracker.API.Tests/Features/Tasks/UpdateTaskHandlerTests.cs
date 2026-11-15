@@ -9,6 +9,8 @@ using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Features.Tasks.UpdateTask;
 using TaskTracker.API.Shared.Exceptions;
 using TaskTracker.API.Shared.Positions;
+using TaskTracker.API.Shared.Membership;
+using TaskTracker.API.Shared.Tasks;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -176,7 +178,7 @@ public class UpdateTaskHandlerTests(PostgresFixture database)
     {
         await using var db = database.CreateDbContext();
         var project = await TestData.CreateProjectAsync(db);
-        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(
             new CreateTaskInput(project.BoardId, null, "Original title", "Original description", null, TaskPriority.Low, November5),
             CancellationToken.None);
     }
@@ -184,7 +186,7 @@ public class UpdateTaskHandlerTests(PostgresFixture database)
     private async Task<TaskNode> UpdateAsync(UpdateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new UpdateTaskHandler(db).HandleAsync(input, CancellationToken.None);
+        return await new UpdateTaskHandler(db, new TaskLookupService(db)).HandleAsync(input, CancellationToken.None);
     }
 
     private async Task<TaskItem> SavedAsync(Guid taskId)

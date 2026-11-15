@@ -74,6 +74,7 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | [`createTask`](docs/api/mutations/createTask.md) | mutation | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](docs/api/mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |
 | [`updateTask`](docs/api/mutations/updateTask.md) | mutation | Changes a task's title, description, priority and dates |
+| [`addTaskDependency`](docs/api/mutations/addTaskDependency.md) | mutation | Says that one task blocks another in the same project, refusing cycles |
 | [`register`](docs/api/mutations/register.md) | mutation | Creates a user account from an email and a password |
 | [`login`](docs/api/mutations/login.md) | mutation | Checks an email and password and returns an access token |
 | [`logout`](docs/api/mutations/logout.md) | mutation | Ends the current session, so its token stops working |

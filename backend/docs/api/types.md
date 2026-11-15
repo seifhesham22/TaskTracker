@@ -5,6 +5,7 @@ Every type the [GraphQL API](README.md) returns, described once. Operation pages
 A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-48b5-7fb8-a04c-13e1bf648def`. `DateTime` is ISO 8601 in UTC, for example `2026-11-05T00:00:00Z`.
 
 - [Task](#task)
+- [TaskDependencyPayload](#taskdependencypayload)
 - [BacklogPage](#backlogpage)
 - [TaskDto](#taskdto)
 - [Board](#board)
@@ -18,7 +19,7 @@ A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-4
 
 ## Task
 
-A task on a board. Returned by [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) (in `items`), [`moveTask`](mutations/moveTask.md) and [`updateTask`](mutations/updateTask.md).
+A task on a board. Returned by [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) (in `items`), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md) and [`addTaskDependency`](mutations/addTaskDependency.md).
 
 | Field          | Type                 | Notes |
 | -------------- | -------------------- | ----- |
@@ -37,8 +38,19 @@ A task on a board. Returned by [`tasks`](queries/tasks.md), [`backlog`](queries/
 | `status`       | [`ColumnCategory!`](#columncategory) | The category of the task's column |
 | `column`       | [`Column!`](#column) | The column the task is in. `status` is the same as `column.category` |
 | `assignees`    | [`[Assignee!]!`](#assignee) | An empty list when nobody is assigned |
+| `blocks`       | [`[Task!]!`](#task)  | The tasks this one blocks: they can't be done before it (its dependents). See [`addTaskDependency`](mutations/addTaskDependency.md) |
+| `blockedBy`    | [`[Task!]!`](#task)  | The tasks that block this one: they must be done first (its predecessors) |
 
-`status`, `column` and `assignees` are loaded with DataLoaders (`status` and `column` share one).
+`status`, `column`, `assignees`, `blocks` and `blockedBy` are loaded with DataLoaders (`status` and `column` share one).
+
+## TaskDependencyPayload
+
+Returned by [`addTaskDependency`](mutations/addTaskDependency.md).
+
+| Field          | Type             | Notes |
+| -------------- | ---------------- | ----- |
+| `blockingTask` | [`Task!`](#task) | The task that must be done first. Its `blocks` now lists the other task |
+| `blockedTask`  | [`Task!`](#task) | The task that waits. Its `blockedBy` now lists the other task |
 
 ## BacklogPage
 

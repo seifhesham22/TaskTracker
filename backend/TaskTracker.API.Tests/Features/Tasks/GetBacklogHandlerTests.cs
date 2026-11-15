@@ -7,6 +7,7 @@ using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetBacklog;
 using TaskTracker.API.Shared.Exceptions;
 using TaskTracker.API.Shared.Positions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -346,7 +347,7 @@ public class GetBacklogHandlerTests(PostgresFixture database)
         Guid boardId, string title, Guid? columnId = null, TaskPriority? priority = null)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(
             new CreateTaskInput(boardId, columnId, title, null, null, priority, null),
             CancellationToken.None);
     }
@@ -366,6 +367,6 @@ public class GetBacklogHandlerTests(PostgresFixture database)
         Expression<Func<TaskItem, bool>>? where = null,
         int page = 1,
         int pageSize = GetBacklogHandler.DefaultPageSize) =>
-        new GetBacklogHandler(database).HandleAsync(
+        new GetBacklogHandler(database, new ProjectMembershipService(database)).HandleAsync(
             projectId, userId, search, where, page, pageSize, CancellationToken.None);
 }

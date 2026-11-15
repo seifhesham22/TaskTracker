@@ -20,6 +20,7 @@ namespace TaskTracker.API.Shared.GraphQL
                     .ToList()),
             BadUserInputException ex => Expected(error, ex, "BAD_USER_INPUT"),
             InvalidCredentialsException ex => Expected(error, ex, "INVALID_CREDENTIALS"),
+            ForbiddenException ex => Expected(error, ex, "AUTH_NOT_AUTHORIZED"),
             DomainException ex => Expected(error, ex, "BAD_USER_INPUT"),
             _ => error
         };

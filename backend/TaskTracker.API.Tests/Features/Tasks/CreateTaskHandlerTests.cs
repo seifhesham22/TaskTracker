@@ -6,6 +6,7 @@ using TaskTracker.API.Features.Tasks;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Shared.Exceptions;
 using TaskTracker.API.Shared.Positions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Tasks;
@@ -321,7 +322,7 @@ public class CreateTaskHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db, new TaskPositionService(db)).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, CancellationToken.None);
     }
 
     private static CreateTaskInput TitleOnly(Guid boardId, string title = "A task") =>

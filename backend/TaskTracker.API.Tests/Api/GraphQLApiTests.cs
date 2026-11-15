@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using TaskTracker.API.Domain.Entities;
+using TaskTracker.API.Domain.Enums;
 using TaskTracker.API.Shared.Auth;
 using TaskTracker.API.Tests.Infrastructure;
 
@@ -601,6 +602,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { moveTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", columnId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
     [InlineData("mutation { updateTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
     [InlineData("query { backlog(projectId: \"00000000-0000-0000-0000-000000000001\") { totalCount } }")]
+    [InlineData("mutation { addTaskDependency(input: { blockingTaskId: \"00000000-0000-0000-0000-000000000001\", blockedTaskId: \"00000000-0000-0000-0000-000000000002\" }) { blockedTask { id } } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
     {
         var json = await PostAnonymousGraphQLAsync(query);
@@ -902,6 +904,97 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task AddTaskDependency_shows_the_dependency_on_both_tasks_in_the_right_direction()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var a = await CreateTaskThroughTheApiAsync(project.BoardId, "Task A");
+        var b = await CreateTaskThroughTheApiAsync(project.BoardId, "Task B");
+
+        var json = await AddTaskDependencyAsync(project, a.Id, b.Id);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var payload = json.GetProperty("data").GetProperty("addTaskDependency");
+        Assert.Equal(new[] { b.ReadableId }, ReadableIds(payload.GetProperty("blockingTask").GetProperty("blocks")));
+        Assert.Equal(new[] { a.ReadableId }, ReadableIds(payload.GetProperty("blockedTask").GetProperty("blockedBy")));
+
+        var tasks = await TasksWithDependenciesAsync(project);
+        Assert.Equal(new[] { b.ReadableId }, ReadableIds(tasks[a.ReadableId].GetProperty("blocks")));
+        Assert.Empty(ReadableIds(tasks[a.ReadableId].GetProperty("blockedBy")));
+        Assert.Equal(new[] { a.ReadableId }, ReadableIds(tasks[b.ReadableId].GetProperty("blockedBy")));
+        Assert.Empty(ReadableIds(tasks[b.ReadableId].GetProperty("blocks")));
+    }
+
+    [Fact]
+    public async Task AddTaskDependency_that_closes_a_cycle_comes_back_with_BAD_USER_INPUT_and_is_not_saved()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var a = await CreateTaskThroughTheApiAsync(project.BoardId, "Task A");
+        var b = await CreateTaskThroughTheApiAsync(project.BoardId, "Task B");
+        var c = await CreateTaskThroughTheApiAsync(project.BoardId, "Task C");
+        await AddTaskDependencyAsync(project, a.Id, b.Id);
+        await AddTaskDependencyAsync(project, b.Id, c.Id);
+
+        var json = await AddTaskDependencyAsync(project, c.Id, a.Id);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            $"{c.ReadableId} can't block {a.ReadableId}: {a.ReadableId} already blocks {c.ReadableId} " +
+            $"({a.ReadableId} → {b.ReadableId} → {c.ReadableId}), so this would create a cycle.",
+            error.GetProperty("message").GetString());
+
+        var tasks = await TasksWithDependenciesAsync(project);
+        Assert.Empty(ReadableIds(tasks[c.ReadableId].GetProperty("blocks")));
+        Assert.Empty(ReadableIds(tasks[a.ReadableId].GetProperty("blockedBy")));
+        Assert.Equal(new[] { b.ReadableId }, ReadableIds(tasks[a.ReadableId].GetProperty("blocks")));
+        Assert.Equal(new[] { c.ReadableId }, ReadableIds(tasks[b.ReadableId].GetProperty("blocks")));
+    }
+
+    [Fact]
+    public async Task AddTaskDependency_between_projects_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject mine, other;
+        await using (var db = database.CreateDbContext())
+        {
+            mine = await TestData.CreateProjectAsync(db);
+            other = await TestData.CreateProjectAsync(db);
+            await TestData.AddMemberAsync(db, other.ProjectId, ProjectRole.Owner, mine.MemberId);
+        }
+        var a = await CreateTaskThroughTheApiAsync(mine.BoardId, "Mine");
+        var foreign = await CreateTaskThroughTheApiAsync(other.BoardId, "Foreign");
+
+        var json = await AddTaskDependencyAsync(mine, a.Id, foreign.Id);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            $"{a.ReadableId} and {foreign.ReadableId} are in different projects. A task can only block a task of the same project.",
+            error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AddTaskDependency_by_a_reader_comes_back_with_AUTH_NOT_AUTHORIZED()
+    {
+        TestProject project;
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+        }
+        var a = await CreateTaskThroughTheApiAsync(project.BoardId, "Task A");
+        var b = await CreateTaskThroughTheApiAsync(project.BoardId, "Task B");
+
+        var json = await SendGraphQLAsync(AddTaskDependencyMutation(a.Id, b.Id), TokenFor(readerId));
+
+        Assert.Equal("AUTH_NOT_AUTHORIZED", ErrorCode(json));
+    }
+
+    [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
         var email = $"{Guid.NewGuid():N}@test.local";
@@ -1004,6 +1097,30 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private Task<JsonElement> PostGraphQLAsMemberAsync(TestProject project, string query) =>
         SendGraphQLAsync(query, TokenFor(project.MemberId));
+
+    private Task<JsonElement> AddTaskDependencyAsync(TestProject project, string blockingTaskId, string blockedTaskId) =>
+        PostGraphQLAsMemberAsync(project, AddTaskDependencyMutation(blockingTaskId, blockedTaskId));
+
+    private static string AddTaskDependencyMutation(string blockingTaskId, string blockedTaskId) => $$"""
+        mutation {
+          addTaskDependency(input: { blockingTaskId: "{{blockingTaskId}}", blockedTaskId: "{{blockedTaskId}}" }) {
+            blockingTask { readableId blocks { readableId } }
+            blockedTask { readableId blockedBy { readableId } }
+          }
+        }
+        """;
+
+    private async Task<Dictionary<string, JsonElement>> TasksWithDependenciesAsync(TestProject project)
+    {
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { tasks(boardId: "{{project.BoardId}}") { readableId blocks { readableId } blockedBy { readableId } } }
+            """);
+        return json.GetProperty("data").GetProperty("tasks").EnumerateArray()
+            .ToDictionary(t => t.GetProperty("readableId").GetString()!);
+    }
+
+    private static string[] ReadableIds(JsonElement tasks) =>
+        tasks.EnumerateArray().Select(t => t.GetProperty("readableId").GetString()!).ToArray();
 
     private string TokenFor(Guid userId) =>
         _factory.Services.GetRequiredService<IAccessTokenService>().Create(userId, $"{userId:N}@test.local").Token;

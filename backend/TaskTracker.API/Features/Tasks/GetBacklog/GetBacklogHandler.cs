@@ -4,10 +4,11 @@ using TaskTracker.API.Data;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Membership;
 
 namespace TaskTracker.API.Features.Tasks.GetBacklog
 {
-    public class GetBacklogHandler(IDbContextFactory<ApplicationDbContext> _db)
+    public class GetBacklogHandler(IDbContextFactory<ApplicationDbContext> _db, IProjectMembershipService membership)
     {
         public const int DefaultPageSize = 20;
         public const int MaxPageSize = 100;
@@ -31,13 +32,10 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
             if (term.Length > MaxSearchLength)
                 throw new BadUserInputException($"Search cannot be longer than {MaxSearchLength} characters.");
 
-            await using var db = await _db.CreateDbContextAsync(ct);
-
-            var isMember = await db.projects.AnyAsync(
-                p => p.Id == projectId && p.ProjectMembers.Any(m => m.UserId == userId), ct);
-
-            if (!isMember)
+            if (await membership.GetRoleAsync(projectId, userId, ct) is null)
                 throw new NotFoundException($"Project '{projectId}' was not found.");
+
+            await using var db = await _db.CreateDbContextAsync(ct);
 
             var query = db.Set<TaskItem>()
                 .AsNoTracking()

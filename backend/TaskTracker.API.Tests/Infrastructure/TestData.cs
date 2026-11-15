@@ -51,18 +51,25 @@ public static class TestData
         return user.Id;
     }
 
-    public static async Task<Guid> AddMemberAsync(ApplicationDbContext db, Guid projectId, ProjectRole role)
+    public static async Task<Guid> AddMemberAsync(
+        ApplicationDbContext db, Guid projectId, ProjectRole role, Guid? existingUserId = null)
     {
-        var user = NewUser();
-        db.Users.Add(user);
+        var userId = existingUserId ?? AddNewUser(db);
         db.projectMembers.Add(new ProjectMember
         {
             ProjectId = projectId,
-            UserId = user.Id,
+            UserId = userId,
             ProjectRole = role,
             JoinedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
+        return userId;
+    }
+
+    private static Guid AddNewUser(ApplicationDbContext db)
+    {
+        var user = NewUser();
+        db.Users.Add(user);
         return user.Id;
     }
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Shared.Positions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Data;
@@ -54,7 +55,7 @@ public class TaskItemDatabaseTests(PostgresFixture database)
     {
         await using var db = database.CreateDbContext();
         var project = await TestData.CreateProjectAsync(db);
-        var task = await new CreateTaskHandler(db, new TaskPositionService(db))
+        var task = await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database))
             .HandleAsync(new CreateTaskInput(project.BoardId, null, "Valid task", null, null, null, null), CancellationToken.None);
         return task.Id;
     }
