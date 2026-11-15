@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { BoardDetails, CreateTaskInput, TaskItem } from '../domain/models';
+import type { BoardDetails, CreateTaskInput, TaskItem, UpdateTaskInput } from '../domain/models';
 
 export interface UseBoardState {
   readonly board: BoardDetails | null;
@@ -16,6 +16,7 @@ export interface UseBoardState {
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly handleUpdateTask: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
 
 export function useBoard(boardId: string): UseBoardState {
@@ -149,6 +150,12 @@ export function useBoard(boardId: string): UseBoardState {
     }
   };
 
+  const handleUpdateTask = async (input: UpdateTaskInput): Promise<TaskItem> => {
+    const updated = await api.board.updateTask(input);
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    return updated;
+  };
+
   const clearMoveError = useCallback(() => {
     setMoveError(null);
   }, []);
@@ -167,5 +174,6 @@ export function useBoard(boardId: string): UseBoardState {
     reload: fetchBoardData,
     handleCreateTask,
     handleMoveTask,
+    handleUpdateTask,
   };
 }

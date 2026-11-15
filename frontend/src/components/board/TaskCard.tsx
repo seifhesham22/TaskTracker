@@ -7,9 +7,17 @@ export interface TaskCardProps {
   readonly task: TaskItem;
   readonly members?: readonly ProjectMemberModel[];
   readonly isSaving?: boolean;
+  readonly onSelectTask?: (task: TaskItem) => void;
+  readonly onEditTask?: (task: TaskItem) => void;
 }
 
-export function TaskCard({ task, members, isSaving }: TaskCardProps) {
+export function TaskCard({
+  task,
+  members,
+  isSaving,
+  onSelectTask,
+  onEditTask,
+}: TaskCardProps) {
   const assigneeNames = getAssigneeName(task, members);
   const initials = getInitials(assigneeNames);
   const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames || isSaving);
@@ -24,6 +32,19 @@ export function TaskCard({ task, members, isSaving }: TaskCardProps) {
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const handleClick = () => {
+    if (isSaving) return;
+    onSelectTask?.(task);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (isSaving) return;
+      e.preventDefault();
+      onSelectTask?.(task);
+    }
+  };
+
   return (
     <article
       className={`card ${isSaving ? 'is-saving' : ''}`}
@@ -34,8 +55,28 @@ export function TaskCard({ task, members, isSaving }: TaskCardProps) {
       aria-busy={isSaving ? 'true' : undefined}
       draggable={!isSaving}
       onDragStart={handleDragStart}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
-      <strong>{task.title}</strong>
+      <div className="card-top">
+        <strong>{task.title}</strong>
+        <button
+          type="button"
+          className="card-edit-btn"
+          aria-label={`Edit task ${task.readableId}`}
+          data-testid={`edit-task-button-${task.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onEditTask) {
+              onEditTask(task);
+            } else if (onSelectTask) {
+              onSelectTask(task);
+            }
+          }}
+        >
+          Edit
+        </button>
+      </div>
 
       {hasMeta && (
         <div className="card-meta">

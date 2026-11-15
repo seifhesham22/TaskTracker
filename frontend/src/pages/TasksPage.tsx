@@ -24,6 +24,7 @@ export function TasksPage() {
     reload,
     handleCreateTask,
     handleMoveTask,
+    handleUpdateTask,
   } = useBoard(boardId);
 
   return (
@@ -42,6 +43,7 @@ export function TasksPage() {
         onReload={reload}
         onCreateTask={handleCreateTask}
         onMoveTask={handleMoveTask}
+        onUpdateTask={handleUpdateTask}
       />
     </div>
   );
