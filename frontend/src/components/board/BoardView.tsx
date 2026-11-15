@@ -15,7 +15,6 @@ import {
 } from './ParentTaskDetailsModal';
 import { CreateSubtaskModal } from './CreateSubtaskModal';
 import { EditTaskModal } from './EditTaskModal';
-import { TaskDetailsModal } from './TaskDetailsModal';
 import './BoardView.css';
 
 export interface BoardViewProps {
@@ -60,23 +59,23 @@ export function BoardView({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
 
-  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<TaskItem | null>(null);
+  // Single unified task details & subtasks modal state
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState<TaskItem | null>(null);
   const [showSubtaskCreatedBanner, setShowSubtaskCreatedBanner] = useState(false);
 
   const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<TaskItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [taskDetailsAfterEdit, setTaskDetailsAfterEdit] = useState<TaskItem | null>(null);
-  const [isTaskDetailsAfterEditOpen, setIsTaskDetailsAfterEditOpen] = useState(false);
   const [justUpdatedTaskId, setJustUpdatedTaskId] = useState<string | null>(null);
+
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeDetailsTask = useMemo(() => {
-    const targetId = selectedTaskForDetails?.id || incompleteSubtasksError?.taskId || null;
-    if (!targetId) return null;
-    return tasks.find((t) => t.id === targetId) ?? selectedTaskForDetails;
-  }, [selectedTaskForDetails, incompleteSubtasksError, tasks]);
+  const activeTargetId = selectedTaskId || incompleteSubtasksError?.taskId || null;
+  const activeTask = useMemo(() => {
+    if (!activeTargetId) return null;
+    return tasks.find((t) => t.id === activeTargetId) ?? null;
+  }, [activeTargetId, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -169,27 +168,19 @@ export function BoardView({
 
   const selectedColumn = board?.columns.find((c) => c.id === selectedColumnId);
 
-  const handleOpenParentDetails = (task: TaskItem) => {
-    setIsTaskDetailsAfterEditOpen(false);
-    setSelectedTaskForDetails(task);
+  const handleOpenTaskDetails = (task: TaskItem) => {
+    setSelectedTaskId(task.id);
     setShowSubtaskCreatedBanner(false);
-  };
-
-  const handleCardSelect = (task: TaskItem) => {
-    setSelectedTaskForDetails(null);
-    setTaskDetailsAfterEdit(task);
-    setIsTaskDetailsAfterEditOpen(true);
   };
 
   const handleEditTask = (task: TaskItem) => {
     setSelectedTaskForEdit(task);
     setIsEditModalOpen(true);
-    setIsTaskDetailsAfterEditOpen(false);
   };
 
   const handleOpenAddSubtask = () => {
-    if (activeDetailsTask) {
-      setParentTaskForSubtask(activeDetailsTask);
+    if (activeTask) {
+      setParentTaskForSubtask(activeTask);
     }
   };
 
@@ -249,8 +240,8 @@ export function BoardView({
               members={board?.members}
               savingTaskIds={savingTaskIds}
               onDropTask={onMoveTask}
-              onSelect={handleOpenParentDetails}
-              onSelectTask={handleCardSelect}
+              onSelect={handleOpenTaskDetails}
+              onSelectTask={handleOpenTaskDetails}
               onEditTask={handleEditTask}
               onAddTask={(colId) => {
                 setSelectedColumnId(colId);
@@ -280,20 +271,23 @@ export function BoardView({
         />
       )}
 
+      {/* Unified Task Details & Subtasks Modal */}
       <ParentTaskDetailsModal
-        task={activeDetailsTask}
+        task={activeTask}
         allTasks={tasks}
-        projectName={board?.projectName}
-        isOpen={Boolean(activeDetailsTask) && !parentTaskForSubtask}
+        projectName={board?.projectName || board?.name}
+        isOpen={Boolean(activeTask) && !parentTaskForSubtask && !isEditModalOpen}
         showSuccessBanner={showSubtaskCreatedBanner}
+        justUpdated={Boolean(justUpdatedTaskId && activeTask && justUpdatedTaskId === activeTask.id)}
         blockedError={
-          incompleteSubtasksError && activeDetailsTask && incompleteSubtasksError.taskId === activeDetailsTask.id
+          incompleteSubtasksError && activeTask && incompleteSubtasksError.taskId === activeTask.id
             ? incompleteSubtasksError
             : null
         }
         onClose={() => {
-          setSelectedTaskForDetails(null);
+          setSelectedTaskId(null);
           setShowSubtaskCreatedBanner(false);
+          setJustUpdatedTaskId(null);
           if (onClearIncompleteSubtasksError) {
             onClearIncompleteSubtasksError();
           }
@@ -306,6 +300,12 @@ export function BoardView({
         onMoveSubtask={onMoveTask}
         onMoveTask={onMoveTask}
         onAddSubtask={handleOpenAddSubtask}
+        onEdit={() => {
+          if (activeTask) {
+            setSelectedTaskForEdit(activeTask);
+            setIsEditModalOpen(true);
+          }
+        }}
         onClearBlockedError={onClearIncompleteSubtasksError}
         columns={board?.columns}
         members={board?.members}
@@ -313,30 +313,11 @@ export function BoardView({
 
       <CreateSubtaskModal
         parentTask={parentTaskForSubtask}
-        projectName={board?.projectName}
+        projectName={board?.projectName || board?.name}
         isOpen={Boolean(parentTaskForSubtask)}
         onClose={() => setParentTaskForSubtask(null)}
         onSubmit={handleSubtaskSubmit}
       />
-
-      {taskDetailsAfterEdit && (
-        <TaskDetailsModal
-          task={taskDetailsAfterEdit}
-          projectName={board?.projectName || board?.name}
-          isOpen={isTaskDetailsAfterEditOpen}
-          justUpdated={Boolean(justUpdatedTaskId === taskDetailsAfterEdit.id)}
-          onClose={() => {
-            setIsTaskDetailsAfterEditOpen(false);
-            setJustUpdatedTaskId(null);
-            setTaskDetailsAfterEdit(null);
-          }}
-          onEdit={() => {
-            setIsTaskDetailsAfterEditOpen(false);
-            setSelectedTaskForEdit(taskDetailsAfterEdit);
-            setIsEditModalOpen(true);
-          }}
-        />
-      )}
 
       {selectedTaskForEdit && (
         <EditTaskModal
@@ -353,10 +334,9 @@ export function BoardView({
           }}
           onSuccess={(updatedTask) => {
             setSelectedTaskForEdit(null);
-            setTaskDetailsAfterEdit(updatedTask);
+            setSelectedTaskId(updatedTask.id);
             setJustUpdatedTaskId(updatedTask.id);
             setIsEditModalOpen(false);
-            setIsTaskDetailsAfterEditOpen(true);
           }}
         />
       )}
