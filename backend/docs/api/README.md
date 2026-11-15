@@ -52,7 +52,7 @@ backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──�
 
 The `Board` reached through `projects { boards }` and the one from `board(id)` is the same type, so its fields work the same either way.
 
-Related fields (`Task.column`, `Task.assignees`, `Project.boards`, `Board.columns`, …) are loaded with DataLoaders: one SQL query for all the items in the response, and only when the request asks for that field.
+Related fields (`Task.column`, `Task.assignees`, `Task.blocks`, `Task.blockedBy`, `Project.boards`, `Board.columns`, …) are loaded with DataLoaders: one SQL query for all the items in the response, and only when the request asks for that field.
 
 ## Errors
 
