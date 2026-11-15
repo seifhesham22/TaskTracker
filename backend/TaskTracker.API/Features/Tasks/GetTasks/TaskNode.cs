@@ -31,5 +31,11 @@ namespace TaskTracker.API.Features.Tasks.GetTasks
 
         public async Task<AssigneeNode[]> GetAssigneesAsync(AssigneesByTaskIdDataLoader loader, CancellationToken ct)
             => await loader.LoadAsync(task.Id, ct) ?? [];
+
+        public async Task<TaskNode[]> GetBlocksAsync(TasksBlockedByTaskIdDataLoader loader, CancellationToken ct)
+            => await loader.LoadAsync(task.Id, ct) ?? [];
+
+        public async Task<TaskNode[]> GetBlockedByAsync(TasksBlockingTaskIdDataLoader loader, CancellationToken ct)
+            => await loader.LoadAsync(task.Id, ct) ?? [];
     }
 }

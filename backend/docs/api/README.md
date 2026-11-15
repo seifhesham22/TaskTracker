@@ -17,6 +17,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`createTask`](mutations/createTask.md) | mutation | yes | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](mutations/moveTask.md) | mutation | yes | Moves a task to another column, which changes its status |
 | [`updateTask`](mutations/updateTask.md) | mutation | yes | Changes a task's title, description, priority and dates |
+| [`addTaskDependency`](mutations/addTaskDependency.md) | mutation | yes | Says that one task blocks another in the same project, refusing cycles |
 
 Every type these operations return is described once in [types.md](types.md).
 
@@ -45,7 +46,7 @@ Queries are the entry points. From what they return, a request follows fields to
 me ──► User
 projects(userId) ──► Project ──► boards ──► Board ──► columns ──► Column
 board(id) ────────────────────────────────► Board ──► columns ──► Column
-tasks(boardId) ──► Task ──► column, status, assignees
+tasks(boardId) ──► Task ──► column, status, assignees, blocks, blockedBy
 backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──► items ──► Task
 ```
 
@@ -63,6 +64,7 @@ Errors come back in the GraphQL `errors` list, with a code in `extensions.code`.
 | `BAD_USER_INPUT` | The request is understood but breaks a rule, for example an empty title |
 | `INVALID_CREDENTIALS` | `login` got a wrong email or password. The message is always the same, so it never says which one was wrong |
 | `AUTH_NOT_AUTHENTICATED` | The operation needs a token, and the request has none or an invalid one |
+| `AUTH_NOT_AUTHORIZED` | The user is a member of the project, but their role isn't allowed to do this, for example a `READER` adding a dependency |
 | (none) | The schema refused the request before it ran, for example a required field is missing. The message says which |
 
 ```json
@@ -83,4 +85,4 @@ Each operation page lists the cases and messages for that operation.
 
 [`projects`](queries/projects.md) still takes the user's id as an argument. It can switch to the user from the token, like [`me`](queries/me.md).
 
-Only [`backlog`](queries/backlog.md) checks that the user is a member of the project. The other operations need a token but don't check membership yet.
+Only [`backlog`](queries/backlog.md) and [`addTaskDependency`](mutations/addTaskDependency.md) check that the user is a member of the project. The other operations need a token but don't check membership yet.

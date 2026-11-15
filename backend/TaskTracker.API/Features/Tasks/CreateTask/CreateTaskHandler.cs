@@ -3,11 +3,15 @@ using TaskTracker.API.Data;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Domain.Enums;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Shared.Positions;
 
 namespace TaskTracker.API.Features.Tasks.CreateTask
 {
-    public class CreateTaskHandler(ApplicationDbContext db, ITaskPositionService positions)
+    public class CreateTaskHandler(
+        ApplicationDbContext db,
+        ITaskPositionService positions,
+        IProjectMembershipService membership)
     {
         private record ColumnInfo(Guid Id, string Name, ColumnCategory Category);
         private record BoardInfo(Guid Id, Guid ProjectId, string ProjectKey, ColumnInfo? Column);
@@ -79,10 +83,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
 
         private async Task EnsureProjectMemberAsync(BoardInfo board, Guid userId, CancellationToken ct)
         {
-            var isMember = await db.projectMembers
-                .AnyAsync(m => m.ProjectId == board.ProjectId && m.UserId == userId, ct);
-
-            if (!isMember)
+            if (await membership.GetRoleAsync(board.ProjectId, userId, ct) is null)
                 throw new BadUserInputException(
                     $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
         }
