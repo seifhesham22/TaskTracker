@@ -25,7 +25,9 @@ export function TasksPage() {
     clearIncompleteSubtasksError,
     reload,
     handleCreateTask,
+    handleCreateSubtask,
     handleMoveTask,
+    handleUpdateTask,
   } = useBoard(boardId);
 
   return (
@@ -45,7 +47,9 @@ export function TasksPage() {
         onClearIncompleteSubtasksError={clearIncompleteSubtasksError}
         onReload={reload}
         onCreateTask={handleCreateTask}
+        onCreateSubtask={handleCreateSubtask}
         onMoveTask={handleMoveTask}
+        onUpdateTask={handleUpdateTask}
       />
     </div>
   );

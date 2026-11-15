@@ -7,13 +7,32 @@ export interface TaskCardProps {
   readonly task: TaskItem;
   readonly members?: readonly ProjectMemberModel[];
   readonly isSaving?: boolean;
+  readonly subtaskCount?: number;
   readonly onSelect?: (task: TaskItem) => void;
+  readonly onSelectTask?: (task: TaskItem) => void;
+  readonly onEditTask?: (task: TaskItem) => void;
 }
 
-export function TaskCard({ task, members, isSaving, onSelect }: TaskCardProps) {
+export function TaskCard({
+  task,
+  members,
+  isSaving,
+  subtaskCount,
+  onSelect,
+  onSelectTask,
+  onEditTask,
+}: TaskCardProps) {
   const assigneeNames = getAssigneeName(task, members);
   const initials = getInitials(assigneeNames);
-  const hasMeta = Boolean(task.priority || task.dueDate || assigneeNames || isSaving);
+  const isSubtask = Boolean(task.parentTaskId);
+  const selectHandler = onSelectTask || onSelect;
+  const hasMeta = Boolean(
+    task.priority ||
+      task.dueDate ||
+      assigneeNames ||
+      isSaving ||
+      (subtaskCount !== undefined && subtaskCount > 0)
+  );
 
   const handleDragStart = (e: React.DragEvent) => {
     if (isSaving) {
@@ -25,38 +44,107 @@ export function TaskCard({ task, members, isSaving, onSelect }: TaskCardProps) {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleClick = () => {
-    if (!isSaving && onSelect) {
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isSaving) return;
+    if ((e.target as HTMLElement).closest('button, a')) {
+      return;
+    }
+    if (onSelectTask) {
+      onSelectTask(task);
+    } else if (onSelect) {
       onSelect(task);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && !isSaving && onSelect) {
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (isSaving) return;
+    if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      if (onSelectTask) {
+        onSelectTask(task);
+      } else if (onSelect) {
+        onSelect(task);
+      }
+    }
+  };
+
+  const handleDetailsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSelect) {
       onSelect(task);
+    } else if (onSelectTask) {
+      onSelectTask(task);
     }
   };
 
   return (
     <article
-      className={`card ${isSaving ? 'is-saving' : ''}`}
+      className={`card ${isSaving ? 'is-saving' : ''} ${isSubtask ? 'card--subtask' : ''}`}
       data-testid={`task-card-${task.id}`}
       tabIndex={0}
       role="button"
-      aria-label={`Task ${task.readableId}: ${task.title}`}
+      aria-label={`${isSubtask ? 'Subtask' : 'Task'} ${task.readableId}: ${task.title}`}
       aria-busy={isSaving ? 'true' : undefined}
       draggable={!isSaving}
       onDragStart={handleDragStart}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
     >
+      <div className="card-header-row">
+        <span className="card-readable-id">{task.readableId}</span>
+        {isSubtask && (
+          <span
+            className="card-subtask-badge"
+            data-testid={`subtask-badge-${task.id}`}
+            aria-label="Subtask"
+          >
+            <span className="card-subtask-icon">↳</span> Subtask
+          </span>
+        )}
+        <div className="card-actions">
+          {onEditTask && (
+            <button
+              type="button"
+              className="card-edit-btn"
+              aria-label={`Edit task ${task.readableId}`}
+              data-testid={`edit-task-button-${task.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTask(task);
+              }}
+            >
+              Edit
+            </button>
+          )}
+          {selectHandler && (
+            <button
+              type="button"
+              className="card-details-button"
+              aria-label={`View details for ${task.readableId}`}
+              data-testid={`open-task-${task.id}`}
+              onClick={handleDetailsClick}
+            >
+              Details
+            </button>
+          )}
+        </div>
+      </div>
+
       <strong>{task.title}</strong>
 
       {hasMeta && (
         <div className="card-meta">
           {task.priority && <PriorityBadge priority={task.priority} />}
           {task.dueDate && <DueDateLabel dueDate={task.dueDate} status={task.status} />}
+          {subtaskCount !== undefined && subtaskCount > 0 && (
+            <span
+              className="card-subtasks-count"
+              data-testid={`subtasks-count-${task.id}`}
+              title={`${subtaskCount} subtasks`}
+            >
+              ▤ {subtaskCount} {subtaskCount === 1 ? 'subtask' : 'subtasks'}
+            </span>
+          )}
           {isSaving && (
             <span className="card-saving-badge" role="status" aria-live="polite">
               Saving...
@@ -114,11 +202,10 @@ function getAssigneeName(
 }
 
 function getInitials(name: string | null): string {
-  if (!name) return 'AD';
-  const clean = name.replace(/@.*/, '').trim();
-  const parts = clean.split(/[\s._-]+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
   }
-  return clean.slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }

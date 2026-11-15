@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../api';
-import type { BoardDetails, CreateTaskInput, TaskItem } from '../domain/models';
+import type { BoardDetails, CreateTaskInput, TaskItem, UpdateTaskInput } from '../domain/models';
 
 export interface IncompleteSubtaskFailure {
   readonly taskId: string;
@@ -23,7 +23,9 @@ export interface UseBoardState {
   readonly clearIncompleteSubtasksError: () => void;
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly handleUpdateTask: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
 
 export function useBoard(boardId: string): UseBoardState {
@@ -174,6 +176,28 @@ export function useBoard(boardId: string): UseBoardState {
     }
   };
 
+  const handleCreateSubtask = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    try {
+      const newSubtask = await api.board.createSubtask(parentTask, title);
+      setTasks((prevTasks) => [...prevTasks, newSubtask]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleUpdateTask = async (input: UpdateTaskInput): Promise<TaskItem> => {
+    const updated = await api.board.updateTask(input);
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === updated.id
+          ? { ...t, ...updated, parentTaskId: updated.parentTaskId ?? t.parentTaskId }
+          : t
+      )
+    );
+    return updated;
+  };
+
   const clearMoveError = useCallback(() => {
     setMoveError(null);
   }, []);
@@ -197,6 +221,8 @@ export function useBoard(boardId: string): UseBoardState {
     clearIncompleteSubtasksError,
     reload: fetchBoardData,
     handleCreateTask,
+    handleCreateSubtask,
     handleMoveTask,
+    handleUpdateTask,
   };
 }

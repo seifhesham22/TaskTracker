@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ColumnCategory, type BoardDetails, type CreateTaskInput, type TaskItem } from '../../domain/models';
+import {
+  ColumnCategory,
+  type BoardDetails,
+  type CreateTaskInput,
+  type TaskItem,
+  type UpdateTaskInput,
+} from '../../domain/models';
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
-import { ParentTaskDetailsModal, type BlockedIncompleteSubtasksInfo } from './ParentTaskDetailsModal';
+import {
+  ParentTaskDetailsModal,
+  type BlockedIncompleteSubtasksInfo,
+} from './ParentTaskDetailsModal';
+import { CreateSubtaskModal } from './CreateSubtaskModal';
+import { EditTaskModal } from './EditTaskModal';
+import { TaskDetailsModal } from './TaskDetailsModal';
 import './BoardView.css';
 
 export interface BoardViewProps {
@@ -21,7 +33,9 @@ export interface BoardViewProps {
   readonly onClearIncompleteSubtasksError?: () => void;
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
+  readonly onCreateSubtask?: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly onUpdateTask?: (input: UpdateTaskInput) => Promise<TaskItem>;
 }
 
 export function BoardView({
@@ -39,16 +53,30 @@ export function BoardView({
   onClearIncompleteSubtasksError,
   onReload,
   onCreateTask,
+  onCreateSubtask,
   onMoveTask,
+  onUpdateTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<TaskItem | null>(null);
+  const [parentTaskForSubtask, setParentTaskForSubtask] = useState<TaskItem | null>(null);
+  const [showSubtaskCreatedBanner, setShowSubtaskCreatedBanner] = useState(false);
+
+  const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<TaskItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [taskDetailsAfterEdit, setTaskDetailsAfterEdit] = useState<TaskItem | null>(null);
+  const [isTaskDetailsAfterEditOpen, setIsTaskDetailsAfterEditOpen] = useState(false);
+  const [justUpdatedTaskId, setJustUpdatedTaskId] = useState<string | null>(null);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeTaskId = selectedTaskId || incompleteSubtasksError?.taskId || null;
-  const activeTask = tasks.find((t) => t.id === activeTaskId) || null;
+  const activeDetailsTask = useMemo(() => {
+    const targetId = selectedTaskForDetails?.id || incompleteSubtasksError?.taskId || null;
+    if (!targetId) return null;
+    return tasks.find((t) => t.id === targetId) ?? selectedTaskForDetails;
+  }, [selectedTaskForDetails, incompleteSubtasksError, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -62,10 +90,14 @@ export function BoardView({
       return [];
     }
 
-    const sortedColumns = [...board.columns].sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
+    const sortedColumns = [...board.columns].sort((a, b) =>
+      a.position < b.position ? -1 : a.position > b.position ? 1 : 0
+    );
 
     return sortedColumns.map((col) => {
-      const colTasks = tasks.filter((t) => t.columnId === col.id || (!t.columnId && t.status === col.category));
+      const colTasks = tasks.filter(
+        (t) => t.columnId === col.id || (!t.columnId && t.status === col.category)
+      );
       return {
         column: col,
         tasks: colTasks,
@@ -137,6 +169,40 @@ export function BoardView({
 
   const selectedColumn = board?.columns.find((c) => c.id === selectedColumnId);
 
+  const handleOpenParentDetails = (task: TaskItem) => {
+    setIsTaskDetailsAfterEditOpen(false);
+    setSelectedTaskForDetails(task);
+    setShowSubtaskCreatedBanner(false);
+  };
+
+  const handleCardSelect = (task: TaskItem) => {
+    setSelectedTaskForDetails(null);
+    setTaskDetailsAfterEdit(task);
+    setIsTaskDetailsAfterEditOpen(true);
+  };
+
+  const handleEditTask = (task: TaskItem) => {
+    setSelectedTaskForEdit(task);
+    setIsEditModalOpen(true);
+    setIsTaskDetailsAfterEditOpen(false);
+  };
+
+  const handleOpenAddSubtask = () => {
+    if (activeDetailsTask) {
+      setParentTaskForSubtask(activeDetailsTask);
+    }
+  };
+
+  const handleSubtaskSubmit = async (parentTask: TaskItem, title: string): Promise<boolean> => {
+    if (!onCreateSubtask) return false;
+    const success = await onCreateSubtask(parentTask, title);
+    if (success) {
+      setShowSubtaskCreatedBanner(true);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className="board-view" data-testid="board-view">
       <BoardHeader
@@ -179,10 +245,13 @@ export function BoardView({
               key={column.id}
               column={column}
               tasks={colTasks}
+              allTasks={tasks}
               members={board?.members}
               savingTaskIds={savingTaskIds}
               onDropTask={onMoveTask}
-              onSelectTask={(task) => setSelectedTaskId(task.id)}
+              onSelect={handleOpenParentDetails}
+              onSelectTask={handleCardSelect}
+              onEditTask={handleEditTask}
               onAddTask={(colId) => {
                 setSelectedColumnId(colId);
                 setIsCreateModalOpen(true);
@@ -211,31 +280,84 @@ export function BoardView({
         />
       )}
 
-      {board && activeTask && (
-        <ParentTaskDetailsModal
-          task={activeTask}
-          allTasks={tasks}
-          columns={board.columns}
-          members={board.members}
-          isOpen={Boolean(activeTask)}
-          blockedError={
-            incompleteSubtasksError && incompleteSubtasksError.taskId === activeTask.id
-              ? incompleteSubtasksError
-              : null
+      <ParentTaskDetailsModal
+        task={activeDetailsTask}
+        allTasks={tasks}
+        projectName={board?.projectName}
+        isOpen={Boolean(activeDetailsTask) && !parentTaskForSubtask}
+        showSuccessBanner={showSubtaskCreatedBanner}
+        blockedError={
+          incompleteSubtasksError && activeDetailsTask && incompleteSubtasksError.taskId === activeDetailsTask.id
+            ? incompleteSubtasksError
+            : null
+        }
+        onClose={() => {
+          setSelectedTaskForDetails(null);
+          setShowSubtaskCreatedBanner(false);
+          if (onClearIncompleteSubtasksError) {
+            onClearIncompleteSubtasksError();
           }
+        }}
+        onMarkComplete={async (taskId) => {
+          const doneCol = board?.columns.find((c) => c.category === ColumnCategory.Done);
+          if (!doneCol || !onMoveTask) return false;
+          return await onMoveTask(taskId, doneCol.id);
+        }}
+        onMoveSubtask={onMoveTask}
+        onMoveTask={onMoveTask}
+        onAddSubtask={handleOpenAddSubtask}
+        onClearBlockedError={onClearIncompleteSubtasksError}
+        columns={board?.columns}
+        members={board?.members}
+      />
+
+      <CreateSubtaskModal
+        parentTask={parentTaskForSubtask}
+        projectName={board?.projectName}
+        isOpen={Boolean(parentTaskForSubtask)}
+        onClose={() => setParentTaskForSubtask(null)}
+        onSubmit={handleSubtaskSubmit}
+      />
+
+      {taskDetailsAfterEdit && (
+        <TaskDetailsModal
+          task={taskDetailsAfterEdit}
+          projectName={board?.projectName || board?.name}
+          isOpen={isTaskDetailsAfterEditOpen}
+          justUpdated={Boolean(justUpdatedTaskId === taskDetailsAfterEdit.id)}
           onClose={() => {
-            setSelectedTaskId(null);
-            if (onClearIncompleteSubtasksError) {
-              onClearIncompleteSubtasksError();
-            }
+            setIsTaskDetailsAfterEditOpen(false);
+            setJustUpdatedTaskId(null);
+            setTaskDetailsAfterEdit(null);
           }}
-          onMarkComplete={async (taskId) => {
-            const doneCol = board.columns.find((c) => c.category === ColumnCategory.Done);
-            if (!doneCol || !onMoveTask) return false;
-            return await onMoveTask(taskId, doneCol.id);
+          onEdit={() => {
+            setIsTaskDetailsAfterEditOpen(false);
+            setSelectedTaskForEdit(taskDetailsAfterEdit);
+            setIsEditModalOpen(true);
           }}
-          onMoveSubtask={onMoveTask}
-          onClearBlockedError={onClearIncompleteSubtasksError}
+        />
+      )}
+
+      {selectedTaskForEdit && (
+        <EditTaskModal
+          task={selectedTaskForEdit}
+          projectName={board?.projectName || board?.name}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedTaskForEdit(null);
+          }}
+          onSubmit={async (input) => {
+            if (!onUpdateTask) return false;
+            return await onUpdateTask(input);
+          }}
+          onSuccess={(updatedTask) => {
+            setSelectedTaskForEdit(null);
+            setTaskDetailsAfterEdit(updatedTask);
+            setJustUpdatedTaskId(updatedTask.id);
+            setIsEditModalOpen(false);
+            setIsTaskDetailsAfterEditOpen(true);
+          }}
         />
       )}
     </div>

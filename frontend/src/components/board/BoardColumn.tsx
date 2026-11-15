@@ -7,21 +7,27 @@ import './BoardColumn.css';
 export interface BoardColumnProps {
   readonly column: BoardColumnModel;
   readonly tasks: readonly TaskItem[];
+  readonly allTasks?: readonly TaskItem[];
   readonly members?: readonly ProjectMemberModel[];
   readonly savingTaskIds?: ReadonlySet<string>;
   readonly onAddTask?: (columnId: string) => void;
   readonly onDropTask?: (taskId: string, targetColumnId: string) => void;
+  readonly onSelect?: (task: TaskItem) => void;
   readonly onSelectTask?: (task: TaskItem) => void;
+  readonly onEditTask?: (task: TaskItem) => void;
 }
 
 export function BoardColumn({
   column,
   tasks,
+  allTasks,
   members,
   savingTaskIds,
   onAddTask,
   onDropTask,
+  onSelect,
   onSelectTask,
+  onEditTask,
 }: BoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -33,7 +39,7 @@ export function BoardColumn({
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleLeave = (e: React.DragEvent) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragOver(false);
     }
@@ -55,7 +61,7 @@ export function BoardColumn({
       aria-labelledby={`col-heading-${column.id}`}
       data-testid={`board-column-${column.category}`}
       onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
+      onDragLeave={handleLeave}
       onDrop={handleDrop}
     >
       <div className="column-title">
@@ -81,16 +87,25 @@ export function BoardColumn({
       </div>
 
       <div className="column-cards" role="list">
-        {tasks.map((task) => (
-          <div key={task.id} role="listitem">
-            <TaskCard
-              task={task}
-              members={members}
-              isSaving={savingTaskIds?.has(task.id)}
-              onSelect={onSelectTask}
-            />
-          </div>
-        ))}
+        {tasks.map((task) => {
+          const subtaskCount = allTasks
+            ? allTasks.filter((t) => t.parentTaskId === task.id).length
+            : 0;
+
+          return (
+            <div key={task.id} role="listitem">
+              <TaskCard
+                task={task}
+                members={members}
+                isSaving={savingTaskIds?.has(task.id)}
+                subtaskCount={subtaskCount}
+                onSelect={onSelect}
+                onSelectTask={onSelectTask}
+                onEditTask={onEditTask}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {onAddTask && (

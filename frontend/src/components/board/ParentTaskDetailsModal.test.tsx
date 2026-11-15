@@ -79,10 +79,32 @@ describe('ParentTaskDetailsModal', () => {
     expect(screen.getByText('Prepare launch presentation')).toBeInTheDocument();
     expect(screen.getByText('Coordinate slides and launch checklist')).toBeInTheDocument();
     expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('In Progress');
-    expect(screen.getByTestId('subtasks-count')).toHaveTextContent('1 / 3 done');
+    expect(screen.getByTestId('subtasks-completion-count')).toHaveTextContent('1 / 3 done');
     expect(screen.getByTestId('mark-complete-button')).toBeEnabled();
     expect(screen.getByText('Review launch checklist')).toBeInTheDocument();
     expect(screen.getByText('Confirm release date')).toBeInTheDocument();
+  });
+
+  it('clicking Add subtask calls onAddSubtask', async () => {
+    const user = userEvent.setup();
+    const onAddSubtask = vi.fn();
+
+    render(
+      <ParentTaskDetailsModal
+        task={mockParentTask}
+        allTasks={[mockParentTask, ...mockSubtasks]}
+        columns={mockColumns}
+        isOpen={true}
+        onClose={vi.fn()}
+        onMarkComplete={vi.fn()}
+        onAddSubtask={onAddSubtask}
+      />
+    );
+
+    const addBtn = screen.getByTestId('add-subtask-button');
+    await user.click(addBtn);
+
+    expect(onAddSubtask).toHaveBeenCalledTimes(1);
   });
 
   it('displays blocked banner and identifies incomplete subtasks when blockedError is present (State 02)', () => {
@@ -240,7 +262,7 @@ describe('ParentTaskDetailsModal', () => {
 
     expect(screen.getByTestId('all-subtasks-complete-banner')).toBeInTheDocument();
     expect(screen.getByText('All subtasks are complete.')).toBeInTheDocument();
-    expect(screen.getByTestId('subtasks-count')).toHaveTextContent('3 / 3 done');
+    expect(screen.getByTestId('subtasks-completion-count')).toHaveTextContent('3 / 3 done');
     expect(screen.getByTestId('mark-complete-button')).toBeEnabled();
   });
 
@@ -265,6 +287,6 @@ describe('ParentTaskDetailsModal', () => {
     expect(screen.getByTestId('task-completed-banner')).toBeInTheDocument();
     expect(screen.getByText('✓ Task completed')).toBeInTheDocument();
     expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('Done');
-    expect(screen.getByTestId('parent-completed-button')).toBeDisabled();
+    expect(screen.getByTestId('close-task-details-button')).toBeInTheDocument();
   });
 });

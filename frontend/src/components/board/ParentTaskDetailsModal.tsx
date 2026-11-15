@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { IncompleteSubtaskDto } from '../../api';
 import {
   ColumnCategory,
@@ -19,14 +19,18 @@ export interface BlockedIncompleteSubtasksInfo {
 export interface ParentTaskDetailsModalProps {
   readonly task: TaskItem | null;
   readonly allTasks: readonly TaskItem[];
-  readonly columns: readonly BoardColumnModel[];
+  readonly columns?: readonly BoardColumnModel[];
   readonly members?: readonly ProjectMemberModel[];
+  readonly projectName?: string | null;
   readonly isOpen: boolean;
   readonly isCompleting?: boolean;
+  readonly showSuccessBanner?: boolean;
   readonly blockedError?: BlockedIncompleteSubtasksInfo | null;
   readonly onClose: () => void;
   readonly onMarkComplete: (taskId: string) => Promise<boolean>;
   readonly onMoveSubtask?: (subtaskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
+  readonly onAddSubtask?: () => void;
   readonly onClearBlockedError?: () => void;
 }
 
@@ -35,29 +39,41 @@ export function ParentTaskDetailsModal({
   allTasks,
   columns,
   members,
+  projectName,
   isOpen,
   isCompleting = false,
+  showSuccessBanner = false,
   blockedError,
   onClose,
   onMarkComplete,
   onMoveSubtask,
+  onMoveTask,
+  onAddSubtask,
   onClearBlockedError,
 }: ParentTaskDetailsModalProps) {
+  const headingId = useId();
   const [focusedSubtaskId, setFocusedSubtaskId] = useState<string | null>(null);
   const [localCompleting, setLocalCompleting] = useState(false);
   const [localCompleted, setLocalCompleted] = useState(false);
   const [dismissedBlocked, setDismissedBlocked] = useState(false);
 
+  const subtasks = useMemo(() => {
+    if (!task) return [];
+    return allTasks.filter((t) => t.parentTaskId === task.id);
+  }, [task, allTasks]);
+
+  const incompleteSubtasks = useMemo(() => {
+    return subtasks.filter((t) => t.status !== ColumnCategory.Done);
+  }, [subtasks]);
+
+  const completedSubtasks = useMemo(() => {
+    return subtasks.filter((t) => t.status === ColumnCategory.Done);
+  }, [subtasks]);
+
   if (!isOpen || !task) {
     return null;
   }
 
-  // Find subtasks belonging to this parent task
-  const subtasks = allTasks.filter((t) => t.parentTaskId === task.id);
-  const incompleteSubtasks = subtasks.filter((t) => t.status !== ColumnCategory.Done);
-  const completedSubtasks = subtasks.filter((t) => t.status === ColumnCategory.Done);
-
-  // Is completion blocked by incomplete subtasks?
   const isBlocked =
     !dismissedBlocked &&
     Boolean(blockedError && blockedError.taskId === task.id && blockedError.incompleteSubtasks.length > 0);
@@ -67,9 +83,8 @@ export function ParentTaskDetailsModal({
   const isParentDone = task.status === ColumnCategory.Done || localCompleted;
   const allSubtasksDone = subtasks.length > 0 && incompleteSubtasks.length === 0;
 
-  const doneColumn = columns.find((c) => c.category === ColumnCategory.Done);
+  const doneColumn = columns?.find((c) => c.category === ColumnCategory.Done);
 
-  // If a subtask is currently focused/opened
   const focusedSubtask = focusedSubtaskId
     ? allTasks.find((t) => t.id === focusedSubtaskId) || null
     : null;
@@ -88,8 +103,29 @@ export function ParentTaskDetailsModal({
   };
 
   const handleCompleteSubtask = async (subtaskId: string) => {
-    if (!doneColumn || !onMoveSubtask) return;
-    await onMoveSubtask(subtaskId, doneColumn.id);
+    const moveFn = onMoveSubtask || onMoveTask;
+    if (!doneColumn || !moveFn) return;
+    await moveFn(subtaskId, doneColumn.id);
+  };
+
+  const handleToggleSubtask = async (sub: TaskItem) => {
+    const moveFn = onMoveSubtask || onMoveTask;
+    if (!moveFn || !columns || columns.length === 0) return;
+    const isDone = sub.status === ColumnCategory.Done;
+    if (isDone) {
+      const targetCol =
+        columns.find((c) => c.category === ColumnCategory.ToDo) ||
+        columns.find((c) => c.category === ColumnCategory.Backlog) ||
+        columns[0];
+      if (targetCol && targetCol.id !== sub.columnId) {
+        await moveFn(sub.id, targetCol.id);
+      }
+    } else {
+      const targetCol = columns.find((c) => c.category === ColumnCategory.Done);
+      if (targetCol && targetCol.id !== sub.columnId) {
+        await moveFn(sub.id, targetCol.id);
+      }
+    }
   };
 
   const handleBackToTask = () => {
@@ -100,20 +136,22 @@ export function ParentTaskDetailsModal({
   };
 
   const assigneeNames = getAssigneeNames(task, members);
+  const displayProject = projectName || 'Project';
 
   return (
     <div
       className="parent-details-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="parent-details-title"
+      aria-labelledby={headingId}
       data-testid="parent-task-details-modal"
     >
       <div className="parent-details-dialog">
         <button
           type="button"
           className="parent-details-close"
-          aria-label="Close dialog"
+          aria-label="Close details"
+          data-testid="close-parent-task-details"
           onClick={() => {
             setFocusedSubtaskId(null);
             setDismissedBlocked(false);
@@ -124,7 +162,7 @@ export function ParentTaskDetailsModal({
         </button>
 
         {focusedSubtask ? (
-          /* Focused Subtask View (Convenient access to incomplete subtasks) */
+          /* Focused Subtask View */
           <div className="parent-details-subtask-view" data-testid={`subtask-detail-view-${focusedSubtask.id}`}>
             <button
               type="button"
@@ -179,14 +217,14 @@ export function ParentTaskDetailsModal({
           /* Parent Task Main View */
           <>
             <span className="parent-details-breadcrumb">
-              TASKTRACKER / S2 / {task.readableId}
+              {displayProject} / {task.readableId}
             </span>
 
             <div className="parent-details-header">
               <div className="parent-details-title-row">
-                <h3 id="parent-details-title" className="parent-details-title">
+                <h2 id={headingId} className="parent-details-title">
                   {task.title}
-                </h3>
+                </h2>
                 <span
                   className={`parent-details-badge ${
                     isParentDone
@@ -222,6 +260,19 @@ export function ParentTaskDetailsModal({
                 </div>
               )}
             </div>
+
+            {/* US-13 Subtask Created Success Banner */}
+            {showSuccessBanner && (
+              <div
+                className="parent-details-banner parent-details-banner--success"
+                role="status"
+                data-testid="subtask-created-banner"
+              >
+                <p className="parent-details-banner-desc">
+                  ✓ Subtask created
+                </p>
+              </div>
+            )}
 
             {/* State 02 / 03: Completion blocked by incomplete subtasks */}
             {isBlocked && (
@@ -276,32 +327,42 @@ export function ParentTaskDetailsModal({
             )}
 
             {/* Subtasks Section */}
-            {subtasks.length > 0 && (
-              <section
-                className="parent-details-subtasks-section"
-                aria-label="Subtasks"
-              >
-                <div className="parent-details-subtasks-header">
-                  <h4 className="parent-details-subtasks-heading">
-                    {isBlocked ? 'Incomplete subtasks' : 'Subtasks'}
-                  </h4>
-                  <span
-                    className={`parent-details-subtasks-count ${
-                      isBlocked ? 'parent-details-subtasks-count--highlight' : ''
-                    }`}
-                    data-testid="subtasks-count"
-                  >
-                    {isBlocked
-                      ? `${blockedCount} remaining`
-                      : `${completedSubtasks.length} / ${subtasks.length} done`}
+            <section
+              className="parent-details-subtasks-section"
+              aria-label="Subtasks"
+            >
+              <div className="parent-details-subtasks-header">
+                <h3 className="parent-details-subtasks-heading">
+                  {isBlocked ? 'Incomplete subtasks' : 'Subtasks'}
+                </h3>
+                <span
+                  className={`parent-details-subtasks-count ${
+                    isBlocked ? 'parent-details-subtasks-count--highlight' : ''
+                  }`}
+                  data-testid={isBlocked ? 'subtasks-count' : 'subtasks-completion-count'}
+                >
+                  {isBlocked
+                    ? `${blockedCount} remaining`
+                    : `${completedSubtasks.length} / ${subtasks.length} done`}
+                </span>
+                {!isBlocked && (
+                  <span className="visually-hidden" data-testid="subtasks-count">
+                    {completedSubtasks.length} / {subtasks.length} done
                   </span>
-                </div>
+                )}
+              </div>
 
+              {subtasks.length === 0 ? (
+                <p className="subtasks-empty-text" data-testid="no-subtasks-text">
+                  No subtasks yet. Break this task into clear steps.
+                </p>
+              ) : (
                 <ul
                   className={`parent-details-subtasks-list ${
                     isBlocked ? 'parent-details-subtasks-list--blocked' : ''
                   }`}
                   data-testid={isBlocked ? 'incomplete-subtasks-list' : 'subtasks-list'}
+                  role="list"
                 >
                   {(isBlocked ? incompleteSubtasks : subtasks).map((st) => (
                     <li
@@ -311,12 +372,13 @@ export function ParentTaskDetailsModal({
                           ? 'parent-details-subtask-item--incomplete'
                           : ''
                       }`}
-                      data-testid={`incomplete-subtask-${st.id}`}
+                      data-testid={isBlocked ? `incomplete-subtask-${st.id}` : `subtask-item-${st.id}`}
+                      onClick={() => handleToggleSubtask(st)}
                     >
                       <div className="parent-details-subtask-left">
                         <StatusIcon category={st.status} />
                         <span className="parent-details-subtask-id">
-                          {st.readableId}
+                          {st.readableId} · {st.status === ColumnCategory.Done ? 'Done' : st.columnName || 'In progress'}
                         </span>
                         <span className="parent-details-subtask-title" title={st.title}>
                           {st.title}
@@ -325,7 +387,10 @@ export function ParentTaskDetailsModal({
                       <button
                         type="button"
                         className="parent-details-subtask-open-btn"
-                        onClick={() => setFocusedSubtaskId(st.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFocusedSubtaskId(st.id);
+                        }}
                         data-testid={`open-subtask-${st.id}`}
                       >
                         Open subtask →
@@ -333,17 +398,28 @@ export function ParentTaskDetailsModal({
                     </li>
                   ))}
                 </ul>
+              )}
 
-                {isBlocked && (
-                  <p className="parent-details-subtasks-help">
-                    Open each subtask above to finish the remaining work.
-                  </p>
-                )}
-              </section>
-            )}
+              {isBlocked && (
+                <p className="parent-details-subtasks-help">
+                  Open each subtask above to finish the remaining work.
+                </p>
+              )}
+            </section>
 
             {/* Footer Actions */}
             <div className="parent-details-actions">
+              {onAddSubtask && !isBlocked && !isParentDone && (
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={onAddSubtask}
+                  data-testid="add-subtask-button"
+                >
+                  Add subtask
+                </button>
+              )}
+
               {isBlocked ? (
                 <>
                   <button
@@ -363,14 +439,24 @@ export function ParentTaskDetailsModal({
                   </button>
                 </>
               ) : isParentDone ? (
-                <button
-                  type="button"
-                  className="button button-outline"
-                  disabled
-                  data-testid="parent-completed-button"
-                >
-                  Completed
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="button button-outline"
+                    disabled
+                    data-testid="parent-completed-button"
+                  >
+                    Completed
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-outline"
+                    onClick={onClose}
+                    data-testid="close-task-details-button"
+                  >
+                    Close
+                  </button>
+                </>
               ) : (
                 <>
                   <button
