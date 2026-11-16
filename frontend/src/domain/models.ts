@@ -22,6 +22,21 @@ export interface TaskAssignee {
   readonly userName?: string | null;
 }
 
+export interface TaskDependencyRef {
+  readonly id: string;
+  readonly readableId: string;
+  readonly title: string;
+  readonly status?: ColumnCategory;
+}
+
+export const TaskDependencyRelationship = {
+  BlockedBy: 'BLOCKED_BY',
+  Blocks: 'BLOCKS',
+} as const;
+
+export type TaskDependencyRelationship =
+  (typeof TaskDependencyRelationship)[keyof typeof TaskDependencyRelationship];
+
 export interface TaskItem {
   readonly id: string;
   readonly readableId: string;
@@ -41,6 +56,8 @@ export interface TaskItem {
   readonly position?: string;
   readonly createdAt?: string;
   readonly parentTaskId?: string | null;
+  readonly blocks?: readonly TaskDependencyRef[];
+  readonly blockedBy?: readonly TaskDependencyRef[];
 }
 
 export interface BoardColumnModel {

@@ -31,7 +31,8 @@ export function TaskCard({
       task.dueDate ||
       assigneeNames ||
       isSaving ||
-      (subtaskCount !== undefined && subtaskCount > 0)
+      (subtaskCount !== undefined && subtaskCount > 0) ||
+      (task.blockedBy && task.blockedBy.length > 0)
   );
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -143,6 +144,17 @@ export function TaskCard({
               title={`${subtaskCount} subtasks`}
             >
               ▤ {subtaskCount} {subtaskCount === 1 ? 'subtask' : 'subtasks'}
+            </span>
+          )}
+          {task.blockedBy && task.blockedBy.length > 0 && (
+            <span
+              className="card-blocked-badge"
+              data-testid={`blocked-by-badge-${task.id}`}
+              title={`Blocked by ${task.blockedBy.length} ${
+                task.blockedBy.length === 1 ? 'task' : 'tasks'
+              }`}
+            >
+              ⏳ Blocked ({task.blockedBy.length})
             </span>
           )}
           {isSaving && (

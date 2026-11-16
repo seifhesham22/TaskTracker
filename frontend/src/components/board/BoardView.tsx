@@ -15,6 +15,7 @@ import {
 } from './ParentTaskDetailsModal';
 import { CreateSubtaskModal } from './CreateSubtaskModal';
 import { EditTaskModal } from './EditTaskModal';
+import { TaskDependenciesModal } from './TaskDependenciesModal';
 import './BoardView.css';
 
 export interface BoardViewProps {
@@ -35,6 +36,8 @@ export interface BoardViewProps {
   readonly onCreateSubtask?: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly onUpdateTask?: (input: UpdateTaskInput) => Promise<TaskItem>;
+  readonly onAddDependency?: (blockingTaskId: string, blockedTaskId: string) => Promise<boolean>;
+  readonly onSearchTasks?: (query: string) => Promise<TaskItem[]>;
 }
 
 export function BoardView({
@@ -55,6 +58,8 @@ export function BoardView({
   onCreateSubtask,
   onMoveTask,
   onUpdateTask,
+  onAddDependency,
+  onSearchTasks,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
@@ -68,6 +73,10 @@ export function BoardView({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [justUpdatedTaskId, setJustUpdatedTaskId] = useState<string | null>(null);
 
+  // Task dependencies modal state
+  const [selectedTaskForDependencies, setSelectedTaskForDependencies] = useState<TaskItem | null>(null);
+  const [isDependenciesModalOpen, setIsDependenciesModalOpen] = useState(false);
+
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +85,11 @@ export function BoardView({
     if (!activeTargetId) return null;
     return tasks.find((t) => t.id === activeTargetId) ?? null;
   }, [activeTargetId, tasks]);
+
+  const activeDependenciesTask = useMemo(() => {
+    if (!selectedTaskForDependencies) return null;
+    return tasks.find((t) => t.id === selectedTaskForDependencies.id) ?? selectedTaskForDependencies;
+  }, [selectedTaskForDependencies, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -306,9 +320,31 @@ export function BoardView({
             setIsEditModalOpen(true);
           }
         }}
+        onManageDependencies={() => {
+          if (activeTask) {
+            setSelectedTaskForDependencies(activeTask);
+            setIsDependenciesModalOpen(true);
+          }
+        }}
         onClearBlockedError={onClearIncompleteSubtasksError}
         columns={board?.columns}
         members={board?.members}
+      />
+
+      <TaskDependenciesModal
+        task={activeDependenciesTask}
+        allTasks={tasks}
+        projectName={board?.projectName || board?.name}
+        isOpen={isDependenciesModalOpen}
+        onClose={() => {
+          setIsDependenciesModalOpen(false);
+          setSelectedTaskForDependencies(null);
+        }}
+        onAddDependency={async (blockingTaskId, blockedTaskId) => {
+          if (!onAddDependency) return false;
+          return await onAddDependency(blockingTaskId, blockedTaskId);
+        }}
+        onSearchTasks={onSearchTasks}
       />
 
       <CreateSubtaskModal
