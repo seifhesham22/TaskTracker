@@ -28,6 +28,8 @@ export function TasksPage() {
     handleCreateSubtask,
     handleMoveTask,
     handleUpdateTask,
+    handleAddDependency,
+    handleSearchTasks,
   } = useBoard(boardId);
 
   return (
@@ -50,6 +52,8 @@ export function TasksPage() {
         onCreateSubtask={handleCreateSubtask}
         onMoveTask={handleMoveTask}
         onUpdateTask={handleUpdateTask}
+        onAddDependency={handleAddDependency}
+        onSearchTasks={handleSearchTasks}
       />
     </div>
   );

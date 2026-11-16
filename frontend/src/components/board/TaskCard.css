@@ -290,3 +290,17 @@
   line-height: 14px;
   font-weight: 500;
 }
+
+.card-blocked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #fff5f5;
+  border: 1px solid #f1b8bc;
+  color: #a60009;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+}

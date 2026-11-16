@@ -70,6 +70,28 @@ interface RawTask {
     userName?: string | null;
   }[];
   assigneeIds?: string[];
+  blocks?: {
+    id: string;
+    readableId: string;
+    title: string;
+    status?: ColumnCategory;
+  }[];
+  blockedBy?: {
+    id: string;
+    readableId: string;
+    title: string;
+    status?: ColumnCategory;
+  }[];
+}
+
+export interface AddTaskDependencyInput {
+  readonly blockingTaskId: string;
+  readonly blockedTaskId: string;
+}
+
+export interface AddTaskDependencyResult {
+  readonly blockingTask: TaskItem;
+  readonly blockedTask: TaskItem;
 }
 
 export class BoardService {
@@ -116,6 +138,18 @@ export class BoardService {
             id
             userName
           }
+          blocks {
+            id
+            readableId
+            title
+            status
+          }
+          blockedBy {
+            id
+            readableId
+            title
+            status
+          }
         }
       }
     `;
@@ -154,26 +188,7 @@ export class BoardService {
           members: rawBoard.members || [],
         };
 
-        const tasks: TaskItem[] = rawTasks.map((t) => ({
-          id: t.id,
-          readableId: t.readableId,
-          number: t.number,
-          boardId: t.boardId,
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          columnId: t.columnId,
-          columnName: t.column?.name ?? t.columnName,
-          position: t.position,
-          priority: t.priority,
-          assignees: t.assignees,
-          assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
-          assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
-          startDate: t.startDate,
-          dueDate: t.dueDate,
-          createdAt: t.createdAt,
-          parentTaskId: t.parentTaskId ?? null,
-        }));
+        const tasks: TaskItem[] = rawTasks.map((t) => this.mapRawTask(t));
 
         return { board, tasks };
       }
@@ -188,6 +203,160 @@ export class BoardService {
     }
 
     throw new ApiError(`Board '${boardId}' was not found.`, 404, null);
+  }
+
+  async searchTasks(projectId: string, search?: string): Promise<TaskItem[]> {
+    const query = `
+      query SearchBacklog($projectId: UUID!, $search: String) {
+        backlog(projectId: $projectId, search: $search, page: 1, pageSize: 50) {
+          items {
+            id
+            readableId
+            number
+            boardId
+            title
+            description
+            status
+            columnId
+            position
+            priority
+            startDate
+            dueDate
+            parentTaskId
+            blocks {
+              id
+              readableId
+              title
+              status
+            }
+            blockedBy {
+              id
+              readableId
+              title
+              status
+            }
+          }
+          totalCount
+        }
+      }
+    `;
+
+    try {
+      const result = await this.client.post<GraphQLResponse<{ backlog?: { items: RawTask[]; totalCount: number } }>>(
+        '/graphql',
+        { query, variables: { projectId, search: search?.trim() || null } }
+      );
+
+      if (result.errors && result.errors.length > 0) {
+        const firstError = result.errors[0];
+        const code = firstError.extensions?.code;
+        if (code === 'NOT_FOUND') {
+          throw new ApiError(firstError.message, 404, result.errors);
+        }
+        throw new ApiError(firstError.message, 400, result.errors);
+      }
+
+      const items = result.data?.backlog?.items || [];
+      return items.map((t) => this.mapRawTask(t));
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        throw err;
+      }
+      return [];
+    }
+  }
+
+  async addTaskDependency(input: AddTaskDependencyInput): Promise<AddTaskDependencyResult> {
+    const mutation = `
+      mutation AddTaskDependency($input: AddTaskDependencyInput!) {
+        addTaskDependency(input: $input) {
+          blockingTask {
+            id
+            readableId
+            number
+            boardId
+            title
+            description
+            status
+            columnId
+            position
+            priority
+            startDate
+            dueDate
+            parentTaskId
+            blocks {
+              id
+              readableId
+              title
+              status
+            }
+            blockedBy {
+              id
+              readableId
+              title
+              status
+            }
+          }
+          blockedTask {
+            id
+            readableId
+            number
+            boardId
+            title
+            description
+            status
+            columnId
+            position
+            priority
+            startDate
+            dueDate
+            parentTaskId
+            blocks {
+              id
+              readableId
+              title
+              status
+            }
+            blockedBy {
+              id
+              readableId
+              title
+              status
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.client.post<
+      GraphQLResponse<{
+        addTaskDependency?: {
+          blockingTask: RawTask;
+          blockedTask: RawTask;
+        };
+      }>
+    >('/graphql', { query: mutation, variables: { input } });
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, result.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHORIZED') {
+        throw new ApiError(firstError.message, 403, result.errors);
+      }
+      throw new ApiError(firstError.message, 400, result.errors);
+    }
+
+    if (!result.data?.addTaskDependency) {
+      throw new ApiError('Failed to add task dependency.', 500, null);
+    }
+
+    return {
+      blockingTask: this.mapRawTask(result.data.addTaskDependency.blockingTask),
+      blockedTask: this.mapRawTask(result.data.addTaskDependency.blockedTask),
+    };
   }
 
   async createTask(input: CreateTaskInput): Promise<TaskItem> {
@@ -267,6 +436,18 @@ export class BoardService {
           assignees {
             id
             userName
+          }
+          blocks {
+            id
+            readableId
+            title
+            status
+          }
+          blockedBy {
+            id
+            readableId
+            title
+            status
           }
         }
       }
@@ -371,7 +552,10 @@ export class BoardService {
       throw new ApiError('Failed to update task.', 500, null);
     }
 
-    const t = result.data.updateTask;
+    return this.mapRawTask(result.data.updateTask);
+  }
+
+  private mapRawTask(t: RawTask): TaskItem {
     return {
       id: t.id,
       readableId: t.readableId,
@@ -391,6 +575,18 @@ export class BoardService {
       dueDate: t.dueDate,
       createdAt: t.createdAt,
       parentTaskId: t.parentTaskId ?? null,
+      blocks: (t.blocks || []).map((b) => ({
+        id: b.id,
+        readableId: b.readableId,
+        title: b.title,
+        status: b.status,
+      })),
+      blockedBy: (t.blockedBy || []).map((b) => ({
+        id: b.id,
+        readableId: b.readableId,
+        title: b.title,
+        status: b.status,
+      })),
     };
   }
 
