@@ -5,6 +5,14 @@ export interface DependencyValidationResult {
   readonly error?: string;
 }
 
+export interface CircularDependencyInfo {
+  readonly isCycle: boolean;
+  readonly title: string;
+  readonly message: string;
+  readonly existingPath?: string;
+  readonly rejectedLink?: string;
+}
+
 export class TaskDependencyValidator {
   public validateSelection(
     currentTaskId: string,
@@ -41,6 +49,28 @@ export class TaskDependencyValidator {
     dependent: { readableId: string; title?: string }
   ): string {
     return `${predecessor.readableId} · ${predecessor.title} ↓ must happen before ${dependent.readableId}`;
+  }
+
+  public parseCycleError(
+    errorMessage: string,
+    predecessorKey: string,
+    dependentKey: string
+  ): CircularDependencyInfo | null {
+    if (!errorMessage || !errorMessage.toLowerCase().includes('cycle')) {
+      return null;
+    }
+
+    const chainMatch = errorMessage.match(/\(([^)]+→[^)]+)\)/);
+    const existingPath = chainMatch ? chainMatch[1] : `${dependentKey} → ${predecessorKey}`;
+    const rejectedLink = `${predecessorKey} → ${dependentKey}`;
+
+    return {
+      isCycle: true,
+      title: 'This dependency creates a cycle.',
+      message: `${predecessorKey} already depends on ${dependentKey}. Choose another task.`,
+      existingPath,
+      rejectedLink,
+    };
   }
 }
 

@@ -184,11 +184,11 @@ describe('TaskDependenciesModal (7 Figma States)', () => {
     });
   });
 
-  it('State 07: shows error banner and preserves selection for retry on failure', async () => {
+  it('State 07: shows error banner and preserves selection for retry on generic request failure', async () => {
     const user = userEvent.setup();
     const onAddDependency = vi
       .fn()
-      .mockRejectedValue(new Error("TES-10 can't block TES-24: would create a cycle."));
+      .mockRejectedValue(new Error('Network connection timeout.'));
 
     render(
       <TaskDependenciesModal
@@ -210,14 +210,125 @@ describe('TaskDependenciesModal (7 Figma States)', () => {
     await user.click(screen.getByRole('button', { name: 'Add dependency' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("TES-10 can't block TES-24: would create a cycle.")
-      ).toBeInTheDocument();
+      expect(screen.getByText('Network connection timeout.')).toBeInTheDocument();
       // Retains selection & direction
       expect(
         screen.getByText('TES-10 · Design database schema ↓ must happen before TES-24')
       ).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Add dependency' })).toBeEnabled();
+    });
+  });
+
+  describe('[US-18] Circular Dependency Validation (T1WOR-119 3 States)', () => {
+    const cycleTask: TaskItem = {
+      id: 'task-cycle-27',
+      readableId: 'TES-27',
+      number: 27,
+      boardId: 'b-1',
+      title: 'Publish release notes',
+      status: ColumnCategory.ToDo,
+      columnId: 'col-todo',
+      assigneeIds: [],
+    };
+
+    const validTask: TaskItem = {
+      id: 'task-valid-18',
+      readableId: 'TES-18',
+      number: 18,
+      boardId: 'b-1',
+      title: 'Approve project scope',
+      status: ColumnCategory.ToDo,
+      columnId: 'col-todo',
+      assigneeIds: [],
+    };
+
+    const baseTask: TaskItem = {
+      id: 'task-base-24',
+      readableId: 'TES-24',
+      number: 24,
+      boardId: 'b-1',
+      title: 'Prepare the project launch',
+      status: ColumnCategory.InProgress,
+      columnId: 'col-prog',
+      assigneeIds: [],
+      blockedBy: [],
+      blocks: [],
+    };
+
+    it('handles circular dependency cycle rejection, allows correction, and confirms valid retry', async () => {
+      const user = userEvent.setup();
+      const onAddDependency = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new Error(
+            "TES-27 can't block TES-24: TES-24 already blocks TES-27 (TES-24 → TES-27), so this would create a cycle."
+          )
+        )
+        .mockResolvedValueOnce(true);
+
+      render(
+        <TaskDependenciesModal
+          task={baseTask}
+          allTasks={[baseTask, cycleTask, validTask]}
+          projectName="Test Project"
+          isOpen={true}
+          onClose={vi.fn()}
+          onAddDependency={onAddDependency}
+        />
+      );
+
+      // Start add
+      await user.click(screen.getByRole('button', { name: 'Add dependency' }));
+
+      // Select cycle candidate TES-27
+      await waitFor(() => {
+        expect(screen.getByTestId(`dependency-candidate-${cycleTask.id}`)).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId(`dependency-candidate-${cycleTask.id}`));
+      await user.click(screen.getByRole('button', { name: 'Add dependency' }));
+
+      // State 01: Cycle rejected banner and path box
+      await waitFor(() => {
+        expect(screen.getByTestId('cycle-error-banner')).toBeInTheDocument();
+        expect(screen.getByText('This dependency creates a cycle.')).toBeInTheDocument();
+        expect(
+          screen.getByText('TES-27 already depends on TES-24. Choose another task.')
+        ).toBeInTheDocument();
+        expect(screen.getByText(/Existing: TES-24 → TES-27/i)).toBeInTheDocument();
+        expect(screen.getByText(/Rejected: TES-27 → TES-24/i)).toBeInTheDocument();
+      });
+
+      // Primary button is "Choose another task"
+      const chooseAnotherBtn = screen.getByTestId('choose-another-task-btn');
+      expect(chooseAnotherBtn).toBeInTheDocument();
+      await user.click(chooseAnotherBtn);
+
+      // State 02: Correct and retry
+      expect(screen.getByLabelText('Choose another task')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search tasks…')).toBeInTheDocument();
+
+      // Rejected candidate is filtered out
+      expect(screen.queryByTestId(`dependency-candidate-${cycleTask.id}`)).not.toBeInTheDocument();
+
+      // Select valid candidate TES-18
+      const validCandidate = screen.getByTestId(`dependency-candidate-${validTask.id}`);
+      await user.click(validCandidate);
+
+      // Button updates to "Retry with TES-18"
+      const retryBtn = screen.getByRole('button', { name: 'Retry with TES-18' });
+      expect(retryBtn).toBeInTheDocument();
+
+      // Submit retry
+      await user.click(retryBtn);
+
+      // State 03: Valid retry saved
+      await waitFor(() => {
+        expect(screen.getByText('✓ Dependency added')).toBeInTheDocument();
+        expect(screen.getByTestId('cycle-rejected-notice')).toHaveTextContent(
+          'The rejected TES-27 link was never added.'
+        );
+        expect(screen.getByRole('button', { name: 'Back to task' })).toBeInTheDocument();
+      });
     });
   });
 });

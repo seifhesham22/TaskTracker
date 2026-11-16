@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ColumnCategory, TaskDependencyRelationship, type TaskItem } from '../../domain/models';
-import { taskDependencyValidator } from '../../domain/validators/TaskDependencyValidator';
+import {
+  taskDependencyValidator,
+  type CircularDependencyInfo,
+} from '../../domain/validators/TaskDependencyValidator';
 import './TaskDependenciesModal.css';
 
 export interface TaskDependenciesModalProps {
@@ -55,6 +58,9 @@ export function TaskDependenciesModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [cycleError, setCycleError] = useState<CircularDependencyInfo | null>(null);
+  const [rejectedTask, setRejectedTask] = useState<TaskItem | null>(null);
+  const [isCorrectingRetry, setIsCorrectingRetry] = useState(false);
   const [lastAddedDependency, setLastAddedDependency] = useState<{
     predecessor: { readableId: string; title: string };
     dependent: { readableId: string; title: string };
@@ -74,25 +80,32 @@ export function TaskDependenciesModal({
     const ids = new Set<string>();
     blockedByTasks.forEach((b) => ids.add(b.id));
     blocksTasks.forEach((b) => ids.add(b.id));
+    if (rejectedTask) {
+      ids.add(rejectedTask.id);
+    }
     return ids;
-  }, [blockedByTasks, blocksTasks]);
+  }, [blockedByTasks, blocksTasks, rejectedTask]);
 
   // Search logic
   const performSearch = useCallback(
-    async (query: string) => {
+    async (query: string, excludeTaskId?: string) => {
       if (!task) return;
       setIsSearching(true);
       try {
+        const excluded = new Set(existingDependencyIds);
+        if (excludeTaskId) excluded.add(excludeTaskId);
+        if (rejectedTask) excluded.add(rejectedTask.id);
+
         if (onSearchTasks) {
           const results = await onSearchTasks(query);
           const filtered = results.filter(
-            (t) => t.id !== task.id && !existingDependencyIds.has(t.id)
+            (t) => t.id !== task.id && !excluded.has(t.id)
           );
           setCandidateTasks(filtered);
         } else {
           const trimmed = query.trim().toLowerCase();
           const filtered = allTasks.filter((t) => {
-            if (t.id === task.id || existingDependencyIds.has(t.id)) return false;
+            if (t.id === task.id || excluded.has(t.id)) return false;
             if (!trimmed) return true;
             return (
               t.title.toLowerCase().includes(trimmed) ||
@@ -107,7 +120,7 @@ export function TaskDependenciesModal({
         setIsSearching(false);
       }
     },
-    [task, onSearchTasks, existingDependencyIds, allTasks]
+    [task, onSearchTasks, existingDependencyIds, rejectedTask, allTasks]
   );
 
   useEffect(() => {
@@ -150,6 +163,9 @@ export function TaskDependenciesModal({
     setIsAdding(true);
     setShowSuccessBanner(false);
     setRequestError(null);
+    setCycleError(null);
+    setRejectedTask(null);
+    setIsCorrectingRetry(false);
     setValidationError(null);
     setSelectedTaskId(null);
     setSearchQuery('');
@@ -160,6 +176,8 @@ export function TaskDependenciesModal({
     setIsAdding(false);
     setValidationError(null);
     setRequestError(null);
+    setCycleError(null);
+    setIsCorrectingRetry(false);
     setSelectedTaskId(null);
   };
 
@@ -219,6 +237,8 @@ export function TaskDependenciesModal({
         });
         setShowSuccessBanner(true);
         setIsAdding(false);
+        setCycleError(null);
+        setIsCorrectingRetry(false);
       } else {
         setRequestError('We couldn’t add the dependency. Try again.');
       }
@@ -227,7 +247,31 @@ export function TaskDependenciesModal({
         err instanceof Error && err.message
           ? err.message
           : 'We couldn’t add the dependency. Try again.';
-      setRequestError(message);
+
+      const predecessorKey =
+        relationship === TaskDependencyRelationship.BlockedBy
+          ? selectedCandidate.readableId
+          : task.readableId;
+      const dependentKey =
+        relationship === TaskDependencyRelationship.BlockedBy
+          ? task.readableId
+          : selectedCandidate.readableId;
+
+      const parsedCycle = taskDependencyValidator.parseCycleError(
+        message,
+        predecessorKey,
+        dependentKey
+      );
+
+      if (parsedCycle) {
+        setCycleError(parsedCycle);
+        setRejectedTask(selectedCandidate);
+        setIsCorrectingRetry(false);
+        setRequestError(null);
+      } else {
+        setCycleError(null);
+        setRequestError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -275,8 +319,69 @@ export function TaskDependenciesModal({
           </div>
         )}
 
-        {/* Form mode (States 02, 03, 04, 05, 07) */}
-        {isAdding ? (
+        {/* Form mode (States 02, 03, 04, 05, 07) or Cycle rejected (State 01) */}
+        {isAdding && cycleError && !isCorrectingRetry && rejectedTask ? (
+          <div className="dependency-form">
+            <div className="dependencies-current-task-bar">
+              CURRENT TASK · {task.readableId} {task.title}
+            </div>
+
+            <div className="dependency-form-group">
+              <label htmlFor="dep-relationship-select" className="dependency-form-label">
+                Relationship
+              </label>
+              <select
+                id="dep-relationship-select"
+                className="dependency-form-select"
+                value={relationship}
+                disabled
+              >
+                <option value={TaskDependencyRelationship.BlockedBy}>Blocked by ⌄</option>
+                <option value={TaskDependencyRelationship.Blocks}>Blocks ⌄</option>
+              </select>
+            </div>
+
+            <div className="dependency-card">
+              <span className="dependency-card-header">
+                {rejectedTask.readableId} · {formatStatus(rejectedTask.status)}
+              </span>
+              <span className="dependency-card-title">{rejectedTask.title}</span>
+            </div>
+
+            <div className="dependency-cycle-banner" role="alert" data-testid="cycle-error-banner">
+              <p className="dependency-cycle-title">{cycleError.title}</p>
+              <p className="dependency-cycle-desc">{cycleError.message}</p>
+            </div>
+
+            <div className="dependency-cycle-path-box" data-testid="cycle-path-box">
+              <p className="dependency-cycle-path-line">Existing: {cycleError.existingPath}</p>
+              <p className="dependency-cycle-path-line">Rejected: {cycleError.rejectedLink}</p>
+            </div>
+
+            <div className="dependencies-modal-actions">
+              <button
+                type="button"
+                className="dependencies-btn-primary"
+                onClick={() => {
+                  setIsCorrectingRetry(true);
+                  setSelectedTaskId(null);
+                  setSearchQuery('');
+                  performSearch('', rejectedTask?.id);
+                }}
+                data-testid="choose-another-task-btn"
+              >
+                Choose another task
+              </button>
+              <button
+                type="button"
+                className="dependencies-btn-secondary"
+                onClick={handleCancelAdd}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : isAdding ? (
           <form className="dependency-form" onSubmit={handleSubmit} noValidate>
             <div className="dependencies-current-task-bar">
               CURRENT TASK · {task.readableId} {task.title}
@@ -305,14 +410,14 @@ export function TaskDependenciesModal({
 
             <div className="dependency-form-group">
               <label htmlFor="dep-search-input" className="dependency-form-label">
-                Find a task *
+                {isCorrectingRetry ? 'Choose another task' : 'Find a task *'}
               </label>
               <input
                 id="dep-search-input"
                 ref={searchInputRef}
                 type="text"
                 className={`dependency-form-input ${validationError ? 'input-error' : ''}`}
-                placeholder="Search by title or task key"
+                placeholder={isCorrectingRetry ? 'Search tasks…' : 'Search by title or task key'}
                 value={searchQuery}
                 disabled={isSubmitting}
                 onChange={(e) => {
@@ -380,7 +485,13 @@ export function TaskDependenciesModal({
                 className="dependencies-btn-primary"
                 disabled={isSubmitting || isSearching}
               >
-                {isSubmitting ? '◌ Adding…' : isSearching ? 'Loading…' : 'Add dependency'}
+                {isSubmitting
+                  ? '◌ Adding…'
+                  : isSearching
+                  ? 'Loading…'
+                  : isCorrectingRetry && selectedCandidate
+                  ? `Retry with ${selectedCandidate.readableId}`
+                  : 'Add dependency'}
               </button>
               <button
                 type="button"
@@ -441,6 +552,12 @@ export function TaskDependenciesModal({
               </div>
             )}
 
+            {showSuccessBanner && rejectedTask && (
+              <p className="dependency-cycle-rejected-notice" data-testid="cycle-rejected-notice">
+                The rejected {rejectedTask.readableId} link was never added.
+              </p>
+            )}
+
             <div className="dependencies-modal-actions">
               <button
                 type="button"
@@ -456,7 +573,7 @@ export function TaskDependenciesModal({
                   data-testid="dependencies-bottom-close-btn"
                   onClick={onClose}
                 >
-                  Close
+                  {rejectedTask ? 'Back to task' : 'Close'}
                 </button>
               )}
             </div>

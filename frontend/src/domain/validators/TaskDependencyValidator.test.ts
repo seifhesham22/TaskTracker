@@ -39,4 +39,22 @@ describe('TaskDependencyValidator', () => {
     );
     expect(description).toBe('TES-18 · Approve scope ↓ must happen before TES-24');
   });
+
+  it('parses circular dependency error from backend with existing path and rejected link', () => {
+    const rawBackendMessage =
+      "TES-27 can't block TES-24: TES-24 already blocks TES-27 (TES-24 → TES-27), so this would create a cycle.";
+    const cycleInfo = validator.parseCycleError(rawBackendMessage, 'TES-27', 'TES-24');
+
+    expect(cycleInfo).not.toBeNull();
+    expect(cycleInfo?.isCycle).toBe(true);
+    expect(cycleInfo?.title).toBe('This dependency creates a cycle.');
+    expect(cycleInfo?.message).toBe('TES-27 already depends on TES-24. Choose another task.');
+    expect(cycleInfo?.existingPath).toBe('TES-24 → TES-27');
+    expect(cycleInfo?.rejectedLink).toBe('TES-27 → TES-24');
+  });
+
+  it('returns null when error is not related to cycles', () => {
+    const cycleInfo = validator.parseCycleError('Task was not found.', 'TES-27', 'TES-24');
+    expect(cycleInfo).toBeNull();
+  });
 });

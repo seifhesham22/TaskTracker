@@ -1302,37 +1302,105 @@ describe('Board & Task acceptance tests', () => {
       ).toBeInTheDocument();
     });
 
-    it('displays backend cycle validation errors correctly and preserves selection', async () => {
-      vi.spyOn(api.board, 'addTaskDependency').mockRejectedValue(
-        new ApiError(
-          "TES-18 can't block TES-24: TES-24 already blocks TES-18, so this would create a cycle.",
-          400,
-          null
-        )
-      );
+    it('[US-18] handles circular dependency error, preserves existing dependencies, and allows valid retry', async () => {
+      const taskCId = 'task-dep-c';
+      let taskC: TaskItem = {
+        id: taskCId,
+        readableId: 'TES-30',
+        number: 30,
+        boardId: depBoardId,
+        title: 'Review launch checklist',
+        status: ColumnCategory.ToDo,
+        columnId: 'col-todo',
+        columnName: 'To Do',
+        priority: TaskPriority.Low,
+        assigneeIds: [],
+        blockedBy: [],
+        blocks: [],
+      };
+
+      vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
+        board: {
+          id: depBoardId,
+          projectId: 'p-1',
+          projectName: 'Test Project',
+          name: 'Dependency Board',
+          columns: [
+            { id: 'col-todo', name: 'To Do', category: ColumnCategory.ToDo, position: 'A' },
+            { id: 'col-progress', name: 'In Progress', category: ColumnCategory.InProgress, position: 'B' },
+          ],
+        },
+        tasks: [taskA, taskB, taskC],
+      }));
+
+      vi.spyOn(api.board, 'addTaskDependency').mockImplementation(async (input) => {
+        if (input.blockingTaskId === taskAId && input.blockedTaskId === taskBId) {
+          throw new ApiError(
+            "TES-18 can't block TES-24: TES-24 already blocks TES-18 (TES-24 → TES-18), so this would create a cycle.",
+            400,
+            null
+          );
+        }
+        if (input.blockingTaskId === taskCId && input.blockedTaskId === taskBId) {
+          taskB = {
+            ...taskB,
+            blockedBy: [{ id: taskC.id, readableId: taskC.readableId, title: taskC.title, status: taskC.status }],
+          };
+          taskC = {
+            ...taskC,
+            blocks: [{ id: taskB.id, readableId: taskB.readableId, title: taskB.title, status: taskB.status }],
+          };
+          return { blockingTask: taskC, blockedTask: taskB };
+        }
+        throw new ApiError('Unexpected input', 400, null);
+      });
 
       renderAt(`/tasks?boardId=${depBoardId}`);
 
+      // 1. Open task TES-24 details and start adding dependency
       fireEvent.click(await screen.findByTestId(`open-task-${taskBId}`));
       fireEvent.click(await screen.findByTestId('manage-dependencies-button'));
       fireEvent.click(screen.getByRole('button', { name: 'Add dependency' }));
 
-      // Select candidate
+      // 2. Select circular candidate TES-18
       const candidateItem = await screen.findByTestId(`dependency-candidate-${taskAId}`);
-      expect(candidateItem).toBeInTheDocument();
       fireEvent.click(candidateItem);
       fireEvent.click(screen.getByRole('button', { name: 'Add dependency' }));
 
-      // Error appears (State 07)
-      expect(
-        await screen.findByText(/so this would create a cycle\./i)
-      ).toBeInTheDocument();
+      // 3. Cycle rejected state (State 01): clear error message explaining why relationship cannot be created
+      expect(await screen.findByTestId('cycle-error-banner')).toBeInTheDocument();
+      expect(screen.getByText('This dependency creates a cycle.')).toBeInTheDocument();
+      expect(screen.getByText('TES-18 already depends on TES-24. Choose another task.')).toBeInTheDocument();
+      expect(screen.getByText(/Existing: TES-24 → TES-18/i)).toBeInTheDocument();
+      expect(screen.getByText(/Rejected: TES-18 → TES-24/i)).toBeInTheDocument();
 
-      // Selection and direction remain visible for retry
-      expect(
-        screen.getByText('TES-18 · Approve project scope ↓ must happen before TES-24')
-      ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Add dependency' })).toBeEnabled();
+      // 4. Click Choose another task to correct selection (State 02)
+      fireEvent.click(screen.getByTestId('choose-another-task-btn'));
+      expect(screen.getByLabelText('Choose another task')).toBeInTheDocument();
+
+      // The rejected candidate TES-18 is not offered
+      expect(screen.queryByTestId(`dependency-candidate-${taskAId}`)).not.toBeInTheDocument();
+
+      // 5. Select valid task TES-30 and retry
+      const validCandidate = await screen.findByTestId(`dependency-candidate-${taskCId}`);
+      fireEvent.click(validCandidate);
+
+      const retryBtn = screen.getByRole('button', { name: 'Retry with TES-30' });
+      expect(retryBtn).toBeInTheDocument();
+      fireEvent.click(retryBtn);
+
+      // 6. Valid retry saved (State 03)
+      expect(await screen.findByText('✓ Dependency added')).toBeInTheDocument();
+      expect(screen.getByTestId('cycle-rejected-notice')).toHaveTextContent(
+        'The rejected TES-18 link was never added.'
+      );
+
+      // Close modal and verify rejected task does NOT appear in task details, but valid task does
+      fireEvent.click(screen.getByRole('button', { name: 'Back to task' }));
+      expect(await screen.findByTestId('task-dependencies-section')).toBeInTheDocument();
+      expect(screen.getByText('Blocked by · 1 task')).toBeInTheDocument();
+      expect(screen.getByText('TES-30 · Review launch checklist ↓ must happen before TES-24')).toBeInTheDocument();
+      expect(screen.queryByText(/TES-18 · Approve project scope ↓ must happen before TES-24/i)).not.toBeInTheDocument();
     });
   });
 });
