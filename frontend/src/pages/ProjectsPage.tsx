@@ -57,7 +57,16 @@ export function ProjectsPage() {
               )}
 
               <div className="project-boards-section">
-                <h3 className="project-boards-title">Boards</h3>
+                <div className="project-section-header">
+                  <h3 className="project-boards-title">Boards & Backlog</h3>
+                  <Link
+                    to={`/projects/${project.id}/backlog`}
+                    className="project-backlog-link"
+                    data-testid={`project-backlog-link-${project.id}`}
+                  >
+                    Backlog →
+                  </Link>
+                </div>
                 {project.boards.length === 0 ? (
                   <p className="project-card-desc">No boards available in this project.</p>
                 ) : (

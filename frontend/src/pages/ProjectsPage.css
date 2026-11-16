@@ -126,6 +126,28 @@
   margin: 0 0 8px 0;
 }
 
+.project-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.project-backlog-link {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: #0a0a0a;
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #d4d4d4;
+}
+
+.project-backlog-link:hover {
+  background: #f5f5f5;
+}
+
 .project-boards-list {
   display: flex;
   flex-direction: column;

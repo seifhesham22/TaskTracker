@@ -41,6 +41,9 @@ export function AppLayout() {
           <Link to="/tasks" className="app-nav-link">
             Tasks
           </Link>
+          <Link to="/backlog" className="app-nav-link">
+            Backlog
+          </Link>
         </nav>
 
         <div className="app-user-section">
