@@ -33,6 +33,7 @@ export interface ParentTaskDetailsModalProps {
   readonly onMoveTask?: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly onAddSubtask?: () => void;
   readonly onEdit?: () => void;
+  readonly onManageDependencies?: () => void;
   readonly onClearBlockedError?: () => void;
 }
 
@@ -53,6 +54,7 @@ export function ParentTaskDetailsModal({
   onMoveTask,
   onAddSubtask,
   onEdit,
+  onManageDependencies,
   onClearBlockedError,
 }: ParentTaskDetailsModalProps) {
   const headingId = useId();
@@ -354,6 +356,63 @@ export function ParentTaskDetailsModal({
               </div>
             </div>
 
+            {/* Dependencies Section */}
+            {Boolean(
+              (task.blockedBy && task.blockedBy.length > 0) ||
+                (task.blocks && task.blocks.length > 0)
+            ) && (
+              <section
+                className="parent-details-dependencies-section"
+                aria-label="Dependencies"
+                data-testid="task-dependencies-section"
+              >
+                <div className="parent-details-subtasks-header">
+                  <h3 className="parent-details-subtasks-heading">Task dependencies</h3>
+                  <span className="parent-details-subtasks-count">
+                    {task.blockedBy && task.blockedBy.length > 0
+                      ? `Blocked by · ${task.blockedBy.length} ${
+                          task.blockedBy.length === 1 ? 'task' : 'tasks'
+                        }`
+                      : `Blocks · ${task.blocks?.length || 0} ${
+                          task.blocks?.length === 1 ? 'task' : 'tasks'
+                        }`}
+                  </span>
+                </div>
+                <div className="parent-details-dependencies-list">
+                  {task.blockedBy?.map((dep) => (
+                    <div
+                      key={dep.id}
+                      className="dependency-preview-card"
+                      data-testid={`blocked-by-${dep.id}`}
+                    >
+                      <div className="dependency-preview-meta">
+                        <span className="dependency-preview-key">{dep.readableId}</span>
+                        <span className="dependency-preview-title">{dep.title}</span>
+                      </div>
+                      <div className="dependency-preview-direction">
+                        {dep.readableId} · {dep.title} ↓ must happen before {task.readableId}
+                      </div>
+                    </div>
+                  ))}
+                  {task.blocks?.map((dep) => (
+                    <div
+                      key={dep.id}
+                      className="dependency-preview-card"
+                      data-testid={`blocks-${dep.id}`}
+                    >
+                      <div className="dependency-preview-meta">
+                        <span className="dependency-preview-key">{dep.readableId}</span>
+                        <span className="dependency-preview-title">{dep.title}</span>
+                      </div>
+                      <div className="dependency-preview-direction">
+                        {task.readableId} · {task.title} ↓ must happen before {dep.readableId}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Subtasks Section */}
             <section className="parent-details-subtasks-section" aria-label="Subtasks">
               <div className="parent-details-subtasks-header">
@@ -479,6 +538,16 @@ export function ParentTaskDetailsModal({
                       Edit task
                     </button>
                   )}
+                  {onManageDependencies && (
+                    <button
+                      type="button"
+                      className="button button-outline task-details-btn-dependencies"
+                      onClick={onManageDependencies}
+                      data-testid="manage-dependencies-button"
+                    >
+                      Manage dependencies
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="button button-outline"
@@ -508,6 +577,16 @@ export function ParentTaskDetailsModal({
                       data-testid="open-edit-task-btn"
                     >
                       Edit task
+                    </button>
+                  )}
+                  {onManageDependencies && (
+                    <button
+                      type="button"
+                      className="button button-outline task-details-btn-dependencies"
+                      onClick={onManageDependencies}
+                      data-testid="manage-dependencies-button"
+                    >
+                      Manage dependencies
                     </button>
                   )}
                   <button

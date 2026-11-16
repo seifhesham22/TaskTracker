@@ -26,6 +26,8 @@ export interface UseBoardState {
   readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly handleUpdateTask: (input: UpdateTaskInput) => Promise<TaskItem>;
+  readonly handleAddDependency: (blockingTaskId: string, blockedTaskId: string) => Promise<boolean>;
+  readonly handleSearchTasks: (query: string) => Promise<TaskItem[]>;
 }
 
 export function useBoard(boardId: string): UseBoardState {
@@ -198,6 +200,59 @@ export function useBoard(boardId: string): UseBoardState {
     return updated;
   };
 
+  const handleAddDependency = async (
+    blockingTaskId: string,
+    blockedTaskId: string
+  ): Promise<boolean> => {
+    const result = await api.board.addTaskDependency({ blockingTaskId, blockedTaskId });
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === result.blockingTask.id) {
+          return {
+            ...t,
+            ...result.blockingTask,
+            blocks: result.blockingTask.blocks ?? t.blocks,
+            blockedBy: result.blockingTask.blockedBy ?? t.blockedBy,
+          };
+        }
+        if (t.id === result.blockedTask.id) {
+          return {
+            ...t,
+            ...result.blockedTask,
+            blocks: result.blockedTask.blocks ?? t.blocks,
+            blockedBy: result.blockedTask.blockedBy ?? t.blockedBy,
+          };
+        }
+        return t;
+      })
+    );
+    return true;
+  };
+
+  const handleSearchTasks = async (query: string): Promise<TaskItem[]> => {
+    const trimmed = query.trim().toLowerCase();
+    if (board?.projectId) {
+      try {
+        const backlogResults = await api.board.searchTasks(board.projectId, trimmed);
+        if (backlogResults.length > 0) {
+          return backlogResults;
+        }
+      } catch {
+        // Fallback to in-memory tasks
+      }
+    }
+
+    if (!trimmed) {
+      return tasks.slice();
+    }
+
+    return tasks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(trimmed) ||
+        t.readableId.toLowerCase().includes(trimmed)
+    );
+  };
+
   const clearMoveError = useCallback(() => {
     setMoveError(null);
   }, []);
@@ -224,5 +279,7 @@ export function useBoard(boardId: string): UseBoardState {
     handleCreateSubtask,
     handleMoveTask,
     handleUpdateTask,
+    handleAddDependency,
+    handleSearchTasks,
   };
 }

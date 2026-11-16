@@ -462,5 +462,167 @@ describe('BoardService', () => {
       });
     });
   });
+
+  describe('addTaskDependency', () => {
+    it('creates dependency successfully and returns both tasks', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        data: {
+          addTaskDependency: {
+            blockingTask: {
+              id: 't-1',
+              readableId: 'TES-1',
+              number: 1,
+              boardId: 'b-1',
+              title: 'Build API',
+              status: ColumnCategory.InProgress,
+              columnId: 'c-1',
+              blocks: [{ id: 't-2', readableId: 'TES-2', title: 'Write tests' }],
+              blockedBy: [],
+            },
+            blockedTask: {
+              id: 't-2',
+              readableId: 'TES-2',
+              number: 2,
+              boardId: 'b-1',
+              title: 'Write tests',
+              status: ColumnCategory.ToDo,
+              columnId: 'c-2',
+              blocks: [],
+              blockedBy: [{ id: 't-1', readableId: 'TES-1', title: 'Build API' }],
+            },
+          },
+        },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const result = await service.addTaskDependency({
+        blockingTaskId: 't-1',
+        blockedTaskId: 't-2',
+      });
+
+      expect(result.blockingTask.readableId).toBe('TES-1');
+      expect(result.blockingTask.blocks).toHaveLength(1);
+      expect(result.blockedTask.readableId).toBe('TES-2');
+      expect(result.blockedTask.blockedBy).toHaveLength(1);
+    });
+
+    it('throws 400 when cycle is detected', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "TES-3 can't block TES-1: TES-1 already blocks TES-3, so this would create a cycle.",
+            extensions: { code: 'BAD_USER_INPUT' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.addTaskDependency({ blockingTaskId: 't-3', blockedTaskId: 't-1' })
+      ).rejects.toMatchObject({
+        status: 400,
+        message: expect.stringContaining('would create a cycle'),
+      });
+    });
+
+    it('throws 403 when user is not authorized as writer/owner', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'Only writers and owners of the project can add dependencies.',
+            extensions: { code: 'AUTH_NOT_AUTHORIZED' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.addTaskDependency({ blockingTaskId: 't-1', blockedTaskId: 't-2' })
+      ).rejects.toMatchObject({
+        status: 403,
+      });
+    });
+
+    it('throws 404 when a task is not found', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "Task 't-missing' was not found.",
+            extensions: { code: 'NOT_FOUND' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.addTaskDependency({ blockingTaskId: 't-missing', blockedTaskId: 't-2' })
+      ).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+  });
+
+  describe('searchTasks', () => {
+    it('searches backlog tasks by project and search query', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        data: {
+          backlog: {
+            items: [
+              {
+                id: 't-18',
+                readableId: 'TES-18',
+                number: 18,
+                boardId: 'b-1',
+                title: 'Approve project scope',
+                status: ColumnCategory.InProgress,
+                columnId: 'c-1',
+              },
+            ],
+            totalCount: 1,
+          },
+        },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const results = await service.searchTasks('proj-1', 'Approve');
+      expect(results).toHaveLength(1);
+      expect(results[0].readableId).toBe('TES-18');
+    });
+  });
 });
 

@@ -289,4 +289,46 @@ describe('ParentTaskDetailsModal', () => {
     expect(screen.getByTestId('parent-status-badge')).toHaveTextContent('Done');
     expect(screen.getByTestId('close-task-details-button')).toBeInTheDocument();
   });
+
+  it('renders existing dependencies and handles Manage dependencies button', async () => {
+    const user = userEvent.setup();
+    const onManageDependencies = vi.fn();
+
+    const taskWithDependencies: TaskItem = {
+      ...mockParentTask,
+      blockedBy: [
+        {
+          id: 'dep-1',
+          readableId: 'TES-18',
+          title: 'Approve project scope',
+          status: ColumnCategory.InProgress,
+        },
+      ],
+      blocks: [],
+    };
+
+    render(
+      <ParentTaskDetailsModal
+        task={taskWithDependencies}
+        allTasks={[taskWithDependencies, ...mockSubtasks]}
+        columns={mockColumns}
+        isOpen={true}
+        onClose={vi.fn()}
+        onMarkComplete={vi.fn()}
+        onManageDependencies={onManageDependencies}
+      />
+    );
+
+    expect(screen.getByTestId('task-dependencies-section')).toBeInTheDocument();
+    expect(screen.getByText('Task dependencies')).toBeInTheDocument();
+    expect(screen.getByText('Blocked by · 1 task')).toBeInTheDocument();
+    expect(
+      screen.getByText('TES-18 · Approve project scope ↓ must happen before TES-24')
+    ).toBeInTheDocument();
+
+    const manageBtn = screen.getByTestId('manage-dependencies-button');
+    expect(manageBtn).toBeInTheDocument();
+    await user.click(manageBtn);
+    expect(onManageDependencies).toHaveBeenCalledTimes(1);
+  });
 });
