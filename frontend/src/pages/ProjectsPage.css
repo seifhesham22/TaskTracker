@@ -4,6 +4,9 @@
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .projects-header {
