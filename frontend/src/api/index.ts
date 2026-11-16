@@ -6,6 +6,7 @@ import { defaultTokenStorage } from '../auth/TokenStorage';
 import { appConfig } from '../config/AppConfig';
 import { FetchHttpClient } from './HttpClient';
 import { AuthService } from './services/AuthService';
+import { BacklogService } from './services/BacklogService';
 import { BoardService } from './services/BoardService';
 import { SystemService } from './services/SystemService';
 
@@ -18,6 +19,7 @@ const httpClient = new FetchHttpClient(
 export const api = {
   system: new SystemService(httpClient),
   board: new BoardService(httpClient),
+  backlog: new BacklogService(httpClient),
   auth: new AuthService(httpClient),
 } as const;
 
@@ -28,6 +30,7 @@ export type { IncompleteSubtaskDto } from './errors';
 export type { HttpClient, RequestOptions } from './HttpClient';
 export type { ApiStatus } from './services/SystemService';
 export { BoardService } from './services/BoardService';
+export { BacklogService } from './services/BacklogService';
 export { AuthService, AuthError } from './services/AuthService';
 export type {
   RegisterInput,

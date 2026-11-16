@@ -115,3 +115,64 @@ export interface UpdateTaskInput {
   readonly startDate?: string | null;
   readonly dueDate?: string | null;
 }
+
+export interface BacklogTaskDependencyRef {
+  readonly id?: string;
+  readonly readableId: string;
+}
+
+export interface BacklogItem {
+  readonly id: string;
+  readonly readableId: string;
+  readonly number: number;
+  readonly boardId: string;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly status: ColumnCategory;
+  readonly column?: {
+    readonly id?: string;
+    readonly name: string;
+    readonly category?: ColumnCategory;
+  } | null;
+  readonly priority?: TaskPriority | null;
+  readonly assignees?: readonly TaskAssignee[];
+  readonly blocks?: readonly BacklogTaskDependencyRef[];
+  readonly blockedBy?: readonly BacklogTaskDependencyRef[];
+  readonly position?: string;
+  readonly parentTaskId?: string | null;
+}
+
+export interface BacklogPageData {
+  readonly items: readonly BacklogItem[];
+  readonly totalCount: number;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalPages: number;
+  readonly hasNextPage: boolean;
+  readonly hasPreviousPage: boolean;
+}
+
+export interface BacklogFilterInput {
+  readonly status?: {
+    readonly eq?: ColumnCategory;
+    readonly in?: readonly ColumnCategory[];
+  };
+  readonly priority?: {
+    readonly eq?: TaskPriority | null;
+    readonly in?: readonly (TaskPriority | null)[];
+  };
+  readonly boardId?: {
+    readonly eq?: string;
+  };
+  readonly parentTaskId?: {
+    readonly eq?: string | null;
+  };
+}
+
+export interface GetBacklogInput {
+  readonly projectId: string;
+  readonly search?: string | null;
+  readonly where?: BacklogFilterInput | null;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
