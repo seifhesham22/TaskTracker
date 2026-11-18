@@ -13,6 +13,7 @@ import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { SESSION_EXPIRED } from '../domain/authErrors';
+import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput, TaskDetails, UpdateTaskChanges } from '../domain/models';
 import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
@@ -138,7 +139,16 @@ export function createBackendBoardRepository(): BoardRepository {
       const sameId = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
       const subtasks = tasks.filter((t) => sameId(t.parentTaskId, task.id)).sort((a, b) => a.number - b.number);
       const parent = task.parentTaskId ? (tasks.find((t) => sameId(task.parentTaskId, t.id)) ?? null) : null;
-      return { task, projectName: board.projectName, boardName: board.name, subtasks, parent };
+      const doneColumnId = board.columns.find((c) => c.category === 'DONE')?.id ?? null;
+      return { task, projectName: board.projectName, boardName: board.name, subtasks, parent, doneColumnId };
+    },
+
+    async completeTask(taskId: string, doneColumnId: string) {
+      try {
+        return await moveTaskRequest(taskId, doneColumnId);
+      } catch (error) {
+        throw new CompleteTaskError(toCompleteTaskFailure(error));
+      }
     },
 
     async updateTask(taskId: string, changes: UpdateTaskChanges) {

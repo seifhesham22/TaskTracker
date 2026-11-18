@@ -93,6 +93,8 @@ export interface TaskDetails {
   subtasks: Task[];
   /** The task this one is a subtask of, if it's on the same board. */
   parent: Task | null;
+  /** The board's first Done column, where completing the task moves it; null if it has none. */
+  doneColumnId: string | null;
 }
 
 export interface BoardSummary {

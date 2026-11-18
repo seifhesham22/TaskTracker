@@ -59,6 +59,7 @@ export function SubtaskList({ subtasks, onOpen }: { subtasks: Task[]; onOpen: (t
               <Text style={styles.childTitle}>
                 {isDone(subtask) ? '✓' : '○'} {subtask.title}
               </Text>
+              <Text style={styles.openLink}>Open subtask →</Text>
             </Pressable>
           ))}
         </View>
@@ -98,4 +99,12 @@ const styles = StyleSheet.create({
   childPressed: { backgroundColor: colors.muted },
   childMeta: { fontSize: 11, lineHeight: 16, color: colors.mutedForeground },
   childTitle: { fontSize: 14, lineHeight: 20, color: colors.foreground },
+  openLink: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: colors.foreground,
+    textDecorationLine: 'underline',
+    marginTop: 2,
+  },
 });

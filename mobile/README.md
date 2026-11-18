@@ -264,6 +264,7 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Create task | `createTask(input)` |
 | Move a task | `moveTask(input: { taskId, columnId })` |
 | Task details, Edit task (loading) | `board(id)` + `tasks(boardId)` (the backend has no single-task query), and `projects(userId)` for the project's name |
+| Mark complete | `moveTask(input: { taskId, columnId })` to the board's first Done column |
 | Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
@@ -308,6 +309,17 @@ Validation follows the backend (`TaskItem.cs`): the title is required (“Title 
 **Add subtask** opens **Create subtask**, fixed to that parent: only the title is asked for (required, at most 200 characters after trimming, as the backend checks). It sends `createTask` with the parent's board and `parentTaskId`; the backend puts the new task in the board's first column and checks that the parent exists in the same project. While it runs, the title, **Cancel** and **Create subtask** are disabled and the button says **Creating…**, so only one subtask can be created. On success the app returns to the parent, which reads the board again and shows **✓ Subtask created** with the new subtask listed. A failure keeps the title and shows “We couldn’t create the subtask. Try again.” (or the backend's reason, e.g. a parent that no longer exists). **Cancel** returns to the unchanged parent.
 
 The backend stores the relationship only as each task's `parentTaskId` and has no `subtasks` field, so a task's subtasks are the tasks on its board that point at it. A subtask on another board of the project isn't listed under its parent.
+
+## Completing a Parent Task (US-15)
+
+**Mark complete** on Task details moves the task to its board's first Done column with `moveTask`. The backend enforces the rule (`TaskCompletionGuard`): while any subtask isn't in a Done column it refuses with `BAD_USER_INPUT` and `extensions.incompleteSubtasks: [{ id, readableId, title }]`, and nothing is saved. The app doesn't check this itself; it shows what the backend says.
+
+- **Refused:** “Complete N subtasks first / This parent task can’t be completed while its subtasks are still open.”, then **Incomplete subtasks** (“N remaining”) with each open child's key, column and **Open subtask →**, and **Back to task**. The parent keeps its status: nothing changes on screen until the backend accepts. If the refusal lists no children, they are taken from a fresh read of the board.
+- **Coming back from a child** reads the parent again: finished children drop off the list, an open child added meanwhile is added, and when none are left the refusal clears and **All subtasks are complete.** shows with **Mark complete**.
+- **Completing:** the button says **Completing…** and the request is sent once. **Accepted:** **✓ Task completed**, the status chip becomes **✓ Done**, and the button **Completed** (disabled). The task is then read again from the backend; the board updates when you return to it.
+- **Failures** (no response, server error) show a message above the buttons, keep the status, and **Mark complete** can be tried again. A board with no Done column says so without sending a request.
+
+A child on another board can't be read with this board, so it stays in the list as the backend named it until a new attempt.
 
 ## Manual test against the real backend
 

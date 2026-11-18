@@ -28,6 +28,11 @@ export interface BoardRepository {
   moveTask(taskId: string, columnId: string): Promise<Task>;
   /** One task of a board, read from the backend. Rejects with BoardLoadError ('notFound' if it's gone). */
   getTask(boardId: string, taskId: string): Promise<TaskDetails>;
+  /**
+   * Completes a task by moving it to a Done column. The backend refuses while a subtask is open;
+   * rejects with CompleteTaskError.
+   */
+  completeTask(taskId: string, doneColumnId: string): Promise<Task>;
   /** Rejects with the backend's error; `toEditTaskErrors` turns it into messages. */
   updateTask(taskId: string, changes: UpdateTaskChanges): Promise<Task>;
 }

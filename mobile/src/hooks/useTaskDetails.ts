@@ -57,5 +57,8 @@ export function useTaskDetails(boardId: string | undefined, taskId: string | und
     load();
   }, [load]);
 
-  return { state, retry };
+  /** Reads the task again without showing the loading state. */
+  const reload = load;
+
+  return { state, retry, reload };
 }
