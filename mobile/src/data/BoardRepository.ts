@@ -1,3 +1,5 @@
+import type { BacklogItem, BacklogQuery } from '../domain/backlog';
+
 import type {
   BoardData,
   BoardSummary,
@@ -5,6 +7,7 @@ import type {
   ProjectSummary,
   Task,
   TaskDetails,
+  TaskLink,
   UpdateTaskChanges,
 } from '../domain/models';
 
@@ -20,6 +23,13 @@ export class BoardLoadError extends Error {
   }
 }
 
+export interface BacklogResult {
+  items: BacklogItem[];
+  totalCount: number;
+  page: number;
+  hasNextPage: boolean;
+}
+
 export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
   listBoards(): Promise<BoardSummary[]>;
@@ -28,6 +38,17 @@ export interface BoardRepository {
   moveTask(taskId: string, columnId: string): Promise<Task>;
   /** One task of a board, read from the backend. Rejects with BoardLoadError ('notFound' if it's gone). */
   getTask(boardId: string, taskId: string): Promise<TaskDetails>;
+  /**
+   * Completes a task by moving it to a Done column. The backend refuses while a subtask is open;
+   * rejects with CompleteTaskError.
+   */
+  completeTask(taskId: string, doneColumnId: string): Promise<Task>;
+  /** One page of the project's backlog, searched and filtered by the backend, in its order. */
+  getBacklog(projectId: string, query: BacklogQuery, page: number): Promise<BacklogResult>;
+  /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
+  addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
+  /** The project's tasks matching `term` by title or key (excluding none). */
+  searchTasks(projectId: string, term: string): Promise<TaskLink[]>;
   /** Rejects with the backend's error; `toEditTaskErrors` turns it into messages. */
   updateTask(taskId: string, changes: UpdateTaskChanges): Promise<Task>;
 }

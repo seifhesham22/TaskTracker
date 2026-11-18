@@ -814,6 +814,31 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Backlog_returns_each_tasks_story_points_and_null_when_it_has_none()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var (estimatedId, _) = await CreateTaskThroughTheApiAsync(project.BoardId, "Estimated");
+        await CreateTaskThroughTheApiAsync(project.BoardId, "Not estimated");
+        await using (var db = database.CreateDbContext())
+        {
+            var estimated = await db.Set<TaskItem>().SingleAsync(t => t.Id == Guid.Parse(estimatedId));
+            estimated.StoryPoints = 3;
+            await db.SaveChangesAsync();
+        }
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { backlog(projectId: "{{project.ProjectId}}") { items { title storyPoints } } }
+            """);
+
+        var items = json.GetProperty("data").GetProperty("backlog").GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(new[] { "Estimated", "Not estimated" }, items.Select(i => i.GetProperty("title").GetString()));
+        Assert.Equal(3, items[0].GetProperty("storyPoints").GetInt32());
+        Assert.Equal(JsonValueKind.Null, items[1].GetProperty("storyPoints").ValueKind);
+    }
+
+    [Fact]
     public async Task Backlog_returns_the_requested_page_with_its_metadata()
     {
         TestProject project;

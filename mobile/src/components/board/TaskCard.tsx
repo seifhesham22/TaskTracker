@@ -12,6 +12,7 @@ export function TaskCard({
   saving = false,
   onPress,
   onLongPress,
+  parentKey,
 }: {
   task: Task;
   members: ProjectMember[];
@@ -19,11 +20,14 @@ export function TaskCard({
   /** Opens the task's details. */
   onPress?: () => void;
   onLongPress?: () => void;
+  /** Set for a subtask: its parent's key, e.g. TES-24, or '' when the parent isn't on this board. */
+  parentKey?: string;
 }) {
   const assignee = task.assigneeIds[0] ? members.find((m) => m.userId === task.assigneeIds[0]) : undefined;
   const assigneeName = assignee?.userName || task.assigneeNames?.[0];
   const hasMeta = !!(task.priority || task.dueDate || task.assigneeIds.length > 0);
   const accessibilityLabel = [
+    parentKey !== undefined && (parentKey ? `Subtask of ${parentKey}` : 'Subtask'),
     task.title,
     task.description,
     task.priority && `Priority ${PRIORITY_LABELS[task.priority]}`,
@@ -54,6 +58,11 @@ export function TaskCard({
       onPress={onPress}
       onLongPress={onLongPress}
     >
+      {parentKey !== undefined ? (
+        <Text style={styles.parent} testID={`task-parent-${task.id}`}>
+          {parentKey ? `↳ Subtask of ${parentKey}` : '↳ Subtask'}
+        </Text>
+      ) : null}
       <Text style={styles.title} numberOfLines={3}>
         {task.title}
       </Text>
@@ -113,6 +122,7 @@ const styles = StyleSheet.create({
   skeletonCard: { shadowOpacity: 0, elevation: 0 },
   title: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: colors.foreground },
   description: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground },
+  parent: { fontSize: 12, lineHeight: 16, fontWeight: '500', color: colors.mutedForeground, marginBottom: -8 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   spacer: { flex: 1 },
   saving: { flexDirection: 'row', alignItems: 'center', gap: 8 },

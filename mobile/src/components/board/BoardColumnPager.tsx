@@ -17,6 +17,7 @@ export function BoardColumnPager({
   savingTaskIds,
   onTaskLongPress,
   onTaskPress,
+  parentKeys,
   refreshing,
   onRefresh,
 }: {
@@ -29,6 +30,8 @@ export function BoardColumnPager({
   savingTaskIds: ReadonlySet<string>;
   onTaskLongPress: (task: Task) => void;
   onTaskPress?: (task: Task) => void;
+  /** Task ID → readable key, to label subtasks with their parent. */
+  parentKeys?: Record<string, string>;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -89,6 +92,7 @@ export function BoardColumnPager({
                     saving={savingTaskIds.has(task.id)}
                     onLongPress={() => onTaskLongPress(task)}
                     onPress={onTaskPress ? () => onTaskPress(task) : undefined}
+                    parentKey={task.parentTaskId ? (parentKeys?.[task.parentTaskId] ?? '') : undefined}
                   />
                 ))}
                 <Button

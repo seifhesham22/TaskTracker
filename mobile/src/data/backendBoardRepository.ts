@@ -11,8 +11,13 @@ import {
 import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
+import { backlogRequest } from '../api/backlog';
+import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
+import { backlogVariables, type BacklogQuery } from '../domain/backlog';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
+import { looksLikeKey } from '../domain/dependencies';
 import { SESSION_EXPIRED } from '../domain/authErrors';
+import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput, TaskDetails, UpdateTaskChanges } from '../domain/models';
 import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
@@ -122,6 +127,7 @@ export function createBackendBoardRepository(): BoardRepository {
           columns: board.columns.map(toBoardColumn),
           members: project ? toProjectMembers(project) : [],
           membersUnavailable: 'unavailable' in lookup ? lookup.unavailable : undefined,
+          projectRole: project?.role ?? null,
         },
         tasks: tasks.map(toTask),
       };
@@ -133,7 +139,62 @@ export function createBackendBoardRepository(): BoardRepository {
       const { board, tasks } = await repository.getBoard(boardId);
       const task = tasks.find((t) => t.id.toLowerCase() === taskId.toLowerCase());
       if (!task) throw new BoardLoadError('notFound', TASK_NOT_FOUND);
-      return { task, projectName: board.projectName, boardName: board.name };
+      // The backend keeps the relationship as each task's parentTaskId, so a task's subtasks are
+      // the board's tasks that point at it.
+      const sameId = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+      const subtasks = tasks.filter((t) => sameId(t.parentTaskId, task.id)).sort((a, b) => a.number - b.number);
+      const parent = task.parentTaskId ? (tasks.find((t) => sameId(task.parentTaskId, t.id)) ?? null) : null;
+      const doneColumnId = board.columns.find((c) => c.category === 'DONE')?.id ?? null;
+      return {
+        task,
+        projectName: board.projectName,
+        boardName: board.name,
+        subtasks,
+        parent,
+        doneColumnId,
+        projectId: board.projectId,
+        canEdit: board.projectRole !== 'READER',
+      };
+    },
+
+    async completeTask(taskId: string, doneColumnId: string) {
+      try {
+        return await moveTaskRequest(taskId, doneColumnId);
+      } catch (error) {
+        throw new CompleteTaskError(toCompleteTaskFailure(error));
+      }
+    },
+
+    async getBacklog(projectId: string, query: BacklogQuery, page: number) {
+      const result = await backlogRequest(backlogVariables(projectId, query, page));
+      return {
+        items: result.items.map((node) => ({
+          id: node.id,
+          readableId: node.readableId,
+          title: node.title,
+          status: node.status,
+          columnName: node.column.name,
+          priority: node.priority,
+          storyPoints: node.storyPoints,
+          boardId: node.boardId,
+        })),
+        totalCount: result.totalCount,
+        page: result.page,
+        hasNextPage: result.hasNextPage,
+      };
+    },
+
+    async addDependency(blockingTaskId: string, blockedTaskId: string) {
+      await addTaskDependencyRequest(blockingTaskId, blockedTaskId);
+    },
+
+    // The backend's search matches titles. A term like "TES-18" or "18" can only match a key, so
+    // then the project's tasks are read (up to the backend's largest page) and matched here.
+    async searchTasks(projectId: string, term: string) {
+      const trimmed = term.trim();
+      return looksLikeKey(trimmed)
+        ? searchTasksRequest(projectId, null, MAX_PAGE_SIZE)
+        : searchTasksRequest(projectId, trimmed || null, 20);
     },
 
     async updateTask(taskId: string, changes: UpdateTaskChanges) {

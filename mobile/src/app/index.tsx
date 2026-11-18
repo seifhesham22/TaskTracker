@@ -117,6 +117,20 @@ export default function ProjectsScreen() {
                 onPress={() => router.push({ pathname: '/boards', params: { projectId: project.id } })}
                 style={styles.cardButton}
               />
+              <Button
+                label="View backlog"
+                variant="outline"
+                size="lg"
+                block
+                accessibilityLabel={`View the backlog of ${project.name}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/projects/[projectId]/backlog',
+                    params: { projectId: project.id, projectName: project.name },
+                  })
+                }
+                testID={`backlog-${project.id}`}
+              />
             </View>
           ))
         : null}

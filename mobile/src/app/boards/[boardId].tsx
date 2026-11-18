@@ -58,6 +58,10 @@ export default function BoardScreen() {
   const data = state.status === 'ready' ? state.data : null;
   const columns = useMemo(() => data?.board.columns ?? [], [data]);
   const grouped = useMemo(() => groupTasksByColumn(columns, data?.tasks ?? []), [columns, data]);
+  const parentKeys = useMemo(
+    () => Object.fromEntries((data?.tasks ?? []).map((t) => [t.id, t.readableId])),
+    [data],
+  );
   const counts = useMemo(
     () => Object.fromEntries(Object.entries(grouped.byColumn).map(([id, tasks]) => [id, tasks.length])),
     [grouped],
@@ -154,6 +158,7 @@ export default function BoardScreen() {
               savingTaskIds={savingTaskIds}
               onTaskLongPress={setTaskToMove}
               onTaskPress={openTask}
+              parentKeys={parentKeys}
               refreshing={state.refreshing}
               onRefresh={refresh}
             />

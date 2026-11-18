@@ -5,10 +5,23 @@ import type {
   ProjectMember,
   ProjectSummary,
   Task,
+  TaskLink,
   TaskPriority,
 } from '../domain/models';
 import { colors } from '../theme/tokens';
 import { graphqlRequest } from './graphql';
+
+/** A related task (dependency), as both `blockedBy` and `blocks` return it. */
+export const LINK_FIELDS = `
+    id
+    readableId
+    title
+    status
+    boardId
+    column {
+      name
+    }
+`;
 
 export const TASK_FIELDS = `
   id
@@ -22,7 +35,14 @@ export const TASK_FIELDS = `
   boardId
   columnId
   position
+  parentTaskId
   status
+  blockedBy {
+    ${LINK_FIELDS}
+  }
+  blocks {
+    ${LINK_FIELDS}
+  }
   column {
     id
     name
@@ -59,6 +79,7 @@ export const PROJECTS_QUERY = `
       id
       name
       description
+      role
       boards {
         id
         name
@@ -97,15 +118,39 @@ export interface TaskNode {
   boardId: string;
   columnId: string;
   position: string;
+  parentTaskId?: string | null;
+  blockedBy?: LinkNode[];
+  blocks?: LinkNode[];
   status: ColumnCategory;
   column: { id: string; name: string; category: ColumnCategory };
   assignees: { id: string; userName: string | null }[];
+}
+
+export interface LinkNode {
+  id: string;
+  readableId: string;
+  title: string;
+  status: ColumnCategory;
+  boardId: string;
+  column: { name: string };
+}
+
+export function toTaskLink(node: LinkNode): TaskLink {
+  return {
+    id: node.id,
+    readableId: node.readableId,
+    title: node.title,
+    status: node.status,
+    columnName: node.column.name,
+    boardId: node.boardId,
+  };
 }
 
 export interface ProjectNode {
   id: string;
   name: string;
   description?: string | null;
+  role?: string | null;
   boards: { id: string; name: string }[];
   projectMembers: { userId: string; userName: string }[];
 }
@@ -129,6 +174,9 @@ export function toTask(node: TaskNode): Task {
     assigneeIds: node.assignees.map((a) => a.id),
     assigneeNames: node.assignees.map((a) => a.userName ?? ''),
     startDate: node.startDate ?? null,
+    parentTaskId: node.parentTaskId ?? null,
+    blockedBy: (node.blockedBy ?? []).map(toTaskLink),
+    blocks: (node.blocks ?? []).map(toTaskLink),
     dueDate: node.dueDate,
     position: node.position,
   };

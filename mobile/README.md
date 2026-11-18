@@ -39,9 +39,13 @@ mobile/
     │   ├── boards/
     │   │   ├── index.tsx      # Board list (/boards)
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
+    │   ├── projects/[projectId]/
+    │   │   └── backlog.tsx    # Project backlog (/projects/:projectId/backlog)
     │   ├── tasks/[taskId]/
     │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
-    │   │   └── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
+    │   │   ├── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
+    │   │   ├── subtask.tsx    # Create subtask (/tasks/:taskId/subtask?boardId=…)
+    │   │   └── dependencies.tsx # Task dependencies (/tasks/:taskId/dependencies?boardId=…)
     │   └── +not-found.tsx    # Fallback for unknown routes
     ├── auth/            # Session in memory, its secure storage, AuthProvider
     ├── components/      # Board, create-task, form and auth components (names match the design)
@@ -263,6 +267,12 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Create task | `createTask(input)` |
 | Move a task | `moveTask(input: { taskId, columnId })` |
 | Task details, Edit task (loading) | `board(id)` + `tasks(boardId)` (the backend has no single-task query), and `projects(userId)` for the project's name |
+| Mark complete | `moveTask(input: { taskId, columnId })` to the board's first Done column |
+| Task dependencies (list) | `blockedBy` and `blocks` on each task of `tasks(boardId)` |
+| Task dependencies (find a task) | `backlog(projectId, search, pageSize)` |
+| Task dependencies (add) | `addTaskDependency(input: { blockingTaskId, blockedTaskId })` |
+| Project backlog | `backlog(projectId, search, where, page, pageSize)` |
+| Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
 If the signed-in user isn't a member of a board's project, or the members can't be loaded, the Assignee field says why and the task can only be created unassigned. The app never invents members.
@@ -298,6 +308,67 @@ Tap a card on the board to open **Task details** (title, description, priority, 
 Validation follows the backend (`TaskItem.cs`): the title is required (“Title is required.”) and at most 200 characters after trimming, and the due date can't be before the start date (“Due date must be on or after the start date.”); the same day is allowed. The backend's own refusals of these show under the same fields. A task that no longer exists, or any other refusal, shows above the form. A network or server failure shows “We couldn’t save your changes. Try again.” and keeps every value.
 
 `updateTask` requires a login token but doesn't check project membership, so the app doesn't either.
+
+## Subtasks (US-13)
+
+**Task details** shows the task's status (its column) and a **Subtasks** section: “n / m done”, then each subtask indented under the parent with its key, column and ✓ (done) or ○. Tapping one opens it; a subtask's details link back to its parent (“Subtask of TES-24 · …”). On the board, a subtask's card says “↳ Subtask of TES-24” (or “↳ Subtask” if the parent is on another board).
+
+**Add subtask** opens **Create subtask**, fixed to that parent: only the title is asked for (required, at most 200 characters after trimming, as the backend checks). It sends `createTask` with the parent's board and `parentTaskId`; the backend puts the new task in the board's first column and checks that the parent exists in the same project. While it runs, the title, **Cancel** and **Create subtask** are disabled and the button says **Creating…**, so only one subtask can be created. On success the app returns to the parent, which reads the board again and shows **✓ Subtask created** with the new subtask listed. A failure keeps the title and shows “We couldn’t create the subtask. Try again.” (or the backend's reason, e.g. a parent that no longer exists). **Cancel** returns to the unchanged parent.
+
+The backend stores the relationship only as each task's `parentTaskId` and has no `subtasks` field, so a task's subtasks are the tasks on its board that point at it. A subtask on another board of the project isn't listed under its parent.
+
+## Completing a Parent Task (US-15)
+
+**Mark complete** on Task details moves the task to its board's first Done column with `moveTask`. The backend enforces the rule (`TaskCompletionGuard`): while any subtask isn't in a Done column it refuses with `BAD_USER_INPUT` and `extensions.incompleteSubtasks: [{ id, readableId, title }]`, and nothing is saved. The app doesn't check this itself; it shows what the backend says.
+
+- **Refused:** “Complete N subtasks first / This parent task can’t be completed while its subtasks are still open.”, then **Incomplete subtasks** (“N remaining”) with each open child's key, column and **Open subtask →**, and **Back to task**. The parent keeps its status: nothing changes on screen until the backend accepts. If the refusal lists no children, they are taken from a fresh read of the board.
+- **Coming back from a child** reads the parent again: finished children drop off the list, an open child added meanwhile is added, and when none are left the refusal clears and **All subtasks are complete.** shows with **Mark complete**.
+- **Completing:** the button says **Completing…** and the request is sent once. **Accepted:** **✓ Task completed**, the status chip becomes **✓ Done**, and the button **Completed** (disabled). The task is then read again from the backend; the board updates when you return to it.
+- **Failures** (no response, server error) show a message above the buttons, keep the status, and **Mark complete** can be tried again. A board with no Done column says so without sending a request.
+
+A child on another board can't be read with this board, so it stays in the list as the backend named it until a new attempt.
+
+## Task Dependencies (US-16)
+
+The backend stores a dependency as one row, **blocking task → blocked task**: the blocking task must happen first. Every task returns both sides from that row: `blockedBy` (its predecessors) and `blocks` (its dependents), so the same relationship always reads the same from either task: “TES-18 · … ↓ must happen before TES-24 · …”, first task on top.
+
+- **Task details** lists the task's relationships under **Dependencies**, with **Dependencies** opening **Task dependencies**: “Blocked by · N tasks” and “Blocks · N tasks”, each with the other task's card (tap to open it) and the direction box.
+- **Add dependency**: **Relationship** “Blocked by” (the selected task must finish before this one) or “Blocks” (this task must finish before the selected one), and **Find a task**, which searches the project with `backlog`. The backend's search matches titles; a key such as `TES-18` or `18` is matched in the app against the project's tasks (the first 100). The current task is never offered, and a task already linked in that direction is shown as **Already linked** and can't be picked (the backend also ignores a repeated link). The direction box previews the link before **Add dependency**.
+- **Add dependency** without a selection says “Select a task to continue.” and sends nothing. While adding, the button says **Adding…** and only one request is sent. On success the screen returns to the list with **✓ Dependency added**, read again from the backend, and **Add another dependency**.
+- The backend decides what is allowed: same project, not the task itself, writers and owners only, and no cycles (US-18). Its message is shown as it is, and the selection and direction are kept so the user can change them or try again. With no response: “We couldn’t add the dependency. Try again.”
+- Readers of the project (the `role` from `projects`) see the relationships but not **Add dependency**.
+
+## Circular Dependencies (US-18)
+
+The backend refuses a link that would close a cycle (`TaskDependencyCycleGuard`, inside `addTaskDependency`): it looks for an existing path from the task that would wait back to the task that would go first, so it catches a direct cycle (A → B, then B → A) and longer ones (A → B → C, then C → A). Nothing is saved. The refusal is `BAD_USER_INPUT` with this sentence, and no separate code:
+
+`{X} can't block {Y}: {Y} already blocks {X} ({Y} → … → {X}), so this would create a cycle.`
+
+The app recognises a cycle only by that whole sentence (`toCycleInfo` in `src/domain/dependencies.ts`), so other `BAD_USER_INPUT` refusals (different projects, the task itself) are never shown as cycles. It doesn't look for cycles itself. If the backend's wording changes, `toCycleInfo` must change with it.
+
+- **Refused:** the form (titled **Add dependency**) keeps the relationship and the chosen task, and shows “This dependency creates a cycle. / TES-27 already depends on TES-24. Choose another task or cancel.” and “Existing: TES-24 → TES-27 / Rejected: TES-27 → TES-24 / The new link was not saved.”, with **Choose another task** and **Cancel**. No success message, and nothing is added to the list: the list is only ever what the backend returns.
+- **Choose another task:** search again (“Search tasks…”); the refused task is marked **Creates a cycle** for that direction and can't be picked. The button becomes **Retry with TES-18**; while it runs it says **Adding…**, sends one request and keeps the explanation on screen. Another refused cycle replaces the explanation.
+- **Accepted:** **✓ Dependency added**, the dependencies read again from the backend (the earlier ones unchanged, the refused one absent), “The rejected TES-27 link was never added.” and **Back to task**.
+- **Cancel** returns to the saved dependencies as they were. Other refusals and failures show their own message (“We couldn’t add the dependency. Try again.” with no response or a server error), never the cycle explanation.
+
+## Project Backlog (US-23)
+
+**View backlog** on a project in **Your projects** opens **Project backlog**: every task of the project's boards in one list, as `backlog` returns it. The backend scopes it to the project (and refuses non-members), orders it by board, column and position, and does all searching, filtering and paging; the app keeps that order and numbers the rows by position (“1 · TES-31”). Each row shows the title, the status (its column), the priority (“No priority” when none) and the estimate in story points (“Not estimated” when none). Tapping a row opens the task.
+
+| Variable | Sent | Backend |
+| --- | --- | --- |
+| `projectId` | Always | The selected project |
+| `search` | Only when not blank (trimmed) | Part of the title, case ignored |
+| `where.status.in` | Only when a status chip is on | `BACKLOG`, `TO_DO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
+| `where.priority.in` | Only when a priority chip is on | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `page`, `pageSize` | Always; `pageSize` is 20 | 1-based page; `hasNextPage`, `totalCount`, `totalPages` come back |
+
+- **Search** is sent 350 ms after typing stops. **Status** and **Priority** chips can be combined with each other and with the search; **Clear filters** removes the chips. Any change asks for page 1 again and replaces the list.
+- **Load more** asks for the next page with the same search and filters and adds it below, skipping any item already shown; it is shown only while `hasNextPage` is true, and “End of the backlog.” after the last page. While it loads, the list stays and the button says **Loading more…**; if it fails, the list stays and **Try again** asks for the same page.
+- Only the answer to the latest search or filter is used; a late answer to an earlier one is ignored.
+- States from the design: **Loading backlog…** with grey rows (never the empty state first), **No backlog items yet** with **Back to project**, and **Couldn’t load the backlog** with **Try again**. With a search or filter and no match: **No matching backlog items** with **Clear search and filters**.
+
+The design shows no search, filter or paging controls; they follow the app's existing inputs and buttons. The `storyPoints` field was added to the backend's `Task` type for this screen (`TaskItem.StoryPoints` existed but wasn't exposed). No operation sets story points yet, so every item shows “Not estimated” until one does.
 
 ## Manual test against the real backend
 

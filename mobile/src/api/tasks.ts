@@ -18,6 +18,7 @@ export const CREATE_TASK_MUTATION = `
       assigneeIds
       dueDate
       createdAt
+      parentTaskId
     }
   }
 `;
@@ -45,6 +46,7 @@ export function toMutationInput(input: CreateTaskInput): Record<string, unknown>
   if (input.assigneeId) result.assigneeId = input.assigneeId;
   if (input.priority) result.priority = input.priority;
   if (input.dueDate) result.dueDate = input.dueDate;
+  if (input.parentTaskId) result.parentTaskId = input.parentTaskId;
   return result;
 }
 
