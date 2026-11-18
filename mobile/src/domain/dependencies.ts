@@ -73,3 +73,43 @@ export function toAddDependencyError(error: unknown): string {
   if (error instanceof NetworkError || error instanceof ApiError) return ADD_FAILED;
   return ADD_FAILED;
 }
+
+// ── Cycles (US-18) ──────────────────────────────────────────────────────────────────────────
+// The backend refuses a link that closes a cycle (TaskDependencyCycleGuard) with BAD_USER_INPUT
+// and this exact sentence; there is no separate code, so the whole sentence is matched and no
+// other BAD_USER_INPUT (different projects, the task itself, …) is taken for a cycle:
+//   "{X} can't block {Y}: {Y} already blocks {X} ({Y} → … → {X}), so this would create a cycle."
+
+export const CYCLE_TITLE = 'This dependency creates a cycle.';
+export const NOT_SAVED = 'The new link was not saved.';
+
+export interface CycleInfo {
+  /** The task that was to go first in the rejected link. */
+  blockingKey: string;
+  /** The task that was to wait in the rejected link. */
+  blockedKey: string;
+  /** The links already saved that lead from blockedKey to blockingKey, as the backend found them. */
+  existingPath: string[];
+}
+
+const CYCLE = /^(\S+) can't block (\S+): (\S+) already blocks (\S+) \((.+)\), so this would create a cycle\.$/;
+
+export function toCycleInfo(error: unknown): CycleInfo | null {
+  if (!(error instanceof GraphQLResponseError)) return null;
+  for (const entry of error.errors) {
+    if (entry.extensions?.code !== 'BAD_USER_INPUT') continue;
+    const match = CYCLE.exec(entry.message ?? '');
+    if (!match) continue;
+    const [, blockingKey, blockedKey, again, back, chain] = match;
+    // The sentence names the same two tasks twice, the other way round.
+    if (again !== blockedKey || back !== blockingKey) continue;
+    return { blockingKey, blockedKey, existingPath: chain.split(' → ') };
+  }
+  return null;
+}
+
+export const cycleExplanation = (cycle: CycleInfo) =>
+  `${cycle.blockingKey} already depends on ${cycle.blockedKey}. Choose another task or cancel.`;
+export const existingLabel = (cycle: CycleInfo) => `Existing: ${cycle.existingPath.join(' → ')}`;
+export const rejectedLabel = (cycle: CycleInfo) => `Rejected: ${cycle.blockingKey} → ${cycle.blockedKey}`;
+export const neverAddedNote = (key: string) => `The rejected ${key} link was never added.`;

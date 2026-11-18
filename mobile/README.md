@@ -335,6 +335,19 @@ The backend stores a dependency as one row, **blocking task → blocked task**: 
 - The backend decides what is allowed: same project, not the task itself, writers and owners only, and no cycles (US-18). Its message is shown as it is, and the selection and direction are kept so the user can change them or try again. With no response: “We couldn’t add the dependency. Try again.”
 - Readers of the project (the `role` from `projects`) see the relationships but not **Add dependency**.
 
+## Circular Dependencies (US-18)
+
+The backend refuses a link that would close a cycle (`TaskDependencyCycleGuard`, inside `addTaskDependency`): it looks for an existing path from the task that would wait back to the task that would go first, so it catches a direct cycle (A → B, then B → A) and longer ones (A → B → C, then C → A). Nothing is saved. The refusal is `BAD_USER_INPUT` with this sentence, and no separate code:
+
+`{X} can't block {Y}: {Y} already blocks {X} ({Y} → … → {X}), so this would create a cycle.`
+
+The app recognises a cycle only by that whole sentence (`toCycleInfo` in `src/domain/dependencies.ts`), so other `BAD_USER_INPUT` refusals (different projects, the task itself) are never shown as cycles. It doesn't look for cycles itself. If the backend's wording changes, `toCycleInfo` must change with it.
+
+- **Refused:** the form (titled **Add dependency**) keeps the relationship and the chosen task, and shows “This dependency creates a cycle. / TES-27 already depends on TES-24. Choose another task or cancel.” and “Existing: TES-24 → TES-27 / Rejected: TES-27 → TES-24 / The new link was not saved.”, with **Choose another task** and **Cancel**. No success message, and nothing is added to the list: the list is only ever what the backend returns.
+- **Choose another task:** search again (“Search tasks…”); the refused task is marked **Creates a cycle** for that direction and can't be picked. The button becomes **Retry with TES-18**; while it runs it says **Adding…**, sends one request and keeps the explanation on screen. Another refused cycle replaces the explanation.
+- **Accepted:** **✓ Dependency added**, the dependencies read again from the backend (the earlier ones unchanged, the refused one absent), “The rejected TES-27 link was never added.” and **Back to task**.
+- **Cancel** returns to the saved dependencies as they were. Other refusals and failures show their own message (“We couldn’t add the dependency. Try again.” with no response or a server error), never the cycle explanation.
+
 ## Manual test against the real backend
 
 Use a local development database only, never shared data.

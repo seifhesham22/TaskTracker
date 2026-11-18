@@ -9,10 +9,18 @@ import { ErrorBanner, SuccessBanner, TaskFormSkeleton, TaskScreen } from '../../
 import { Button, Skeleton } from '../../../components/ui';
 import { useBoardRepository } from '../../../data/BoardRepositoryContext';
 import {
+  CYCLE_TITLE,
+  NOT_SAVED,
   RELATIONSHIP_LABELS,
   SEARCH_FAILED,
   SELECT_A_TASK,
+  cycleExplanation,
+  existingLabel,
   isAlreadyLinked,
+  neverAddedNote,
+  rejectedLabel,
+  toCycleInfo,
+  type CycleInfo,
   matchingTasks,
   relationshipHint,
   toAddDependencyError,
@@ -33,6 +41,10 @@ export default function TaskDependenciesScreen() {
   const { state, retry, reload } = useTaskDetails(boardId, taskId);
   const [mode, setMode] = useState<'overview' | 'add'>('overview');
   const [added, setAdded] = useState(false);
+  // Set while the add form shows a cycle the backend refused (the design titles it “Add dependency”).
+  const [cycleShown, setCycleShown] = useState(false);
+  // After a link is added following a refused cycle: the refused task's key, for the design's note.
+  const [neverAdded, setNeverAdded] = useState<string | null>(null);
 
   const close = () => {
     if (router.canGoBack()) router.back();
@@ -64,7 +76,7 @@ export default function TaskDependenciesScreen() {
 
   return (
     <TaskScreen
-      title="Task dependencies"
+      title={mode === 'add' && cycleShown ? 'Add dependency' : 'Task dependencies'}
       breadcrumb={[projectName, task.readableId].filter(Boolean).join(' / ')}
       onClose={close}
       testID="dependencies-screen"
@@ -72,9 +84,15 @@ export default function TaskDependenciesScreen() {
       {mode === 'add' ? (
         <AddDependencyForm
           details={details}
-          onCancel={() => setMode('overview')}
-          onAdded={() => {
+          onCancel={() => {
+            setCycleShown(false);
+            setMode('overview');
+          }}
+          onCycleShown={setCycleShown}
+          onAdded={(rejectedKey) => {
             setAdded(true);
+            setNeverAdded(rejectedKey);
+            setCycleShown(false);
             setMode('overview');
             // Show the link as the backend now has it.
             reload();
@@ -82,16 +100,24 @@ export default function TaskDependenciesScreen() {
         />
       ) : (
         <>
-          <Text style={styles.subtitle}>{task.title}</Text>
+          {neverAdded ? null : <Text style={styles.subtitle}>{task.title}</Text>}
           {added ? <SuccessBanner>Dependency added</SuccessBanner> : null}
           <DependencyList task={task} onOpen={openLink} />
-          {details.canEdit ? (
+          {neverAdded ? (
+            <>
+              <Text style={styles.hint} testID="never-added-note">
+                {neverAddedNote(neverAdded)}
+              </Text>
+              <Button label="Back to task" size="lg" block onPress={close} testID="back-to-task" />
+            </>
+          ) : details.canEdit ? (
             <Button
               label={added ? 'Add another dependency' : 'Add dependency'}
               size="lg"
               block
               onPress={() => {
                 setAdded(false);
+                setNeverAdded(null);
                 setMode('add');
               }}
               testID="add-dependency-button"
@@ -109,14 +135,24 @@ export default function TaskDependenciesScreen() {
 
 type SearchState = { status: 'loading' } | { status: 'ready'; tasks: TaskLink[] } | { status: 'error' };
 
+/** A link the backend refused because it would close a cycle, with what was asked for. */
+interface Rejection {
+  cycle: CycleInfo;
+  task: TaskLink;
+  relationship: Relationship;
+}
+
 function AddDependencyForm({
   details,
   onCancel,
   onAdded,
+  onCycleShown,
 }: {
   details: TaskDetails;
   onCancel: () => void;
-  onAdded: () => void;
+  /** `rejectedKey`: the task of a refused cycle before this success, if there was one. */
+  onAdded: (rejectedKey: string | null) => void;
+  onCycleShown: (shown: boolean) => void;
 }) {
   const repository = useBoardRepository();
   const { task, projectId } = details;
@@ -129,6 +165,9 @@ function AddDependencyForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [relationshipSheet, setRelationshipSheet] = useState(false);
+  // A refused cycle stays on screen, with its explanation, until a link is added or the form is left.
+  const [rejection, setRejection] = useState<Rejection | null>(null);
+  const [correcting, setCorrecting] = useState(false);
   const searchRef = useRef<TextInputInstance>(null);
   const inFlight = useRef(false);
   const mounted = useRef(true);
@@ -174,10 +213,21 @@ function AddDependencyForm({
     setFormError(null);
     try {
       await repository.addDependency(input.blockingTaskId, input.blockedTaskId);
-      if (mounted.current) onAdded();
+      if (mounted.current) onAdded(rejection?.task.readableId ?? null);
     } catch (error) {
-      // Keep the selection and the direction, so the same link can be tried again.
-      if (mounted.current) setFormError(toAddDependencyError(error));
+      if (!mounted.current) return;
+      // Nothing is shown as added: the list on screen is only ever what the backend returns.
+      const cycle = toCycleInfo(error);
+      if (cycle) {
+        setRejection({ cycle, task: selected, relationship });
+        setCorrecting(false);
+        onCycleShown(true);
+      } else {
+        // Keep the selection and the direction, so the same link can be tried again.
+        setRejection(null);
+        onCycleShown(false);
+        setFormError(toAddDependencyError(error));
+      }
     } finally {
       inFlight.current = false;
       if (mounted.current) setAdding(false);
@@ -186,15 +236,34 @@ function AddDependencyForm({
 
   const loading = search.status === 'loading' && !selected;
   const current = { readableId: task.readableId, title: task.title };
+  const reviewing = !!rejection && !correcting;
+
+  const chooseAnother = () => {
+    setCorrecting(true);
+    setSelected(null);
+    setTerm('');
+    setSearch({ status: 'loading' });
+    setSearchKey((k) => k + 1);
+  };
+
+  const submitLabel = adding
+    ? 'Adding…'
+    : loading
+      ? 'Loading…'
+      : rejection && selected
+        ? `Retry with ${selected.readableId}`
+        : 'Add dependency';
 
   return (
     <View style={styles.form}>
+      {rejection ? null : (
       <View style={styles.intro}>
         <Text style={styles.subtitle}>{task.title}</Text>
         <Text style={styles.current} testID="current-task">
           CURRENT TASK · {task.readableId} {task.title}
         </Text>
       </View>
+      )}
 
       <View style={styles.field}>
         <Text style={styles.label}>Relationship</Text>
@@ -202,17 +271,41 @@ function AddDependencyForm({
           label="Relationship"
           value={RELATIONSHIP_LABELS[relationship]}
           placeholder="Blocked by"
-          disabled={adding}
+          disabled={adding || reviewing}
           onPress={() => setRelationshipSheet(true)}
           testID="relationship-select"
         />
-        <Text style={styles.hint} testID="relationship-hint">
-          {relationshipHint(relationship, task.readableId)}
-        </Text>
+        {rejection ? null : (
+          <Text style={styles.hint} testID="relationship-hint">
+            {relationshipHint(relationship, task.readableId)}
+          </Text>
+        )}
       </View>
 
+      {rejection ? (
+        <>
+          <LinkCard link={rejection.task} testID={`rejected-${rejection.task.id}`} />
+          <View style={styles.cycleAlert} accessibilityRole="alert" accessibilityLiveRegion="assertive" testID="cycle-error">
+            <Text style={styles.cycleTitle}>{CYCLE_TITLE}</Text>
+            <Text style={styles.cycleText}>{cycleExplanation(rejection.cycle)}</Text>
+          </View>
+          <View style={styles.cycleSummary} testID="cycle-summary">
+            <Text style={styles.cycleLine}>{existingLabel(rejection.cycle)}</Text>
+            <Text style={styles.cycleLine}>{rejectedLabel(rejection.cycle)}</Text>
+            <Text style={[styles.cycleLine, styles.bold]}>{NOT_SAVED}</Text>
+          </View>
+        </>
+      ) : null}
+
+      {reviewing ? (
+        <>
+          <Button label="Choose another task" size="lg" block onPress={chooseAnother} testID="choose-another-task" />
+          <Button label="Cancel" variant="outline" size="lg" block onPress={onCancel} testID="cancel-button" />
+        </>
+      ) : (
+      <>
       <View style={styles.field}>
-        <Text style={styles.label}>Find a task *</Text>
+        <Text style={styles.label}>{rejection ? 'Choose another task' : 'Find a task *'}</Text>
         <TextInput
           ref={searchRef}
           value={term}
@@ -222,7 +315,7 @@ function AddDependencyForm({
             setFieldError(null);
           }}
           editable={!adding}
-          placeholder="Search by title or task key"
+          placeholder={rejection ? 'Search tasks…' : 'Search by title or task key'}
           placeholderTextColor={colors.mutedForeground}
           autoCapitalize="none"
           autoCorrect={false}
@@ -268,12 +361,14 @@ function AddDependencyForm({
         <View style={styles.results} testID="search-results">
           {search.tasks.map((link) => {
             const linked = isAlreadyLinked(task, relationship, link.id);
+            // The refused task, the same way round, would only be refused again.
+            const refused = !!rejection && rejection.relationship === relationship && rejection.task.id === link.id;
             return (
               <LinkCard
                 key={link.id}
                 link={link}
-                disabled={linked || adding}
-                note={linked ? 'Already linked' : undefined}
+                disabled={linked || refused || adding}
+                note={refused ? 'Creates a cycle' : linked ? 'Already linked' : undefined}
                 onPress={() => choose(link)}
                 testID={`result-${link.id}`}
               />
@@ -305,7 +400,7 @@ function AddDependencyForm({
       {formError ? <ErrorBanner>{formError}</ErrorBanner> : null}
 
       <Button
-        label={adding ? 'Adding…' : loading ? 'Loading…' : 'Add dependency'}
+        label={submitLabel}
         size="lg"
         block
         loading={adding}
@@ -314,6 +409,8 @@ function AddDependencyForm({
         testID="submit-dependency"
       />
       {!adding ? <Button label="Cancel" variant="outline" size="lg" block onPress={onCancel} testID="cancel-button" /> : null}
+      </>
+      )}
 
       <SelectionSheet
         visible={relationshipSheet}
@@ -349,4 +446,17 @@ const styles = StyleSheet.create({
   error: { fontSize: 14, lineHeight: 20, color: colors.destructive },
   loading: { gap: 8 },
   results: { gap: 8 },
+  cycleAlert: {
+    padding: 14,
+    gap: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.destructiveBorder,
+    backgroundColor: colors.destructiveTint,
+  },
+  cycleTitle: { fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.destructive },
+  cycleText: { fontSize: 14, lineHeight: 20, color: colors.destructive },
+  cycleSummary: { padding: 12, gap: 4, borderRadius: 8, backgroundColor: colors.muted },
+  cycleLine: { fontSize: 14, lineHeight: 20, color: colors.foreground },
+  bold: { fontWeight: '700' },
 });

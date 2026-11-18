@@ -251,7 +251,7 @@ describe('Adding a dependency', () => {
 
   it.each([
     ['different projects', 'TES-24 and OTH-3 are in different projects. A task can only block a task of the same project.'],
-    ['a cycle (US-18)', 'TES-18 can\'t block TES-24: TES-24 already blocks TES-18 (TES-24 → TES-18), so this would create a cycle.'],
+    // A cycle gets its own view (US-18): see dependencyCycle.test.tsx.
     ['a task blocking itself', 'A task can\'t block itself.'],
   ])('shows the backend’s refusal for %s, keeps the selection, and adds nothing', async (_, message) => {
     await openAddForm(found(SCOPE, DOCS), { body: gqlError('BAD_USER_INPUT', message) });
