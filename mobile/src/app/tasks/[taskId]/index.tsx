@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BoardState } from '../../../components/board/BoardState';
+import { RelationBox } from '../../../components/task/Dependencies';
 import { IncompleteSubtasks } from '../../../components/task/IncompleteSubtasks';
 import { StatusChip, SubtaskList } from '../../../components/task/SubtaskList';
 import { ErrorBanner, SuccessBanner, TaskScreen, breadcrumbFor } from '../../../components/task/TaskScreen';
@@ -14,6 +15,7 @@ import {
   toCompleteTaskFailure,
   type IncompleteSubtask,
 } from '../../../domain/completeTask';
+import { countLabel } from '../../../domain/dependencies';
 import { formatFullDate, isoToDateKey } from '../../../domain/format';
 import { PRIORITY_LABELS, type Task, type TaskDetails } from '../../../domain/models';
 import { isDone } from '../../../domain/subtask';
@@ -216,6 +218,39 @@ function TaskDetailsView({
 
           <SubtaskList subtasks={subtasks} onOpen={(subtask) => openTask(subtask.id)} />
 
+          <View style={styles.section} testID="dependencies-summary">
+            <Text style={styles.sectionHeading} accessibilityRole="header">
+              Dependencies
+            </Text>
+            {(task.blockedBy ?? []).length + (task.blocks ?? []).length === 0 ? (
+              <Text style={styles.sectionEmpty}>No dependencies yet.</Text>
+            ) : (
+              <>
+                {(task.blockedBy ?? []).length > 0 ? (
+                  <Text style={styles.sectionCount}>{countLabel('Blocked by', task.blockedBy!.length)}</Text>
+                ) : null}
+                {(task.blockedBy ?? []).map((link) => (
+                  <RelationBox key={`by-${link.id}`} first={link} then={task} testID={`details-relation-${link.id}`} />
+                ))}
+                {(task.blocks ?? []).length > 0 ? (
+                  <Text style={styles.sectionCount}>{countLabel('Blocks', task.blocks!.length)}</Text>
+                ) : null}
+                {(task.blocks ?? []).map((link) => (
+                  <RelationBox key={`blocks-${link.id}`} first={task} then={link} testID={`details-relation-${link.id}`} />
+                ))}
+              </>
+            )}
+            <Button
+              label="Dependencies"
+              variant="outline"
+              size="lg"
+              block
+              disabled={completing}
+              onPress={() => router.push({ pathname: '/tasks/[taskId]/dependencies', params: { taskId: task.id, boardId } })}
+              testID="dependencies-button"
+            />
+          </View>
+
           {completion.status === 'failed' ? <ErrorBanner>{completion.message}</ErrorBanner> : null}
 
           <View style={styles.actions}>
@@ -270,6 +305,10 @@ const styles = StyleSheet.create({
   },
   noteText: { fontSize: 14, lineHeight: 20, color: colors.foreground },
   actions: { flexDirection: 'row', gap: 8 },
+  section: { gap: 10 },
+  sectionHeading: { fontSize: 15, lineHeight: 22, fontWeight: '600', color: colors.foreground },
+  sectionCount: { fontSize: 13, lineHeight: 18, color: colors.mutedForeground },
+  sectionEmpty: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground },
   action: { flex: 1 },
   row: {
     fontSize: 15,

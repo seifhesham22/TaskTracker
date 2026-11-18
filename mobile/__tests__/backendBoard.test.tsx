@@ -95,6 +95,8 @@ describe('backend getBoard', () => {
         assigneeNames: [PROJECT_MEMBERS[1].userName],
         startDate: null,
         parentTaskId: null,
+        blockedBy: [],
+        blocks: [],
         dueDate: '2026-11-05T00:00:00.000Z',
         position: 'V',
       },

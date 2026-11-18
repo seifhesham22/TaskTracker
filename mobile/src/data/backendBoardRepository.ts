@@ -11,7 +11,9 @@ import {
 import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
+import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
+import { looksLikeKey } from '../domain/dependencies';
 import { SESSION_EXPIRED } from '../domain/authErrors';
 import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
@@ -123,6 +125,7 @@ export function createBackendBoardRepository(): BoardRepository {
           columns: board.columns.map(toBoardColumn),
           members: project ? toProjectMembers(project) : [],
           membersUnavailable: 'unavailable' in lookup ? lookup.unavailable : undefined,
+          projectRole: project?.role ?? null,
         },
         tasks: tasks.map(toTask),
       };
@@ -140,7 +143,16 @@ export function createBackendBoardRepository(): BoardRepository {
       const subtasks = tasks.filter((t) => sameId(t.parentTaskId, task.id)).sort((a, b) => a.number - b.number);
       const parent = task.parentTaskId ? (tasks.find((t) => sameId(task.parentTaskId, t.id)) ?? null) : null;
       const doneColumnId = board.columns.find((c) => c.category === 'DONE')?.id ?? null;
-      return { task, projectName: board.projectName, boardName: board.name, subtasks, parent, doneColumnId };
+      return {
+        task,
+        projectName: board.projectName,
+        boardName: board.name,
+        subtasks,
+        parent,
+        doneColumnId,
+        projectId: board.projectId,
+        canEdit: board.projectRole !== 'READER',
+      };
     },
 
     async completeTask(taskId: string, doneColumnId: string) {
@@ -149,6 +161,19 @@ export function createBackendBoardRepository(): BoardRepository {
       } catch (error) {
         throw new CompleteTaskError(toCompleteTaskFailure(error));
       }
+    },
+
+    async addDependency(blockingTaskId: string, blockedTaskId: string) {
+      await addTaskDependencyRequest(blockingTaskId, blockedTaskId);
+    },
+
+    // The backend's search matches titles. A term like "TES-18" or "18" can only match a key, so
+    // then the project's tasks are read (up to the backend's largest page) and matched here.
+    async searchTasks(projectId: string, term: string) {
+      const trimmed = term.trim();
+      return looksLikeKey(trimmed)
+        ? searchTasksRequest(projectId, null, MAX_PAGE_SIZE)
+        : searchTasksRequest(projectId, trimmed || null, 20);
     },
 
     async updateTask(taskId: string, changes: UpdateTaskChanges) {

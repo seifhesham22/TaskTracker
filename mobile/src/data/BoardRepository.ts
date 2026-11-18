@@ -5,6 +5,7 @@ import type {
   ProjectSummary,
   Task,
   TaskDetails,
+  TaskLink,
   UpdateTaskChanges,
 } from '../domain/models';
 
@@ -33,6 +34,10 @@ export interface BoardRepository {
    * rejects with CompleteTaskError.
    */
   completeTask(taskId: string, doneColumnId: string): Promise<Task>;
+  /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
+  addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
+  /** The project's tasks matching `term` by title or key (excluding none). */
+  searchTasks(projectId: string, term: string): Promise<TaskLink[]>;
   /** Rejects with the backend's error; `toEditTaskErrors` turns it into messages. */
   updateTask(taskId: string, changes: UpdateTaskChanges): Promise<Task>;
 }

@@ -42,7 +42,8 @@ mobile/
     │   ├── tasks/[taskId]/
     │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
     │   │   ├── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
-    │   │   └── subtask.tsx    # Create subtask (/tasks/:taskId/subtask?boardId=…)
+    │   │   ├── subtask.tsx    # Create subtask (/tasks/:taskId/subtask?boardId=…)
+    │   │   └── dependencies.tsx # Task dependencies (/tasks/:taskId/dependencies?boardId=…)
     │   └── +not-found.tsx    # Fallback for unknown routes
     ├── auth/            # Session in memory, its secure storage, AuthProvider
     ├── components/      # Board, create-task, form and auth components (names match the design)
@@ -265,6 +266,9 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Move a task | `moveTask(input: { taskId, columnId })` |
 | Task details, Edit task (loading) | `board(id)` + `tasks(boardId)` (the backend has no single-task query), and `projects(userId)` for the project's name |
 | Mark complete | `moveTask(input: { taskId, columnId })` to the board's first Done column |
+| Task dependencies (list) | `blockedBy` and `blocks` on each task of `tasks(boardId)` |
+| Task dependencies (find a task) | `backlog(projectId, search, pageSize)` |
+| Task dependencies (add) | `addTaskDependency(input: { blockingTaskId, blockedTaskId })` |
 | Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
@@ -320,6 +324,16 @@ The backend stores the relationship only as each task's `parentTaskId` and has n
 - **Failures** (no response, server error) show a message above the buttons, keep the status, and **Mark complete** can be tried again. A board with no Done column says so without sending a request.
 
 A child on another board can't be read with this board, so it stays in the list as the backend named it until a new attempt.
+
+## Task Dependencies (US-16)
+
+The backend stores a dependency as one row, **blocking task → blocked task**: the blocking task must happen first. Every task returns both sides from that row: `blockedBy` (its predecessors) and `blocks` (its dependents), so the same relationship always reads the same from either task: “TES-18 · … ↓ must happen before TES-24 · …”, first task on top.
+
+- **Task details** lists the task's relationships under **Dependencies**, with **Dependencies** opening **Task dependencies**: “Blocked by · N tasks” and “Blocks · N tasks”, each with the other task's card (tap to open it) and the direction box.
+- **Add dependency**: **Relationship** “Blocked by” (the selected task must finish before this one) or “Blocks” (this task must finish before the selected one), and **Find a task**, which searches the project with `backlog`. The backend's search matches titles; a key such as `TES-18` or `18` is matched in the app against the project's tasks (the first 100). The current task is never offered, and a task already linked in that direction is shown as **Already linked** and can't be picked (the backend also ignores a repeated link). The direction box previews the link before **Add dependency**.
+- **Add dependency** without a selection says “Select a task to continue.” and sends nothing. While adding, the button says **Adding…** and only one request is sent. On success the screen returns to the list with **✓ Dependency added**, read again from the backend, and **Add another dependency**.
+- The backend decides what is allowed: same project, not the task itself, writers and owners only, and no cycles (US-18). Its message is shown as it is, and the selection and direction are kept so the user can change them or try again. With no response: “We couldn’t add the dependency. Try again.”
+- Readers of the project (the `role` from `projects`) see the relationships but not **Add dependency**.
 
 ## Manual test against the real backend
 
