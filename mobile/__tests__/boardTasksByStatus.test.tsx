@@ -7,11 +7,13 @@ import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { groupTasksByColumn } from '../src/domain/board';
 import type { Task } from '../src/domain/models';
 import { REFRESH_FAILED_MESSAGE } from '../src/hooks/useBoard';
+import { setSession } from '../src/auth/session';
 import {
   API_URL,
   BOARD_ID,
   COLUMNS,
   USER_ID,
+  signInAs,
   boardResponse,
   gqlError,
   gqlTask,
@@ -61,12 +63,12 @@ async function pullToRefresh(columnId: string) {
 
 beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = API_URL;
-  process.env.EXPO_PUBLIC_USER_ID = USER_ID;
+  signInAs(USER_ID);
   scrollTo.mockClear();
 });
 
 afterAll(() => {
-  delete process.env.EXPO_PUBLIC_USER_ID;
+  setSession(null);
 });
 
 describe('Status columns', () => {

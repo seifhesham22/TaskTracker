@@ -6,11 +6,13 @@ import BoardScreen from '../src/app/boards/[boardId]';
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { MOVE_NETWORK_ERROR, MOVE_SERVER_ERROR } from '../src/domain/moveTaskErrors';
+import { setSession } from '../src/auth/session';
 import {
   API_URL,
   BOARD_ID,
   COLUMNS,
   USER_ID,
+  signInAs,
   boardResponse,
   gqlError,
   mockFetch,
@@ -77,11 +79,11 @@ function holdNextResponse() {
 
 beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = API_URL;
-  process.env.EXPO_PUBLIC_USER_ID = USER_ID;
+  signInAs(USER_ID);
 });
 
 afterAll(() => {
-  delete process.env.EXPO_PUBLIC_USER_ID;
+  setSession(null);
 });
 
 describe('Holding a task', () => {

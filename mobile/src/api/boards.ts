@@ -3,6 +3,7 @@ import type {
   BoardSummary,
   ColumnCategory,
   ProjectMember,
+  ProjectSummary,
   Task,
   TaskPriority,
 } from '../domain/models';
@@ -56,6 +57,7 @@ export const PROJECTS_QUERY = `
     projects(userId: $userId) {
       id
       name
+      description
       boards {
         id
         name
@@ -101,6 +103,7 @@ export interface TaskNode {
 export interface ProjectNode {
   id: string;
   name: string;
+  description?: string | null;
   boards: { id: string; name: string }[];
   projectMembers: { userId: string; userName: string }[];
 }
@@ -133,7 +136,12 @@ export function toProjectMembers(project: ProjectNode): ProjectMember[] {
 }
 
 export function toBoardSummaries(projects: ProjectNode[]): BoardSummary[] {
-  return projects.flatMap((p) => p.boards.map((b) => ({ id: b.id, name: b.name, projectName: p.name })));
+  return projects.flatMap((p) => p.boards.map((b) => ({ id: b.id, name: b.name, projectId: p.id, projectName: p.name })));
+}
+
+export function toProjectSummary(project: ProjectNode): ProjectSummary {
+  const description = project.description?.trim();
+  return { id: project.id, name: project.name, description: description || null, boardCount: project.boards.length };
 }
 
 export function boardWithTasksRequest(boardId: string) {

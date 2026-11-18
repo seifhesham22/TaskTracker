@@ -1,4 +1,5 @@
 import type { BoardNode, ProjectNode, TaskNode } from '../src/api/boards';
+import { setSession } from '../src/auth/session';
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import type { BoardRepository } from '../src/data/BoardRepository';
 import type { BoardColumn, BoardData, ProjectMember, Task } from '../src/domain/models';
@@ -135,3 +136,11 @@ export const titleOnlyTaskNode = (columnIndex: number, overrides: Partial<TaskNo
 
 export const boardResponse = (tasks: TaskNode[] = []) => ({ body: { data: { board: BOARD_NODE, tasks } } });
 export const projectsResponse = (projects: ProjectNode[] = PROJECTS) => ({ body: { data: { projects } } });
+
+export const ACCESS_TOKEN = 'test-access-token';
+export const FAR_FUTURE = '2999-01-01T00:00:00.000Z';
+
+/** Puts a signed-in session in memory, as AuthProvider does after login. */
+export function signInAs(userId: string = USER_ID, accessToken: string = ACCESS_TOKEN): void {
+  setSession({ accessToken, expiresAt: FAR_FUTURE, user: { id: userId, email: 'admin@local.test' } });
+}

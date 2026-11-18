@@ -4,26 +4,27 @@ import {
   toBoardColumn,
   toBoardSummaries,
   toProjectMembers,
+  toProjectSummary,
   toTask,
   type ProjectNode,
 } from '../api/boards';
+import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
-import { GraphQLResponseError, NetworkError } from '../api/graphql';
+import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
 import { createTaskRequest, moveTaskRequest } from '../api/tasks';
+import { SESSION_EXPIRED } from '../domain/authErrors';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput } from '../domain/models';
 import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
 import { BoardLoadError, type BoardRepository } from './BoardRepository';
 
-export const USER_ID_MISSING =
-  'Set EXPO_PUBLIC_USER_ID in mobile/.env to list your boards. The backend has no login yet, so it needs to know whose projects to show.';
-export const USER_NOT_FOUND =
-  'The user in EXPO_PUBLIC_USER_ID doesn’t exist on the server. Check the ID in mobile/.env.';
+export const NOT_SIGNED_IN = 'You’re not logged in. Log in to see your projects.';
+export const USER_NOT_FOUND = 'Your account wasn’t found on the server. Log out and log in again.';
 export const BOARD_LOAD_NETWORK = 'We couldn’t reach the server. Check your connection and try again.';
 export const BOARD_LOAD_SERVER = 'Something went wrong on the server while loading the board.';
 
-export const MEMBERS_NEED_USER_ID =
-  'Project members can’t be listed because EXPO_PUBLIC_USER_ID isn’t set. You can still create the task without an assignee.';
+export const MEMBERS_NEED_SIGN_IN =
+  'Project members can’t be listed because you’re not logged in. You can still create the task without an assignee.';
 export const MEMBERS_NOT_IN_PROJECT =
   'You aren’t a member of this board’s project, so its members can’t be listed. You can still create the task without an assignee.';
 export const MEMBERS_LOAD_FAILED =
@@ -33,9 +34,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BOARD_NOT_FOUND = /^Board '([^']+)' was not found\.$/;
 const USER_NOT_FOUND_MESSAGE = /^User '[^']+' was not found\.$/;
 
-export function getConfiguredUserId(): string | null {
-  const userId = process.env.EXPO_PUBLIC_USER_ID?.trim();
-  return userId ? userId : null;
+/** The signed-in user, whose projects are listed. */
+export function getSignedInUserId(): string | null {
+  return getSession()?.user.id ?? null;
 }
 
 const notFoundMessage = (boardId: string) => `Board '${boardId}' was not found.`;
@@ -57,6 +58,7 @@ function toBoardLoadError(error: unknown, boardId?: string): BoardLoadError {
   const boardMissing = boardId ? missingBoardMessage(error, boardId) : null;
   if (boardMissing) return new BoardLoadError('notFound', boardMissing);
   if (hasError(error, 'NOT_FOUND', USER_NOT_FOUND_MESSAGE)) return new BoardLoadError('server', USER_NOT_FOUND);
+  if (hasErrorCode(error, NOT_AUTHENTICATED)) return new BoardLoadError('server', SESSION_EXPIRED);
   if (error instanceof NetworkError) return new BoardLoadError('network', BOARD_LOAD_NETWORK);
   return new BoardLoadError('server', BOARD_LOAD_SERVER);
 }
@@ -64,7 +66,7 @@ function toBoardLoadError(error: unknown, boardId?: string): BoardLoadError {
 type ProjectLookup = { project: ProjectNode } | { unavailable: string };
 
 async function findProject(userId: string | null, projectId: string): Promise<ProjectLookup> {
-  if (!userId) return { unavailable: MEMBERS_NEED_USER_ID };
+  if (!userId) return { unavailable: MEMBERS_NEED_SIGN_IN };
   try {
     const project = (await projectsRequest(userId)).find((p) => p.id === projectId);
     return project ? { project } : { unavailable: MEMBERS_NOT_IN_PROJECT };
@@ -75,9 +77,19 @@ async function findProject(userId: string | null, projectId: string): Promise<Pr
 
 export function createBackendBoardRepository(): BoardRepository {
   return {
+    async listProjects() {
+      const userId = getSignedInUserId();
+      if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
+      try {
+        return (await projectsRequest(userId)).map(toProjectSummary);
+      } catch (error) {
+        throw toBoardLoadError(error);
+      }
+    },
+
     async listBoards() {
-      const userId = getConfiguredUserId();
-      if (!userId) throw new BoardLoadError('configuration', USER_ID_MISSING);
+      const userId = getSignedInUserId();
+      if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
       try {
         return toBoardSummaries(await projectsRequest(userId));
       } catch (error) {
@@ -96,7 +108,7 @@ export function createBackendBoardRepository(): BoardRepository {
       }
 
       const { board, tasks } = response;
-      const lookup = await findProject(getConfiguredUserId(), board.projectId);
+      const lookup = await findProject(getSignedInUserId(), board.projectId);
       const project = 'project' in lookup ? lookup.project : null;
 
       return {
