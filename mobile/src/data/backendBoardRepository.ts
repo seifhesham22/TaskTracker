@@ -11,10 +11,10 @@ import {
 import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
-import { createTaskRequest, moveTaskRequest } from '../api/tasks';
+import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { SESSION_EXPIRED } from '../domain/authErrors';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
-import type { BoardData, CreateTaskInput } from '../domain/models';
+import type { BoardData, CreateTaskInput, TaskDetails, UpdateTaskChanges } from '../domain/models';
 import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
 import { BoardLoadError, type BoardRepository } from './BoardRepository';
 
@@ -75,8 +75,10 @@ async function findProject(userId: string | null, projectId: string): Promise<Pr
   }
 }
 
+export const TASK_NOT_FOUND = 'This task doesn’t exist any more, or was moved to another board.';
+
 export function createBackendBoardRepository(): BoardRepository {
-  return {
+  const repository: BoardRepository = {
     async listProjects() {
       const userId = getSignedInUserId();
       if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
@@ -125,6 +127,19 @@ export function createBackendBoardRepository(): BoardRepository {
       };
     },
 
+    // The backend has no single-task query, so this reads the task from its board, as the board
+    // screen does, which also gives the project and board names.
+    async getTask(boardId: string, taskId: string): Promise<TaskDetails> {
+      const { board, tasks } = await repository.getBoard(boardId);
+      const task = tasks.find((t) => t.id.toLowerCase() === taskId.toLowerCase());
+      if (!task) throw new BoardLoadError('notFound', TASK_NOT_FOUND);
+      return { task, projectName: board.projectName, boardName: board.name };
+    },
+
+    async updateTask(taskId: string, changes: UpdateTaskChanges) {
+      return updateTaskRequest(taskId, changes);
+    },
+
     async createTask(input: CreateTaskInput) {
       try {
         return await createTaskRequest(input);
@@ -141,4 +156,5 @@ export function createBackendBoardRepository(): BoardRepository {
       }
     },
   };
+  return repository;
 }

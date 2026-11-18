@@ -17,6 +17,7 @@ export const TASK_FIELDS = `
   title
   description
   priority
+  startDate
   dueDate
   boardId
   columnId
@@ -91,6 +92,7 @@ export interface TaskNode {
   title: string;
   description: string | null;
   priority: TaskPriority | null;
+  startDate?: string | null;
   dueDate: string | null;
   boardId: string;
   columnId: string;
@@ -126,6 +128,7 @@ export function toTask(node: TaskNode): Task {
     priority: node.priority,
     assigneeIds: node.assignees.map((a) => a.id),
     assigneeNames: node.assignees.map((a) => a.userName ?? ''),
+    startDate: node.startDate ?? null,
     dueDate: node.dueDate,
     position: node.position,
   };

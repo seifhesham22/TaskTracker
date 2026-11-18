@@ -147,5 +147,15 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
     return { ...state, data: { ...state.data, tasks } };
   }, [state, pendingMoves, savingTaskIds]);
 
-  return { state: shownState, showSkeleton, retry, refresh, addCreatedTask, markNotFound, moveTask, savingTaskIds };
+  return {
+    state: shownState,
+    showSkeleton,
+    retry,
+    refresh,
+    reloadQuietly,
+    addCreatedTask,
+    markNotFound,
+    moveTask,
+    savingTaskIds,
+  };
 }

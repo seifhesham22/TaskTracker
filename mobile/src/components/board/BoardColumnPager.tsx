@@ -16,6 +16,7 @@ export function BoardColumnPager({
   onAddTask,
   savingTaskIds,
   onTaskLongPress,
+  onTaskPress,
   refreshing,
   onRefresh,
 }: {
@@ -27,6 +28,7 @@ export function BoardColumnPager({
   onAddTask: (columnId: string) => void;
   savingTaskIds: ReadonlySet<string>;
   onTaskLongPress: (task: Task) => void;
+  onTaskPress?: (task: Task) => void;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -86,6 +88,7 @@ export function BoardColumnPager({
                     members={members}
                     saving={savingTaskIds.has(task.id)}
                     onLongPress={() => onTaskLongPress(task)}
+                    onPress={onTaskPress ? () => onTaskPress(task) : undefined}
                   />
                 ))}
                 <Button

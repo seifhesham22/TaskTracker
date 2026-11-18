@@ -41,11 +41,14 @@ export function BoardState({
   onAction,
   description,
   title,
+  action,
 }: {
   type: BoardStateType;
   onAction: () => void;
   description?: string;
   title?: string;
+  /** Overrides the button's label. */
+  action?: string;
 }) {
   const s = STATES[type];
   const destructive = type === 'error';
@@ -60,7 +63,7 @@ export function BoardState({
         </Text>
         <Text style={styles.description}>{description ?? s.description}</Text>
       </View>
-      <Button label={s.action} icon={s.icon} variant={s.variant} size="lg" onPress={onAction} />
+      <Button label={action ?? s.action} icon={s.icon} variant={s.variant} size="lg" onPress={onAction} />
     </View>
   );
 }

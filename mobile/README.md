@@ -39,6 +39,9 @@ mobile/
     │   ├── boards/
     │   │   ├── index.tsx      # Board list (/boards)
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
+    │   ├── tasks/[taskId]/
+    │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
+    │   │   └── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
     │   └── +not-found.tsx    # Fallback for unknown routes
     ├── auth/            # Session in memory, its secure storage, AuthProvider
     ├── components/      # Board, create-task, form and auth components (names match the design)
@@ -259,6 +262,8 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
 | Create task | `createTask(input)` |
 | Move a task | `moveTask(input: { taskId, columnId })` |
+| Task details, Edit task (loading) | `board(id)` + `tasks(boardId)` (the backend has no single-task query), and `projects(userId)` for the project's name |
+| Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
 If the signed-in user isn't a member of a board's project, or the members can't be loaded, the Assignee field says why and the task can only be created unassigned. The app never invents members.
 
@@ -279,6 +284,20 @@ How errors are told apart (the backend sends `NOT_FOUND` for a missing board **a
 | HTTP 5xx, or a GraphQL error without a known code | “Something went wrong on our side…” at the top of the form |
 
 Telling the board and column apart depends on the backend's message text. If those messages change, `src/domain/createTaskErrors.ts` must change too.
+
+## Task Details and Edit Task (US-11)
+
+Tap a card on the board to open **Task details** (title, description, priority, start date, due date), then **Edit task**. Touch and hold still moves the card.
+
+- The form opens filled with the task as the backend has it (grey placeholders and **Loading…** until then). **Save changes** stays disabled until something changes.
+- **Save changes** sends `updateTask` with only the changed fields, so the others keep their saved values. Dates are sent as midnight UTC of the chosen day (`2026-11-20T00:00:00Z`), as the create-task form does. A cleared description, priority or date is sent as `null`. While saving, the form is locked and the button says **Saving…**; it can't be sent twice.
+- After saving, the app returns to **Task details**, which reads the task again from the backend and shows **✓ Task updated**. The board reads itself again when you go back to it.
+- **Cancel** and **×** leave at once if nothing changed. Otherwise **Discard changes?** offers **Keep editing** or **Discard changes**. No request is sent.
+- The date pickers offer **Clear**, because both dates are optional.
+
+Validation follows the backend (`TaskItem.cs`): the title is required (“Title is required.”) and at most 200 characters after trimming, and the due date can't be before the start date (“Due date must be on or after the start date.”); the same day is allowed. The backend's own refusals of these show under the same fields. A task that no longer exists, or any other refusal, shows above the form. A network or server failure shows “We couldn’t save your changes. Try again.” and keeps every value.
+
+`updateTask` requires a login token but doesn't check project membership, so the app doesn't either.
 
 ## Manual test against the real backend
 

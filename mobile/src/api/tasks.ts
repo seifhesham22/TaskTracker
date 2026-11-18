@@ -1,4 +1,4 @@
-import type { CreateTaskInput, Task } from '../domain/models';
+import type { CreateTaskInput, Task, UpdateTaskChanges } from '../domain/models';
 import { TASK_FIELDS, toTask, type TaskNode } from './boards';
 import { graphqlRequest } from './graphql';
 
@@ -30,6 +30,14 @@ export const MOVE_TASK_MUTATION = `
   }
 `;
 
+export const UPDATE_TASK_MUTATION = `
+  mutation UpdateTask($input: UpdateTaskInput!) {
+    updateTask(input: $input) {
+      ${TASK_FIELDS}
+    }
+  }
+`;
+
 export function toMutationInput(input: CreateTaskInput): Record<string, unknown> {
   const result: Record<string, unknown> = { boardId: input.boardId, title: input.title };
   if (input.columnId) result.columnId = input.columnId;
@@ -52,4 +60,12 @@ export async function moveTaskRequest(taskId: string, columnId: string): Promise
     input: { taskId, columnId },
   });
   return toTask(data.moveTask);
+}
+
+/** Sends only the fields in `changes`, so fields the user didn't touch keep their saved values. */
+export async function updateTaskRequest(taskId: string, changes: UpdateTaskChanges): Promise<Task> {
+  const data = await graphqlRequest<{ updateTask: TaskNode }>(UPDATE_TASK_MUTATION, {
+    input: { taskId, ...changes },
+  });
+  return toTask(data.updateTask);
 }

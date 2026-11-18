@@ -1,4 +1,12 @@
-import type { BoardData, BoardSummary, CreateTaskInput, ProjectSummary, Task } from '../domain/models';
+import type {
+  BoardData,
+  BoardSummary,
+  CreateTaskInput,
+  ProjectSummary,
+  Task,
+  TaskDetails,
+  UpdateTaskChanges,
+} from '../domain/models';
 
 export type BoardLoadErrorKind = 'notFound' | 'configuration' | 'network' | 'server';
 
@@ -18,4 +26,8 @@ export interface BoardRepository {
   getBoard(boardId: string): Promise<BoardData>;
   createTask(input: CreateTaskInput): Promise<Task>;
   moveTask(taskId: string, columnId: string): Promise<Task>;
+  /** One task of a board, read from the backend. Rejects with BoardLoadError ('notFound' if it's gone). */
+  getTask(boardId: string, taskId: string): Promise<TaskDetails>;
+  /** Rejects with the backend's error; `toEditTaskErrors` turns it into messages. */
+  updateTask(taskId: string, changes: UpdateTaskChanges): Promise<Task>;
 }

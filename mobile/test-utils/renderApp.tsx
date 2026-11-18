@@ -7,6 +7,8 @@ import BoardsScreen from '../src/app/boards/index';
 import ProjectsScreen from '../src/app/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
+import EditTaskScreen from '../src/app/tasks/[taskId]/edit';
+import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
 import type { Session } from '../src/auth/session';
 import { SESSION_KEY } from '../src/auth/sessionStorage';
 import { ACCESS_TOKEN, FAR_FUTURE, USER_ID } from './fakeBackend';
@@ -41,8 +43,13 @@ export const storedSession = (overrides: Partial<Session> = {}): Record<string, 
   }),
 });
 
-/** The whole app as it runs: the real root layout with its auth guard, and the real screens. */
-export async function renderApp(initialUrl = '/') {
+type Routes = Parameters<typeof renderRouter>[0];
+
+/**
+ * The whole app as it runs: the real root layout with its auth guard, and the real screens. The
+ * board screen is a stand-in unless `routes` provides it.
+ */
+export async function renderApp(initialUrl = '/', routes: Record<string, unknown> = {}) {
   return renderRouter(
     {
       _layout: RootLayout,
@@ -51,8 +58,11 @@ export async function renderApp(initialUrl = '/') {
       register: RegisterScreen,
       'boards/index': BoardsScreen,
       'boards/[boardId]': () => <Text>Board screen</Text>,
+      'tasks/[taskId]/index': TaskDetailsScreen,
+      'tasks/[taskId]/edit': EditTaskScreen,
       '+not-found': NotFoundScreen,
-    },
+      ...routes,
+    } as Routes,
     { initialUrl },
   );
 }

@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +34,19 @@ export default function BoardScreen() {
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
   const hideToast = useCallback(() => setToast(null), []);
   const showRefreshFailure = useCallback(() => setToast({ message: REFRESH_FAILED_MESSAGE, tone: 'error' }), []);
-  const { state, showSkeleton, retry, refresh, addCreatedTask, markNotFound, moveTask, savingTaskIds } = useBoard(boardId, showRefreshFailure);
+  const { state, showSkeleton, retry, refresh, reloadQuietly, addCreatedTask, markNotFound, moveTask, savingTaskIds } =
+    useBoard(boardId, showRefreshFailure);
+
+  // Coming back from a task's details or Edit task: read the board again so edits show on the cards.
+  const focusedBefore = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusedBefore.current) reloadQuietly();
+      focusedBefore.current = true;
+    }, [reloadQuietly]),
+  );
+  const openTask = (task: Task) =>
+    router.push({ pathname: '/tasks/[taskId]', params: { taskId: task.id, boardId } });
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createIn, setCreateIn] = useState<string | null | undefined>(undefined);
   const [taskToMove, setTaskToMove] = useState<Task | null>(null);
@@ -141,6 +153,7 @@ export default function BoardScreen() {
               onAddTask={openCreate}
               savingTaskIds={savingTaskIds}
               onTaskLongPress={setTaskToMove}
+              onTaskPress={openTask}
               refreshing={state.refreshing}
               onRefresh={refresh}
             />
