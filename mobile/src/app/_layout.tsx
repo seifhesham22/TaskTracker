@@ -40,6 +40,7 @@ function RootNavigator() {
         <Stack.Screen name="boards/[boardId]" options={{ headerShown: false }} />
         <Stack.Screen name="tasks/[taskId]/index" options={{ headerShown: false, title: 'Task details' }} />
         <Stack.Screen name="tasks/[taskId]/edit" options={{ headerShown: false, title: 'Edit task' }} />
+        <Stack.Screen name="tasks/[taskId]/subtask" options={{ headerShown: false, title: 'Create subtask' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false, title: 'Log in' }} />

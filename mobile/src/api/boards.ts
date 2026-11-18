@@ -22,6 +22,7 @@ export const TASK_FIELDS = `
   boardId
   columnId
   position
+  parentTaskId
   status
   column {
     id
@@ -97,6 +98,7 @@ export interface TaskNode {
   boardId: string;
   columnId: string;
   position: string;
+  parentTaskId?: string | null;
   status: ColumnCategory;
   column: { id: string; name: string; category: ColumnCategory };
   assignees: { id: string; userName: string | null }[];
@@ -129,6 +131,7 @@ export function toTask(node: TaskNode): Task {
     assigneeIds: node.assignees.map((a) => a.id),
     assigneeNames: node.assignees.map((a) => a.userName ?? ''),
     startDate: node.startDate ?? null,
+    parentTaskId: node.parentTaskId ?? null,
     dueDate: node.dueDate,
     position: node.position,
   };

@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BoardState } from '../../../components/board/BoardState';
+import { StatusChip, SubtaskList } from '../../../components/task/SubtaskList';
 import { SuccessBanner, TaskScreen, breadcrumbFor } from '../../../components/task/TaskScreen';
 import { Button } from '../../../components/ui';
 import { formatFullDate, isoToDateKey } from '../../../domain/format';
@@ -13,7 +14,12 @@ const dateLabel = (iso: string | null | undefined) => (iso ? formatFullDate(isoT
 
 /** A task's title, description, priority and dates, as the backend has them, with Edit task. */
 export default function TaskDetailsScreen() {
-  const { taskId, boardId, updated } = useLocalSearchParams<{ taskId: string; boardId: string; updated?: string }>();
+  const { taskId, boardId, updated, created } = useLocalSearchParams<{
+    taskId: string;
+    boardId: string;
+    updated?: string;
+    created?: string;
+  }>();
   const router = useRouter();
   const { state, retry } = useTaskDetails(boardId, taskId);
 
@@ -43,7 +49,8 @@ export default function TaskDetailsScreen() {
     );
   }
 
-  const { task, projectName } = state.details;
+  const { task, projectName, subtasks, parent } = state.details;
+  const openTask = (id: string) => router.push({ pathname: '/tasks/[taskId]', params: { taskId: id, boardId } });
   return (
     <TaskScreen
       title="Task details"
@@ -51,7 +58,9 @@ export default function TaskDetailsScreen() {
       onClose={close}
       testID="task-details-screen"
     >
+      <StatusChip task={task} />
       {updated === '1' ? <SuccessBanner>Task updated</SuccessBanner> : null}
+      {created === '1' ? <SuccessBanner>Subtask created</SuccessBanner> : null}
 
       <View style={styles.summary}>
         <Text style={styles.title} testID="task-title">
@@ -61,6 +70,19 @@ export default function TaskDetailsScreen() {
           <Text style={styles.description} testID="task-description">
             {task.description}
           </Text>
+        ) : null}
+        {parent ? (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Subtask of ${parent.readableId}, ${parent.title}`}
+            onPress={() => openTask(parent.id)}
+            hitSlop={8}
+            testID="parent-link"
+          >
+            <Text style={styles.parent}>
+              Subtask of <Text style={styles.parentKey}>{parent.readableId}</Text> · {parent.title}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
 
@@ -76,14 +98,26 @@ export default function TaskDetailsScreen() {
         </Text>
       </View>
 
-      <Button
-        label="Edit task"
-        variant="outline"
-        size="lg"
-        block
-        onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id, boardId } })}
-        testID="edit-task-button"
-      />
+      <SubtaskList subtasks={subtasks} onOpen={(subtask) => openTask(subtask.id)} />
+
+      <View style={styles.actions}>
+        <Button
+          label="Add subtask"
+          variant="outline"
+          size="lg"
+          style={styles.action}
+          onPress={() => router.push({ pathname: '/tasks/[taskId]/subtask', params: { taskId: task.id, boardId } })}
+          testID="add-subtask-button"
+        />
+        <Button
+          label="Edit task"
+          variant="outline"
+          size="lg"
+          style={styles.action}
+          onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id, boardId } })}
+          testID="edit-task-button"
+        />
+      </View>
     </TaskScreen>
   );
 }
@@ -93,6 +127,10 @@ const styles = StyleSheet.create({
   summary: { gap: 8 },
   title: { fontSize: 22, lineHeight: 28, fontWeight: '700', color: colors.foreground },
   description: { fontSize: 15, lineHeight: 22, color: colors.mutedForeground },
+  parent: { fontSize: 14, lineHeight: 20, color: colors.mutedForeground, textDecorationLine: 'underline' },
+  parentKey: { fontWeight: '600', color: colors.foreground },
+  actions: { flexDirection: 'row', gap: 8 },
+  action: { flex: 1 },
   row: {
     fontSize: 15,
     lineHeight: 22,

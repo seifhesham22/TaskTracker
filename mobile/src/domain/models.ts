@@ -28,6 +28,8 @@ export interface Task {
   assigneeNames?: string[];
   startDate?: string | null;
   dueDate: string | null;
+  /** The task this one is a subtask of, as the backend stores it. */
+  parentTaskId?: string | null;
   createdAt?: string;
   position?: string;
 }
@@ -40,6 +42,8 @@ export interface CreateTaskInput {
   assigneeId?: string;
   priority?: TaskPriority;
   dueDate?: string;
+  /** Makes the new task a subtask of this one (same project). */
+  parentTaskId?: string;
 }
 
 export interface BoardColumn {
@@ -85,6 +89,10 @@ export interface TaskDetails {
   task: Task;
   projectName: string;
   boardName: string;
+  /** Tasks whose parentTaskId is this task, by task number. */
+  subtasks: Task[];
+  /** The task this one is a subtask of, if it's on the same board. */
+  parent: Task | null;
 }
 
 export interface BoardSummary {

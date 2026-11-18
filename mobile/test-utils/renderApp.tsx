@@ -9,6 +9,7 @@ import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
 import EditTaskScreen from '../src/app/tasks/[taskId]/edit';
 import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
+import CreateSubtaskScreen from '../src/app/tasks/[taskId]/subtask';
 import type { Session } from '../src/auth/session';
 import { SESSION_KEY } from '../src/auth/sessionStorage';
 import { ACCESS_TOKEN, FAR_FUTURE, USER_ID } from './fakeBackend';
@@ -60,6 +61,7 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'boards/[boardId]': () => <Text>Board screen</Text>,
       'tasks/[taskId]/index': TaskDetailsScreen,
       'tasks/[taskId]/edit': EditTaskScreen,
+      'tasks/[taskId]/subtask': CreateSubtaskScreen,
       '+not-found': NotFoundScreen,
       ...routes,
     } as Routes,

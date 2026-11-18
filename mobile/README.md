@@ -41,7 +41,8 @@ mobile/
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
     │   ├── tasks/[taskId]/
     │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
-    │   │   └── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
+    │   │   ├── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
+    │   │   └── subtask.tsx    # Create subtask (/tasks/:taskId/subtask?boardId=…)
     │   └── +not-found.tsx    # Fallback for unknown routes
     ├── auth/            # Session in memory, its secure storage, AuthProvider
     ├── components/      # Board, create-task, form and auth components (names match the design)
@@ -263,6 +264,7 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Create task | `createTask(input)` |
 | Move a task | `moveTask(input: { taskId, columnId })` |
 | Task details, Edit task (loading) | `board(id)` + `tasks(boardId)` (the backend has no single-task query), and `projects(userId)` for the project's name |
+| Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
 If the signed-in user isn't a member of a board's project, or the members can't be loaded, the Assignee field says why and the task can only be created unassigned. The app never invents members.
@@ -298,6 +300,14 @@ Tap a card on the board to open **Task details** (title, description, priority, 
 Validation follows the backend (`TaskItem.cs`): the title is required (“Title is required.”) and at most 200 characters after trimming, and the due date can't be before the start date (“Due date must be on or after the start date.”); the same day is allowed. The backend's own refusals of these show under the same fields. A task that no longer exists, or any other refusal, shows above the form. A network or server failure shows “We couldn’t save your changes. Try again.” and keeps every value.
 
 `updateTask` requires a login token but doesn't check project membership, so the app doesn't either.
+
+## Subtasks (US-13)
+
+**Task details** shows the task's status (its column) and a **Subtasks** section: “n / m done”, then each subtask indented under the parent with its key, column and ✓ (done) or ○. Tapping one opens it; a subtask's details link back to its parent (“Subtask of TES-24 · …”). On the board, a subtask's card says “↳ Subtask of TES-24” (or “↳ Subtask” if the parent is on another board).
+
+**Add subtask** opens **Create subtask**, fixed to that parent: only the title is asked for (required, at most 200 characters after trimming, as the backend checks). It sends `createTask` with the parent's board and `parentTaskId`; the backend puts the new task in the board's first column and checks that the parent exists in the same project. While it runs, the title, **Cancel** and **Create subtask** are disabled and the button says **Creating…**, so only one subtask can be created. On success the app returns to the parent, which reads the board again and shows **✓ Subtask created** with the new subtask listed. A failure keeps the title and shows “We couldn’t create the subtask. Try again.” (or the backend's reason, e.g. a parent that no longer exists). **Cancel** returns to the unchanged parent.
+
+The backend stores the relationship only as each task's `parentTaskId` and has no `subtasks` field, so a task's subtasks are the tasks on its board that point at it. A subtask on another board of the project isn't listed under its parent.
 
 ## Manual test against the real backend
 

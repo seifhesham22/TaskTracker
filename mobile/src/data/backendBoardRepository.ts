@@ -133,7 +133,12 @@ export function createBackendBoardRepository(): BoardRepository {
       const { board, tasks } = await repository.getBoard(boardId);
       const task = tasks.find((t) => t.id.toLowerCase() === taskId.toLowerCase());
       if (!task) throw new BoardLoadError('notFound', TASK_NOT_FOUND);
-      return { task, projectName: board.projectName, boardName: board.name };
+      // The backend keeps the relationship as each task's parentTaskId, so a task's subtasks are
+      // the board's tasks that point at it.
+      const sameId = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+      const subtasks = tasks.filter((t) => sameId(t.parentTaskId, task.id)).sort((a, b) => a.number - b.number);
+      const parent = task.parentTaskId ? (tasks.find((t) => sameId(task.parentTaskId, t.id)) ?? null) : null;
+      return { task, projectName: board.projectName, boardName: board.name, subtasks, parent };
     },
 
     async updateTask(taskId: string, changes: UpdateTaskChanges) {
