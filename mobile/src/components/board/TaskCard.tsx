@@ -10,11 +10,14 @@ export function TaskCard({
   task,
   members,
   saving = false,
+  onPress,
   onLongPress,
 }: {
   task: Task;
   members: ProjectMember[];
   saving?: boolean;
+  /** Opens the task's details. */
+  onPress?: () => void;
   onLongPress?: () => void;
 }) {
   const assignee = task.assigneeIds[0] ? members.find((m) => m.userId === task.assigneeIds[0]) : undefined;
@@ -36,11 +39,19 @@ export function TaskCard({
       testID={`task-card-${task.id}`}
       accessible
       accessibilityLabel={accessibilityLabel}
-      accessibilityHint={saving ? undefined : 'Touch and hold to move this task to another column.'}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityHint={
+        saving
+          ? undefined
+          : onPress
+            ? 'Opens the task. Touch and hold to move it to another column.'
+            : 'Touch and hold to move this task to another column.'
+      }
       accessibilityState={{ busy: saving, disabled: saving }}
       accessibilityActions={saving ? undefined : [{ name: 'longpress', label: 'Move task' }]}
       onAccessibilityAction={saving ? undefined : onLongPress}
       disabled={saving}
+      onPress={onPress}
       onLongPress={onLongPress}
     >
       <Text style={styles.title} numberOfLines={3}>

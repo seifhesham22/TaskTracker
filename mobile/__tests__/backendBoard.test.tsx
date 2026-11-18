@@ -93,6 +93,7 @@ describe('backend getBoard', () => {
         priority: 'HIGH',
         assigneeIds: [PROJECT_MEMBERS[1].userId],
         assigneeNames: [PROJECT_MEMBERS[1].userName],
+        startDate: null,
         dueDate: '2026-11-05T00:00:00.000Z',
         position: 'V',
       },

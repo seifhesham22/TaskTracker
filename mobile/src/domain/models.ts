@@ -26,6 +26,7 @@ export interface Task {
   priority: TaskPriority | null;
   assigneeIds: string[];
   assigneeNames?: string[];
+  startDate?: string | null;
   dueDate: string | null;
   createdAt?: string;
   position?: string;
@@ -67,6 +68,23 @@ export interface Board {
 export interface BoardData {
   board: Board;
   tasks: Task[];
+}
+
+/** The fields the Edit task form can change. A field left out is not sent; `null` clears it. */
+export interface UpdateTaskChanges {
+  title?: string;
+  description?: string | null;
+  priority?: TaskPriority | null;
+  /** ISO 8601, midnight UTC of the chosen day, as the create-task form sends due dates. */
+  startDate?: string | null;
+  dueDate?: string | null;
+}
+
+/** A task with the names shown above it on the details and edit screens. */
+export interface TaskDetails {
+  task: Task;
+  projectName: string;
+  boardName: string;
 }
 
 export interface BoardSummary {

@@ -38,6 +38,8 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ headerShown: false, title: 'Your projects' }} />
         <Stack.Screen name="boards/index" options={{ title: 'Boards' }} />
         <Stack.Screen name="boards/[boardId]" options={{ headerShown: false }} />
+        <Stack.Screen name="tasks/[taskId]/index" options={{ headerShown: false, title: 'Task details' }} />
+        <Stack.Screen name="tasks/[taskId]/edit" options={{ headerShown: false, title: 'Edit task' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false, title: 'Log in' }} />
