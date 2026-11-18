@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -12,6 +12,7 @@ type ListState = { status: 'loading' } | { status: 'ready'; boards: BoardSummary
 
 export default function BoardsScreen() {
   const router = useRouter();
+  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const repository = useBoardRepository();
   const [state, setState] = useState<ListState>({ status: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
@@ -19,7 +20,9 @@ export default function BoardsScreen() {
   useEffect(() => {
     let active = true;
     repository.listBoards().then(
-      (boards) => active && setState({ status: 'ready', boards }),
+      (boards) =>
+        active &&
+        setState({ status: 'ready', boards: projectId ? boards.filter((b) => b.projectId === projectId) : boards }),
       (error: unknown) =>
         active &&
         setState({ status: 'error', message: error instanceof BoardLoadError ? error.message : 'Something went wrong.' }),
@@ -27,11 +30,15 @@ export default function BoardsScreen() {
     return () => {
       active = false;
     };
-  }, [repository, reloadKey]);
+  }, [repository, reloadKey, projectId]);
+
+  const title = projectId && state.status === 'ready' ? state.boards[0]?.projectName : undefined;
+  const header = <Stack.Screen options={{ title: title ?? 'Boards' }} />;
 
   if (state.status === 'loading') {
     return (
       <View style={styles.center}>
+        {header}
         <ActivityIndicator accessibilityLabel="Loading boards" />
       </View>
     );
@@ -40,6 +47,7 @@ export default function BoardsScreen() {
   if (state.status === 'error') {
     return (
       <View style={styles.center}>
+        {header}
         <BoardState
           type="error"
           title="Couldn’t load your boards"
@@ -56,13 +64,17 @@ export default function BoardsScreen() {
   if (state.boards.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.detail}>You aren’t a member of any project with a board.</Text>
+        {header}
+        <Text style={styles.detail}>
+          {projectId ? 'This project has no boards yet.' : 'You aren’t a member of any project with a board.'}
+        </Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
+      {header}
       {state.boards.map((board) => (
         <Pressable
           key={board.id}

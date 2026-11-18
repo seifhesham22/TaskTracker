@@ -73,6 +73,13 @@ const LUCIDE = {
       <Path d="M8 16h.01" />
     </>
   ),
+  'columns-3': (
+    <>
+      <Rect width="18" height="18" x="3" y="3" rx="2" />
+      <Path d="M9 3v18" />
+      <Path d="M15 3v18" />
+    </>
+  ),
   'arrow-left': (
     <>
       <Path d="m12 19-7-7 7-7" />

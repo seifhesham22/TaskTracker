@@ -7,7 +7,8 @@ import BoardsScreen from '../src/app/boards/index';
 import { BOARD_LOAD_NETWORK, BOARD_LOAD_SERVER, createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { initials } from '../src/domain/format';
-import { API_URL, BOARD_ID, BOARD_NODE, USER_ID, gqlError, mockFetch, projectsResponse, taskNode } from '../test-utils/fakeBackend';
+import { setSession } from '../src/auth/session';
+import { API_URL, BOARD_ID, BOARD_NODE, USER_ID, signInAs, gqlError, mockFetch, projectsResponse, taskNode } from '../test-utils/fakeBackend';
 
 const INTAKE: ColumnNode = { id: '01a18766-0000-7000-8000-00000000d001', name: 'Intake', position: 'z', category: 'DONE' };
 const REVIEW: ColumnNode = { id: '01a18766-0000-7000-8000-00000000d002', name: 'Peer review', position: 'a', category: 'BACKLOG' };
@@ -58,11 +59,11 @@ async function pullToRefresh(column: ColumnNode) {
 
 beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = API_URL;
-  process.env.EXPO_PUBLIC_USER_ID = USER_ID;
+  signInAs(USER_ID);
 });
 
 afterAll(() => {
-  delete process.env.EXPO_PUBLIC_USER_ID;
+  setSession(null);
 });
 
 describe('Columns come from the board query', () => {

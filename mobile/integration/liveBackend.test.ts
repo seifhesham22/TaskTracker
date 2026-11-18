@@ -1,27 +1,70 @@
+import { loginRequest, logoutRequest, meRequest, registerRequest } from '../src/api/auth';
+import { hasErrorCode } from '../src/api/graphql';
+import { setSession } from '../src/auth/session';
 import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import { BoardLoadError } from '../src/data/BoardRepository';
+import { EMAIL_TAKEN, INVALID_CREDENTIALS, toLoginErrors, toRegisterErrors } from '../src/domain/authErrors';
 import { CreateTaskError } from '../src/domain/createTaskErrors';
 
 const MISSING_ID = '00000000-0000-0000-0000-000000000001';
 
 const liveUrl = process.env.LIVE_API_URL;
-const liveUserId = process.env.LIVE_USER_ID;
+const liveEmail = process.env.LIVE_EMAIL;
+const livePassword = process.env.LIVE_PASSWORD;
 
-if (!liveUrl || !liveUserId) {
-  throw new Error('Set LIVE_API_URL and LIVE_USER_ID to run the integration tests.');
+if (!liveUrl || !liveEmail || !livePassword) {
+  throw new Error('Set LIVE_API_URL, LIVE_EMAIL and LIVE_PASSWORD to run the integration tests.');
 }
 
 const repository = createBackendBoardRepository();
 
 async function firstBoardId(): Promise<string> {
   const [summary] = await repository.listBoards();
-  if (!summary) throw new Error('The user in LIVE_USER_ID has no boards.');
+  if (!summary) throw new Error('The user in LIVE_EMAIL has no boards.');
   return summary.id;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   process.env.EXPO_PUBLIC_API_URL = liveUrl;
-  process.env.EXPO_PUBLIC_USER_ID = liveUserId;
+  setSession(await loginRequest({ email: liveEmail, password: livePassword }));
+});
+
+afterAll(() => setSession(null));
+
+const failureOf = (promise: Promise<unknown>) =>
+  promise.then(
+    () => {
+      throw new Error('expected the request to fail');
+    },
+    (error: unknown) => error,
+  );
+
+describe('live auth', () => {
+  // A throwaway account: the backend has no delete operation, so each run leaves one behind.
+  const email = `integration-${Date.now()}@test.local`;
+  const password = `Integration@${Date.now()}`;
+
+  it('registers an account, refuses the same email twice, and refuses a weak password', async () => {
+    await expect(registerRequest({ email, password })).resolves.toMatchObject({ email });
+    expect(toRegisterErrors(await failureOf(registerRequest({ email, password })))).toEqual({ email: EMAIL_TAKEN });
+    const weak = toRegisterErrors(await failureOf(registerRequest({ email: `weak-${email}`, password: 'short' })));
+    expect(weak.password).toMatch(/Passwords must/);
+  });
+
+  it('logs in, identifies the user with the token, and ends the session on logout', async () => {
+    const session = await loginRequest({ email, password });
+    expect(session.user.email).toBe(email);
+    expect(Date.parse(session.expiresAt)).toBeGreaterThan(Date.now());
+    await expect(meRequest(session.accessToken)).resolves.toMatchObject({ id: session.user.id, email });
+
+    await logoutRequest(session.accessToken);
+    expect(hasErrorCode(await failureOf(meRequest(session.accessToken)), 'AUTH_NOT_AUTHENTICATED')).toBe(true);
+  });
+
+  it('answers a wrong password with the generic invalid-credentials message', async () => {
+    const error = await failureOf(loginRequest({ email, password: 'Wrong@Password123' }));
+    expect(toLoginErrors(error)).toEqual({ form: INVALID_CREDENTIALS });
+  });
 });
 
 describe('live GraphQL backend', () => {

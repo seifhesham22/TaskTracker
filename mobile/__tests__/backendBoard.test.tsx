@@ -5,9 +5,9 @@ import BoardScreen from '../src/app/boards/[boardId]';
 import {
   BOARD_LOAD_NETWORK,
   MEMBERS_LOAD_FAILED,
-  MEMBERS_NEED_USER_ID,
+  MEMBERS_NEED_SIGN_IN,
   MEMBERS_NOT_IN_PROJECT,
-  USER_ID_MISSING,
+  NOT_SIGNED_IN,
   USER_NOT_FOUND,
   createBackendBoardRepository,
 } from '../src/data/backendBoardRepository';
@@ -15,13 +15,16 @@ import { BoardLoadError } from '../src/data/BoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { NETWORK_ERROR_DESCRIPTION, TITLE_REQUIRED } from '../src/domain/createTaskErrors';
 import { colors } from '../src/theme/tokens';
+import { setSession } from '../src/auth/session';
 import {
   API_URL,
   BOARD_ID,
   COLUMNS,
+  PROJECT_ID,
   PROJECT_MEMBERS,
   PROJECTS,
   USER_ID,
+  signInAs,
   boardResponse,
   gqlError,
   gqlTask,
@@ -49,11 +52,11 @@ const sent = (fetchMock: jest.Mock, call: number): SentRequest =>
 
 beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = API_URL;
-  process.env.EXPO_PUBLIC_USER_ID = USER_ID;
+  signInAs(USER_ID);
 });
 
 afterAll(() => {
-  delete process.env.EXPO_PUBLIC_USER_ID;
+  setSession(null);
 });
 
 describe('backend getBoard', () => {
@@ -96,15 +99,15 @@ describe('backend getBoard', () => {
     ]);
   });
 
-  it('still loads the board without EXPO_PUBLIC_USER_ID, but lists no members and says why', async () => {
-    delete process.env.EXPO_PUBLIC_USER_ID;
+  it('still loads the board without a signed-in user, but lists no members and says why', async () => {
+    setSession(null);
     const fetchMock = mockFetch(boardResponse());
 
     const { board } = await createBackendBoardRepository().getBoard(BOARD_ID);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(board.members).toEqual([]);
-    expect(board.membersUnavailable).toBe(MEMBERS_NEED_USER_ID);
+    expect(board.membersUnavailable).toBe(MEMBERS_NEED_SIGN_IN);
     expect(board.projectName).toBe('');
   });
 
@@ -147,15 +150,15 @@ describe('backend listBoards', () => {
   it('lists every board of the user’s projects', async () => {
     mockFetch(projectsResponse());
     await expect(createBackendBoardRepository().listBoards()).resolves.toEqual([
-      { id: PROJECTS[0].boards[0].id, name: 'Other Board', projectName: 'Other Project' },
-      { id: BOARD_ID, name: 'Test Board', projectName: 'Test Project' },
+      { id: PROJECTS[0].boards[0].id, name: 'Other Board', projectId: PROJECTS[0].id, projectName: 'Other Project' },
+      { id: BOARD_ID, name: 'Test Board', projectId: PROJECT_ID, projectName: 'Test Project' },
     ]);
   });
 
-  it('asks for EXPO_PUBLIC_USER_ID instead of calling the backend without it', async () => {
-    delete process.env.EXPO_PUBLIC_USER_ID;
+  it('asks the user to log in instead of calling the backend without a session', async () => {
+    setSession(null);
     const fetchMock = mockFetch();
-    await expect(createBackendBoardRepository().listBoards()).rejects.toEqual(new BoardLoadError('configuration', USER_ID_MISSING));
+    await expect(createBackendBoardRepository().listBoards()).rejects.toEqual(new BoardLoadError('configuration', NOT_SIGNED_IN));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -280,7 +283,7 @@ describe('Board screen and create-task form against the real backend contract', 
   });
 
   it('shows the assignee’s initials from the tasks query when the members can’t be loaded', async () => {
-    delete process.env.EXPO_PUBLIC_USER_ID;
+    setSession(null);
     mockFetch(boardResponse([taskNode({ columnId: COLUMNS[0].id, column: { id: COLUMNS[0].id, name: 'Backlog', category: 'BACKLOG' } })]));
     await renderRealBoard();
 
@@ -289,14 +292,14 @@ describe('Board screen and create-task form against the real backend contract', 
   });
 
   it('says why no assignee can be picked when the members can’t be loaded', async () => {
-    delete process.env.EXPO_PUBLIC_USER_ID;
+    setSession(null);
     mockFetch(boardResponse());
     await renderRealBoard();
 
     expect(await screen.findByText('0 tasks')).toBeOnTheScreen();
     await fireEvent.press(screen.getAllByText('Create task')[0]);
 
-    expect(screen.getByTestId('assignee-unavailable')).toHaveTextContent(MEMBERS_NEED_USER_ID);
+    expect(screen.getByTestId('assignee-unavailable')).toHaveTextContent(MEMBERS_NEED_SIGN_IN);
     await fireEvent.press(screen.getByTestId('assignee-select'));
     expect(within(screen.getByTestId('assignee-sheet')).getAllByRole('button')).toHaveLength(1);
   });

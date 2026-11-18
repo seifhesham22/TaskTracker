@@ -72,5 +72,13 @@ export interface BoardData {
 export interface BoardSummary {
   id: string;
   name: string;
+  projectId: string;
   projectName: string;
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  boardCount: number;
 }
