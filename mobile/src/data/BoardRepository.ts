@@ -1,3 +1,5 @@
+import type { BacklogItem, BacklogQuery } from '../domain/backlog';
+
 import type {
   BoardData,
   BoardSummary,
@@ -21,6 +23,13 @@ export class BoardLoadError extends Error {
   }
 }
 
+export interface BacklogResult {
+  items: BacklogItem[];
+  totalCount: number;
+  page: number;
+  hasNextPage: boolean;
+}
+
 export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
   listBoards(): Promise<BoardSummary[]>;
@@ -34,6 +43,8 @@ export interface BoardRepository {
    * rejects with CompleteTaskError.
    */
   completeTask(taskId: string, doneColumnId: string): Promise<Task>;
+  /** One page of the project's backlog, searched and filtered by the backend, in its order. */
+  getBacklog(projectId: string, query: BacklogQuery, page: number): Promise<BacklogResult>;
   /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
   addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
   /** The project's tasks matching `term` by title or key (excluding none). */

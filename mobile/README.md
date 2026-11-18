@@ -39,6 +39,8 @@ mobile/
     │   ├── boards/
     │   │   ├── index.tsx      # Board list (/boards)
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
+    │   ├── projects/[projectId]/
+    │   │   └── backlog.tsx    # Project backlog (/projects/:projectId/backlog)
     │   ├── tasks/[taskId]/
     │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
     │   │   ├── edit.tsx       # Edit task (/tasks/:taskId/edit?boardId=…)
@@ -269,6 +271,7 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Task dependencies (list) | `blockedBy` and `blocks` on each task of `tasks(boardId)` |
 | Task dependencies (find a task) | `backlog(projectId, search, pageSize)` |
 | Task dependencies (add) | `addTaskDependency(input: { blockingTaskId, blockedTaskId })` |
+| Project backlog | `backlog(projectId, search, where, page, pageSize)` |
 | Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
 
@@ -347,6 +350,25 @@ The app recognises a cycle only by that whole sentence (`toCycleInfo` in `src/do
 - **Choose another task:** search again (“Search tasks…”); the refused task is marked **Creates a cycle** for that direction and can't be picked. The button becomes **Retry with TES-18**; while it runs it says **Adding…**, sends one request and keeps the explanation on screen. Another refused cycle replaces the explanation.
 - **Accepted:** **✓ Dependency added**, the dependencies read again from the backend (the earlier ones unchanged, the refused one absent), “The rejected TES-27 link was never added.” and **Back to task**.
 - **Cancel** returns to the saved dependencies as they were. Other refusals and failures show their own message (“We couldn’t add the dependency. Try again.” with no response or a server error), never the cycle explanation.
+
+## Project Backlog (US-23)
+
+**View backlog** on a project in **Your projects** opens **Project backlog**: every task of the project's boards in one list, as `backlog` returns it. The backend scopes it to the project (and refuses non-members), orders it by board, column and position, and does all searching, filtering and paging; the app keeps that order and numbers the rows by position (“1 · TES-31”). Each row shows the title, the status (its column), the priority (“No priority” when none) and the estimate in story points (“Not estimated” when none). Tapping a row opens the task.
+
+| Variable | Sent | Backend |
+| --- | --- | --- |
+| `projectId` | Always | The selected project |
+| `search` | Only when not blank (trimmed) | Part of the title, case ignored |
+| `where.status.in` | Only when a status chip is on | `BACKLOG`, `TO_DO`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
+| `where.priority.in` | Only when a priority chip is on | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `page`, `pageSize` | Always; `pageSize` is 20 | 1-based page; `hasNextPage`, `totalCount`, `totalPages` come back |
+
+- **Search** is sent 350 ms after typing stops. **Status** and **Priority** chips can be combined with each other and with the search; **Clear filters** removes the chips. Any change asks for page 1 again and replaces the list.
+- **Load more** asks for the next page with the same search and filters and adds it below, skipping any item already shown; it is shown only while `hasNextPage` is true, and “End of the backlog.” after the last page. While it loads, the list stays and the button says **Loading more…**; if it fails, the list stays and **Try again** asks for the same page.
+- Only the answer to the latest search or filter is used; a late answer to an earlier one is ignored.
+- States from the design: **Loading backlog…** with grey rows (never the empty state first), **No backlog items yet** with **Back to project**, and **Couldn’t load the backlog** with **Try again**. With a search or filter and no match: **No matching backlog items** with **Clear search and filters**.
+
+The design shows no search, filter or paging controls; they follow the app's existing inputs and buttons. The `storyPoints` field was added to the backend's `Task` type for this screen (`TaskItem.StoryPoints` existed but wasn't exposed). No operation sets story points yet, so every item shows “Not estimated” until one does.
 
 ## Manual test against the real backend
 

@@ -20,7 +20,8 @@ export function TaskScreen({
 }: {
   title: string;
   breadcrumb?: string;
-  onClose: () => void;
+  /** Shows the × button. */
+  onClose?: () => void;
   closeDisabled?: boolean;
   testID?: string;
   children: ReactNode;
@@ -49,6 +50,7 @@ export function TaskScreen({
                 {title}
               </Text>
             </View>
+            {onClose ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close"
@@ -61,6 +63,7 @@ export function TaskScreen({
             >
               <Icon name="x" size={18} color={closeDisabled ? colors.mutedForeground : colors.foreground} />
             </Pressable>
+            ) : null}
           </View>
           {children}
         </ScrollView>

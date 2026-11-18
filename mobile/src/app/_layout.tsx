@@ -42,6 +42,7 @@ function RootNavigator() {
         <Stack.Screen name="tasks/[taskId]/edit" options={{ headerShown: false, title: 'Edit task' }} />
         <Stack.Screen name="tasks/[taskId]/subtask" options={{ headerShown: false, title: 'Create subtask' }} />
         <Stack.Screen name="tasks/[taskId]/dependencies" options={{ headerShown: false, title: 'Task dependencies' }} />
+        <Stack.Screen name="projects/[projectId]/backlog" options={{ headerShown: false, title: 'Project backlog' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false, title: 'Log in' }} />

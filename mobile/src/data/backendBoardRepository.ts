@@ -11,7 +11,9 @@ import {
 import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
+import { backlogRequest } from '../api/backlog';
 import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
+import { backlogVariables, type BacklogQuery } from '../domain/backlog';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { looksLikeKey } from '../domain/dependencies';
 import { SESSION_EXPIRED } from '../domain/authErrors';
@@ -161,6 +163,25 @@ export function createBackendBoardRepository(): BoardRepository {
       } catch (error) {
         throw new CompleteTaskError(toCompleteTaskFailure(error));
       }
+    },
+
+    async getBacklog(projectId: string, query: BacklogQuery, page: number) {
+      const result = await backlogRequest(backlogVariables(projectId, query, page));
+      return {
+        items: result.items.map((node) => ({
+          id: node.id,
+          readableId: node.readableId,
+          title: node.title,
+          status: node.status,
+          columnName: node.column.name,
+          priority: node.priority,
+          storyPoints: node.storyPoints,
+          boardId: node.boardId,
+        })),
+        totalCount: result.totalCount,
+        page: result.page,
+        hasNextPage: result.hasNextPage,
+      };
     },
 
     async addDependency(blockingTaskId: string, blockedTaskId: string) {
