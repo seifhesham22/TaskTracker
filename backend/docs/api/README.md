@@ -12,6 +12,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`me`](queries/me.md) | query | yes | The user the token belongs to |
 | [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
+| [`workload`](queries/workload.md) | query | yes | Each member's open tasks with counts, to compare workloads; owner only |
 | [`projects`](queries/projects.md) | query | yes | The projects of the logged-in user, with their boards and members |
 | [`createProject`](mutations/createProject.md) | mutation | yes | Creates a project with a default board; the logged-in user becomes its owner |
 | [`createBoard`](mutations/createBoard.md) | mutation | yes | Adds a board with the default columns to a project; owner only |
@@ -53,7 +54,7 @@ Everything about a project, its boards and its tasks is for the project's member
 | --- | --- | --- | --- |
 | Read | [`projects`](queries/projects.md), [`board`](queries/board.md), [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) | Any member: `READER`, `WRITER` or `OWNER` | `NOT_FOUND` |
 | Write | [`createTask`](mutations/createTask.md), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`assignTask`](mutations/assignTask.md), [`unassignTask`](mutations/unassignTask.md), [`rankTask`](mutations/rankTask.md), [`addProjectMember`](mutations/addProjectMember.md), [`removeProjectMember`](mutations/removeProjectMember.md) | `WRITER`s and the `OWNER` | A `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
-| Owner only | [`createBoard`](mutations/createBoard.md) | The `OWNER` | A `WRITER` or `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
+| Owner only | [`createBoard`](mutations/createBoard.md), [`workload`](queries/workload.md) | The `OWNER` | A `WRITER` or `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
 
 - A non-member gets exactly the same `NOT_FOUND` as for an id that doesn't exist, so nobody can find out which projects, boards or tasks exist by trying ids.
 - Fields inside a result (`Project.boards`, `Board.columns`, `Task.assignees`, `Task.blocks`, …) always belong to the same project, so the check on the operation covers them.
@@ -70,6 +71,7 @@ projects ─────────► Project ──► boards ──► Board
 board(id) ────────────────────────────────► Board ──► columns ──► Column
 tasks(boardId) ──► Task ──► column, status, assignees, blocks, blockedBy
 backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──► items ──► Task
+workload(projectId) ──► ProjectWorkload ──► members ──► MemberWorkload ──► openTasks ──► Task
 ```
 
 The `Board` reached through `projects { boards }` and the one from `board(id)` is the same type, so its fields work the same either way.

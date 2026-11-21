@@ -16,6 +16,7 @@ using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.AddProjectMember;
 using TaskTracker.API.Features.Projects.CreateProject;
 using TaskTracker.API.Features.Projects.GetProjects;
+using TaskTracker.API.Features.Projects.GetWorkload;
 using TaskTracker.API.Features.Projects.RemoveProjectMember;
 using TaskTracker.API.Features.Tasks.AddTaskDependency;
 using TaskTracker.API.Features.Tasks.AssignTask;
@@ -104,6 +105,7 @@ builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetBacklogHandler>();
 builder.Services.AddScoped<GetProjectsHandler>();
+builder.Services.AddScoped<GetWorkloadHandler>();
 builder.Services.AddScoped<CreateProjectHandler>();
 builder.Services.AddScoped<AddProjectMemberHandler>();
 builder.Services.AddScoped<RemoveProjectMemberHandler>();
@@ -136,6 +138,7 @@ builder.Services
     .AddType<GetTasksQuery>()
     .AddType<GetBacklogQuery>()
     .AddType<GetProjectsQuery>()
+    .AddType<GetWorkloadQuery>()
     .AddType<CreateProjectMutation>()
     .AddType<AddProjectMemberMutation>()
     .AddType<RemoveProjectMemberMutation>()

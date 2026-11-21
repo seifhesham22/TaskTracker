@@ -7,6 +7,8 @@ A `!` after a type means it is never `null`. `UUID` is a string like `01a18766-4
 - [Task](#task)
 - [TaskDependencyPayload](#taskdependencypayload)
 - [BacklogPage](#backlogpage)
+- [ProjectWorkload](#projectworkload)
+- [MemberWorkload](#memberworkload)
 - [TaskDto](#taskdto)
 - [Board](#board)
 - [Column](#column)
@@ -65,6 +67,28 @@ One page of a project's tasks. Returned by [`backlog`](queries/backlog.md).
 | `totalPages`      | `Int!`               | `0` when nothing matches |
 | `hasNextPage`     | `Boolean!`           | `page < totalPages` |
 | `hasPreviousPage` | `Boolean!`           | `page > 1` |
+
+## ProjectWorkload
+
+Returned by [`workload`](queries/workload.md).
+
+| Field              | Type                                    | Notes |
+| ------------------ | --------------------------------------- | ----- |
+| `members`          | [`[MemberWorkload!]!`](#memberworkload) | Every member of the project, the most open tasks first |
+| `unassigned`       | [`[Task!]!`](#task)                     | Open tasks no member is assigned to |
+| `averageOpenTasks` | `Float!`                                | Open tasks per member on average, rounded to 2 decimals. `0` when nothing is open |
+
+## MemberWorkload
+
+One member in [`ProjectWorkload`](#projectworkload).
+
+| Field           | Type                           | Notes |
+| --------------- | ------------------------------ | ----- |
+| `userId`        | `UUID!`                        | |
+| `userName`      | `String!`                      | |
+| `role`          | [`ProjectRole!`](#projectrole) | |
+| `openTaskCount` | `Int!`                         | Tasks in `BACKLOG`, `TO_DO` or `IN_PROGRESS` assigned to this member |
+| `openTasks`     | [`[Task!]!`](#task)            | Those tasks, in backlog order |
 
 ## TaskDto
 

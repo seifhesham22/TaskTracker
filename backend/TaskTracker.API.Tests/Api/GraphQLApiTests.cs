@@ -646,6 +646,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { assignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
     [InlineData("mutation { unassignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
     [InlineData("mutation { rankTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
+    [InlineData("query { workload(projectId: \"00000000-0000-0000-0000-000000000001\") { averageOpenTasks } }")]
     [InlineData("mutation { addProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", email: \"a@b.c\" }) { userId } }")]
     [InlineData("mutation { removeProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { userId } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
@@ -1256,6 +1257,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("unassignTask", true)]
     [InlineData("rankTask", false)]
     [InlineData("rankTask", true)]
+    [InlineData("workload", false)]
+    [InlineData("workload", true)]
     public async Task Someone_who_is_not_or_no_longer_a_member_gets_NOT_FOUND_and_changes_nothing(string operation, bool wasMember)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1562,6 +1565,74 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task Workload_shows_the_owner_each_members_open_tasks()
+    {
+        TestProject project;
+        Guid writerId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            writerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer);
+        }
+        var first = await CreateTaskThroughTheApiAsync(project.BoardId, "First");
+        var second = await CreateTaskThroughTheApiAsync(project.BoardId, "Second");
+        var nobodys = await CreateTaskThroughTheApiAsync(project.BoardId, "Nobody's");
+        var done = await CreateTaskThroughTheApiAsync(project.BoardId, "Done");
+        foreach (var taskId in new[] { first.Id, second.Id, done.Id })
+            await PostGraphQLAsMemberAsync(project, $$"""
+                mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{writerId}}" }) { id } }
+                """);
+        await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { moveTask(input: { taskId: "{{done.Id}}", columnId: "{{project.DoneColumnId}}" }) { id } }
+            """);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query {
+              workload(projectId: "{{project.ProjectId}}") {
+                averageOpenTasks
+                members { userId role openTaskCount openTasks { readableId status } }
+                unassigned { readableId }
+              }
+            }
+            """);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var workload = json.GetProperty("data").GetProperty("workload");
+        var members = workload.GetProperty("members").EnumerateArray().ToList();
+        Assert.Equal(new[] { writerId.ToString(), project.MemberId.ToString() }, members.Select(m => m.GetProperty("userId").GetString()));
+        Assert.Equal(new[] { 2, 0 }, members.Select(m => m.GetProperty("openTaskCount").GetInt32()));
+        Assert.Equal("WRITER", members[0].GetProperty("role").GetString());
+        Assert.Equal(new[] { first.ReadableId, second.ReadableId },
+            members[0].GetProperty("openTasks").EnumerateArray().Select(t => t.GetProperty("readableId").GetString()));
+        Assert.Equal(nobodys.ReadableId,
+            Assert.Single(workload.GetProperty("unassigned").EnumerateArray()).GetProperty("readableId").GetString());
+        Assert.Equal(1.0, workload.GetProperty("averageOpenTasks").GetDouble());
+    }
+
+    [Theory]
+    [InlineData(ProjectRole.Writer)]
+    [InlineData(ProjectRole.Reader)]
+    public async Task Workload_is_refused_to_writers_and_readers(ProjectRole role)
+    {
+        TestProject project;
+        Guid memberId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            memberId = await TestData.AddMemberAsync(db, project.ProjectId, role);
+        }
+
+        var json = await SendGraphQLAsync($$"""
+            query { workload(projectId: "{{project.ProjectId}}") { averageOpenTasks } }
+            """, TokenFor(memberId));
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("AUTH_NOT_AUTHORIZED", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Only the owner of the project can see the workload.", error.GetProperty("message").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
+    }
+
+    [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
         var email = $"{Guid.NewGuid():N}@test.local";
@@ -1719,13 +1790,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         "assignTask" => $$"""mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
         "unassignTask" => $$"""mutation { unassignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
         "rankTask" => $$"""mutation { rankTask(input: { taskId: "{{taskId}}", afterTaskId: "{{otherTaskId}}" }) { id } }""",
+        "workload" => $$"""query { workload(projectId: "{{project.ProjectId}}") { averageOpenTasks members { openTaskCount } } }""",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
     };
 
     private static string NotFoundMessage(string operation, TestProject project, string taskId) => operation switch
     {
         "tasks" or "board" or "createTask" => $"Board '{project.BoardId}' was not found.",
-        "backlog" => $"Project '{project.ProjectId}' was not found.",
+        "backlog" or "workload" => $"Project '{project.ProjectId}' was not found.",
         _ => $"Task '{taskId}' was not found."
     };
 
