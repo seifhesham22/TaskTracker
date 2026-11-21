@@ -642,6 +642,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("query { backlog(projectId: \"00000000-0000-0000-0000-000000000001\") { totalCount } }")]
     [InlineData("mutation { addTaskDependency(input: { blockingTaskId: \"00000000-0000-0000-0000-000000000001\", blockedTaskId: \"00000000-0000-0000-0000-000000000002\" }) { blockedTask { id } } }")]
     [InlineData("mutation { createProject(input: { name: \"No token\" }) { id } }")]
+    [InlineData("mutation { createBoard(input: { projectId: \"00000000-0000-0000-0000-000000000001\", name: \"No token\" }) { id } }")]
     [InlineData("mutation { addProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", email: \"a@b.c\" }) { userId } }")]
     [InlineData("mutation { removeProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { userId } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
@@ -1342,6 +1343,90 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
         var task = Assert.Single(json.GetProperty("data").GetProperty("tasks").EnumerateArray());
         Assert.Equal(myTask, task.GetProperty("readableId").GetString());
+    }
+
+    [Fact]
+    public async Task CreateBoard_returns_the_new_board_with_its_columns_and_it_is_ready_for_tasks()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { createBoard(input: { projectId: "{{project.ProjectId}}", name: "  Sprint 2  " }) { id projectId name columns { name category } } }
+            """);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var board = json.GetProperty("data").GetProperty("createBoard");
+        var boardId = board.GetProperty("id").GetString();
+        Assert.Equal("Sprint 2", board.GetProperty("name").GetString());
+        Assert.Equal(project.ProjectId.ToString(), board.GetProperty("projectId").GetString());
+        Assert.Equal(
+            new[] { "BACKLOG", "TO_DO", "IN_PROGRESS", "DONE" },
+            board.GetProperty("columns").EnumerateArray().Select(c => c.GetProperty("category").GetString()));
+
+        var projects = await PostGraphQLAsMemberAsync(project, "query { projects { boards { id name } } }");
+        var boards = Assert.Single(projects.GetProperty("data").GetProperty("projects").EnumerateArray()).GetProperty("boards");
+        Assert.Equal(new[] { "Board", "Sprint 2" }, boards.EnumerateArray().Select(b => b.GetProperty("name").GetString()));
+
+        var task = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { createTask(input: { boardId: "{{boardId}}", title: "First on the new board" }) { boardId status } }
+            """);
+        Assert.Equal(boardId, task.GetProperty("data").GetProperty("createTask").GetProperty("boardId").GetString());
+    }
+
+    [Fact]
+    public async Task CreateBoard_with_a_name_already_used_in_the_project_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { createBoard(input: { projectId: "{{project.ProjectId}}", name: "board" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("A board named 'board' already exists in this project.", error.GetProperty("message").GetString());
+    }
+
+    [Theory]
+    [InlineData(ProjectRole.Writer)]
+    [InlineData(ProjectRole.Reader)]
+    public async Task CreateBoard_by_a_writer_or_reader_comes_back_with_AUTH_NOT_AUTHORIZED(ProjectRole role)
+    {
+        TestProject project;
+        Guid memberId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            memberId = await TestData.AddMemberAsync(db, project.ProjectId, role);
+        }
+
+        var json = await SendGraphQLAsync($$"""
+            mutation { createBoard(input: { projectId: "{{project.ProjectId}}", name: "Sprint 2" }) { id } }
+            """, TokenFor(memberId));
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("AUTH_NOT_AUTHORIZED", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("Only the owner of the project can create boards.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task CreateBoard_by_a_non_member_comes_back_with_NOT_FOUND()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsync($$"""
+            mutation { createBoard(input: { projectId: "{{project.ProjectId}}", name: "Sprint 2" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Project '{project.ProjectId}' was not found.", error.GetProperty("message").GetString());
     }
 
     [Fact]

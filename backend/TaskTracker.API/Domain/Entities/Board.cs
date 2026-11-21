@@ -1,9 +1,12 @@
 ﻿using TaskTracker.API.Domain.Enums;
+using TaskTracker.API.Domain.Exceptions;
 
 namespace TaskTracker.API.Domain.Entities
 {
     public class Board : SoftDeletableEntity
     {
+        public const int NameMaxLength = 100;
+
         public Guid ProjectId { get; set; }
         public Project Project { get; set; } = null!;
         public string Name { get; set; } = string.Empty;
@@ -14,6 +17,18 @@ namespace TaskTracker.API.Domain.Entities
         public bool IsArchived { get; set; }
         public string Position { get; set; } = string.Empty;
         public ICollection<BoardColumn> Columns { get; set; } = [];
+
+        public static string ValidName(string name)
+        {
+            var trimmed = name.Trim();
+
+            if (trimmed.Length == 0)
+                throw new DomainException("Board name cannot be empty or only spaces.");
+            if (trimmed.Length > NameMaxLength)
+                throw new DomainException($"Board name cannot be longer than {NameMaxLength} characters.");
+
+            return trimmed;
+        }
 
         public void AddDefaultColumns()
         {

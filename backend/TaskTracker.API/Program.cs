@@ -11,6 +11,7 @@ using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Auth.Login;
 using TaskTracker.API.Features.Auth.Logout;
 using TaskTracker.API.Features.Auth.Register;
+using TaskTracker.API.Features.Boards.CreateBoard;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Projects.AddProjectMember;
 using TaskTracker.API.Features.Projects.CreateProject;
@@ -103,6 +104,7 @@ builder.Services.AddScoped<CreateProjectHandler>();
 builder.Services.AddScoped<AddProjectMemberHandler>();
 builder.Services.AddScoped<RemoveProjectMemberHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
+builder.Services.AddScoped<CreateBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<AddTaskDependencyHandler>();
@@ -131,6 +133,7 @@ builder.Services
     .AddType<AddProjectMemberMutation>()
     .AddType<RemoveProjectMemberMutation>()
     .AddType<GetBoardQuery>()
+    .AddType<CreateBoardMutation>()
     .AddType<CreateTaskMutation>()
     .AddType<MoveTaskMutation>()
     .AddType<UpdateTaskMutation>()
