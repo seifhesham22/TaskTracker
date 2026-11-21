@@ -84,6 +84,7 @@ In the cycle message, `→` means "blocks", and the chain is the existing path t
 
 ## Notes
 
+- The blocked task can't be started, that is moved to `IN_PROGRESS` or `DONE` with [`moveTask`](moveTask.md), until every task that blocks it is done.
 - Read the dependencies back with `blocks` and `blockedBy` on any [`Task`](../types.md#task), for example in [`tasks`](../queries/tasks.md) or [`backlog`](../queries/backlog.md):
 
   ```graphql

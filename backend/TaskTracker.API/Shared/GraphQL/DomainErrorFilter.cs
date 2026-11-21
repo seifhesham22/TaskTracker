@@ -18,6 +18,15 @@ namespace TaskTracker.API.Shared.GraphQL
                         ["title"] = s.Title
                     })
                     .ToList()),
+            BlockedTaskException ex => Expected(error, ex, "BAD_USER_INPUT")
+                .SetExtension("blockers", ex.Blockers
+                    .Select(b => new Dictionary<string, object?>
+                    {
+                        ["id"] = b.Id.ToString(),
+                        ["readableId"] = b.ReadableId,
+                        ["title"] = b.Title
+                    })
+                    .ToList()),
             BadUserInputException ex => Expected(error, ex, "BAD_USER_INPUT"),
             InvalidCredentialsException ex => Expected(error, ex, "INVALID_CREDENTIALS"),
             ForbiddenException ex => Expected(error, ex, "AUTH_NOT_AUTHORIZED"),

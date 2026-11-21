@@ -2,6 +2,8 @@
 
 Moves a task to another column of its board. Because a task's status is the category of its column, this is how a task's status changes. The task goes to the bottom of the new column. Moving a task to the column it is already in changes nothing.
 
+**Starting a blocked task:** a task that other tasks block (see [`addTaskDependency`](addTaskDependency.md)) can't be started until every one of them is done. Moving it into a column of category `IN_PROGRESS` or `DONE` is refused while any blocker is not in a `DONE` column, and that includes a blocker in a `CANCELLED` column. The error lists every unfinished blocker, and the task keeps its status. A blocker that was deleted no longer blocks. Moving a blocked task to `BACKLOG`, `TO_DO` or `CANCELLED` is always allowed.
+
 **Completing a parent task:** moving a task into a column of category `DONE` is refused while any of its subtasks is not in a `DONE` column. That includes a subtask in a `CANCELLED` column. The error lists every open subtask. Once they are all done, the parent can be completed. The check runs in the API, so no client can skip it.
 
 The response is the same [`Task`](../types.md#task) type the [`tasks`](../queries/tasks.md) query returns, so a GraphQL client can update the task everywhere it is shown.
@@ -68,6 +70,7 @@ mutation {
 | Task does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Task '…' was not found. |
 | The user is a `READER` of the project | `AUTH_NOT_AUTHORIZED` | Only writers and owners of the project can move tasks. |
 | Column is not on the task's board | `NOT_FOUND`       | Column '…' was not found on board '…'. |
+| Moving a task into an `IN_PROGRESS` or `DONE` column while a task that blocks it is not done | `BAD_USER_INPUT` | TES-8 is blocked by these 2 unfinished tasks: TES-3 (Design the API), TES-5 (Set up the database). It can't be started until they are done. |
 | Moving a parent into a Done column while a subtask is not done | `BAD_USER_INPUT` | TES-5 can't be completed while these 2 subtasks are not done: TES-6 (Write tests), TES-7 (Review). |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
@@ -84,6 +87,26 @@ When the parent can't be completed yet, the error also lists the open subtasks i
         "incompleteSubtasks": [
           { "id": "01a1d2c0-5e3b-7a41-9f02-6b7c8d9e0a11", "readableId": "TES-6", "title": "Write tests" },
           { "id": "01a1d2c0-6f4c-7b52-8e13-7c8d9e0f1a22", "readableId": "TES-7", "title": "Review" }
+        ]
+      }
+    }
+  ],
+  "data": null
+}
+```
+
+When the task is blocked, the error lists the unfinished blockers in `extensions.blockers`, so the frontend can show which tasks to finish first:
+
+```json
+{
+  "errors": [
+    {
+      "message": "TES-8 is blocked by this unfinished task: TES-3 (Design the API). It can't be started until that task is done.",
+      "path": ["moveTask"],
+      "extensions": {
+        "code": "BAD_USER_INPUT",
+        "blockers": [
+          { "id": "01a1d2c0-7a5d-7c63-9f24-8d9e0f1a2b33", "readableId": "TES-3", "title": "Design the API" }
         ]
       }
     }

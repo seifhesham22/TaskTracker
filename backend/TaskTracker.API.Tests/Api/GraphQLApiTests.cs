@@ -1490,6 +1490,43 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task MoveTask_refuses_to_start_a_blocked_task_and_lists_the_blockers_until_they_are_done()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var a = await CreateTaskThroughTheApiAsync(project.BoardId, "Design the API");
+        var b = await CreateTaskThroughTheApiAsync(project.BoardId, "Build the API");
+        await AddTaskDependencyAsync(project, a.Id, b.Id);
+        var startB = $$"""
+            mutation { moveTask(input: { taskId: "{{b.Id}}", columnId: "{{project.InProgressColumnId}}" }) { status } }
+            """;
+
+        var refused = await PostGraphQLAsMemberAsync(project, startB);
+
+        var error = Assert.Single(refused.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            $"{b.ReadableId} is blocked by this unfinished task: {a.ReadableId} (Design the API). It can't be started until that task is done.",
+            error.GetProperty("message").GetString());
+        var blocker = Assert.Single(error.GetProperty("extensions").GetProperty("blockers").EnumerateArray());
+        Assert.Equal(a.Id, blocker.GetProperty("id").GetString());
+        Assert.Equal(a.ReadableId, blocker.GetProperty("readableId").GetString());
+        Assert.Equal("Design the API", blocker.GetProperty("title").GetString());
+        var statusOfB = await PostGraphQLAsMemberAsync(project, $$"""query { tasks(boardId: "{{project.BoardId}}") { id status } }""");
+        Assert.Equal("BACKLOG", statusOfB.GetProperty("data").GetProperty("tasks").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == b.Id).GetProperty("status").GetString());
+
+        await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { moveTask(input: { taskId: "{{a.Id}}", columnId: "{{project.DoneColumnId}}" }) { status } }
+            """);
+        var accepted = await PostGraphQLAsMemberAsync(project, startB);
+
+        Assert.False(accepted.TryGetProperty("errors", out var errors), errors.ToString());
+        Assert.Equal("IN_PROGRESS", accepted.GetProperty("data").GetProperty("moveTask").GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
         var email = $"{Guid.NewGuid():N}@test.local";
