@@ -37,7 +37,7 @@ A task on a board. Returned by [`tasks`](queries/tasks.md), [`backlog`](queries/
 | `parentTaskId` | `UUID`               | The parent's id for a subtask, `null` for a task without a parent |
 | `status`       | [`ColumnCategory!`](#columncategory) | The category of the task's column |
 | `column`       | [`Column!`](#column) | The column the task is in. `status` is the same as `column.category` |
-| `assignees`    | [`[Assignee!]!`](#assignee) | An empty list when nobody is assigned |
+| `assignees`    | [`[Assignee!]!`](#assignee) | Everyone assigned to the task; several people can work on it. An empty list when nobody is assigned. Changed with [`assignTask`](mutations/assignTask.md) and [`unassignTask`](mutations/unassignTask.md) |
 | `blocks`       | [`[Task!]!`](#task)  | The tasks this one blocks: they can't be done before it (its dependents). See [`addTaskDependency`](mutations/addTaskDependency.md) |
 | `blockedBy`    | [`[Task!]!`](#task)  | The tasks that block this one: they must be done first (its predecessors) |
 

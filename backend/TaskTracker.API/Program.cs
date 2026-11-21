@@ -18,6 +18,8 @@ using TaskTracker.API.Features.Projects.CreateProject;
 using TaskTracker.API.Features.Projects.GetProjects;
 using TaskTracker.API.Features.Projects.RemoveProjectMember;
 using TaskTracker.API.Features.Tasks.AddTaskDependency;
+using TaskTracker.API.Features.Tasks.AssignTask;
+using TaskTracker.API.Features.Tasks.UnassignTask;
 using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetBacklog;
 using TaskTracker.API.Features.Tasks.GetTasks;
@@ -108,6 +110,8 @@ builder.Services.AddScoped<CreateBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<AddTaskDependencyHandler>();
+builder.Services.AddScoped<AssignTaskHandler>();
+builder.Services.AddScoped<UnassignTaskHandler>();
 builder.Services.AddScoped<RegisterHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<LogoutHandler>();
@@ -138,6 +142,8 @@ builder.Services
     .AddType<MoveTaskMutation>()
     .AddType<UpdateTaskMutation>()
     .AddType<AddTaskDependencyMutation>()
+    .AddType<AssignTaskMutation>()
+    .AddType<UnassignTaskMutation>()
     .AddType<RegisterMutation>()
     .AddType<LoginMutation>()
     .AddType<LogoutMutation>()

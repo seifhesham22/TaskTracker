@@ -29,7 +29,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 : new NotFoundException($"Column '{input.ColumnId}' was not found on board '{input.BoardId}'."));
 
             if (input.AssigneeId is Guid assigneeId)
-                await EnsureProjectMemberAsync(board, assigneeId, ct);
+                await membership.EnsureCanBeAssignedAsync(board.ProjectId, board.ProjectKey, assigneeId, ct);
 
             if (input.ParentTaskId is Guid parentTaskId)
                 await EnsureParentInProjectAsync(board, parentTaskId, userId, ct);
@@ -84,13 +84,6 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                         .FirstOrDefault()))
                 .FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException($"Board '{boardId}' was not found.");
-
-        private async Task EnsureProjectMemberAsync(BoardInfo board, Guid userId, CancellationToken ct)
-        {
-            if (await membership.GetRoleAsync(board.ProjectId, userId, ct) is null)
-                throw new BadUserInputException(
-                    $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
-        }
 
         private async Task EnsureParentInProjectAsync(BoardInfo board, Guid parentTaskId, Guid userId, CancellationToken ct)
         {
