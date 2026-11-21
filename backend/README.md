@@ -70,6 +70,7 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | [`tasks`](docs/api/queries/tasks.md) | query | The tasks of a board (or all tasks), in the order they were created |
 | [`backlog`](docs/api/queries/backlog.md) | query | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`projects`](docs/api/queries/projects.md) | query | The projects a user is a member of, with their boards and members |
+| [`createProject`](docs/api/mutations/createProject.md) | mutation | Creates a project with a default board; the logged-in user becomes its owner |
 | [`board`](docs/api/queries/board.md) | query | One board with its columns |
 | [`createTask`](docs/api/mutations/createTask.md) | mutation | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](docs/api/mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |

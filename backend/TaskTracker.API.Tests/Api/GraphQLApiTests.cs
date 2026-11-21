@@ -603,6 +603,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { updateTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", title: \"No token\" }) { id } }")]
     [InlineData("query { backlog(projectId: \"00000000-0000-0000-0000-000000000001\") { totalCount } }")]
     [InlineData("mutation { addTaskDependency(input: { blockingTaskId: \"00000000-0000-0000-0000-000000000001\", blockedTaskId: \"00000000-0000-0000-0000-000000000002\" }) { blockedTask { id } } }")]
+    [InlineData("mutation { createProject(input: { name: \"No token\" }) { id } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
     {
         var json = await PostAnonymousGraphQLAsync(query);
@@ -1017,6 +1018,62 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var json = await SendGraphQLAsync(AddTaskDependencyMutation(a.Id, b.Id), TokenFor(readerId));
 
         Assert.Equal("AUTH_NOT_AUTHORIZED", ErrorCode(json));
+    }
+
+    [Fact]
+    public async Task CreateProject_makes_the_logged_in_user_owner_and_the_projects_query_lists_it()
+    {
+        var email = $"{Guid.NewGuid():N}@test.local";
+        var userId = await RegisterAsync(email);
+        var token = await LoginAsync(email);
+        var key = "K" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+
+        var json = await SendGraphQLAsync($$"""
+            mutation {
+              createProject(input: { name: "  API project  ", key: "{{key.ToLowerInvariant()}}", description: "Made through the API" }) {
+                id key name description role
+                boards { name columns { name } }
+                projectMembers { userId role }
+              }
+            }
+            """, token);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var project = json.GetProperty("data").GetProperty("createProject");
+        Assert.Equal(key, project.GetProperty("key").GetString());
+        Assert.Equal("API project", project.GetProperty("name").GetString());
+        Assert.Equal("Made through the API", project.GetProperty("description").GetString());
+        Assert.Equal("OWNER", project.GetProperty("role").GetString());
+        var board = Assert.Single(project.GetProperty("boards").EnumerateArray());
+        Assert.Equal("Board", board.GetProperty("name").GetString());
+        Assert.Equal(
+            new[] { "Backlog", "To do", "In progress", "Done" },
+            board.GetProperty("columns").EnumerateArray().Select(c => c.GetProperty("name").GetString()));
+        var member = Assert.Single(project.GetProperty("projectMembers").EnumerateArray());
+        Assert.Equal(userId, member.GetProperty("userId").GetString());
+        Assert.Equal("OWNER", member.GetProperty("role").GetString());
+
+        var listed = await SendGraphQLAsync($$"""
+            query { projects(userId: "{{userId}}") { id key role } }
+            """, token);
+        var listedProject = Assert.Single(listed.GetProperty("data").GetProperty("projects").EnumerateArray());
+        Assert.Equal(project.GetProperty("id").GetString(), listedProject.GetProperty("id").GetString());
+        Assert.Equal("OWNER", listedProject.GetProperty("role").GetString());
+    }
+
+    [Theory]
+    [InlineData("name: \"\"", "Project name cannot be empty or only spaces.")]
+    [InlineData("name: \"   \"", "Project name cannot be empty or only spaces.")]
+    [InlineData("name: \"Website\", key: \"WEB-1\"", "Project key must be 2 to 10 letters or digits (A-Z, 0-9).")]
+    public async Task CreateProject_with_wrong_input_comes_back_with_BAD_USER_INPUT(string fields, string message)
+    {
+        var json = await PostGraphQLAsync($$"""
+            mutation { createProject(input: { {{fields}} }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(message, error.GetProperty("message").GetString());
     }
 
     [Fact]

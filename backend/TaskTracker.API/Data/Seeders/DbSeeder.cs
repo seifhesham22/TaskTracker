@@ -89,18 +89,13 @@ namespace TaskTracker.API.Data.Seeders
                     .ToListAsync();
 
                 foreach (var existingBoard in boardsWithoutColumns)
-                    AddDefaultColumns(existingBoard);
+                    existingBoard.AddDefaultColumns();
 
                 await db.SaveChangesAsync();
                 return;
             }
 
-            var project = new Project
-            {
-                Name = "Test Project",
-                Key = "TES",
-                Description = "This is the test project description field",
-            };
+            var project = new Project("Test Project", "TES", "This is the test project description field");
 
             var projectMembers = new List<ProjectMember>()
             {
@@ -151,19 +146,11 @@ namespace TaskTracker.API.Data.Seeders
                 IsArchived = false,
             };
 
-            AddDefaultColumns(board);
+            board.AddDefaultColumns();
             project.Boards.Add(board);
 
             db.Add(project);
             await db.SaveChangesAsync();
-        }
-
-        private static void AddDefaultColumns(Board board)
-        {
-            board.Columns.Add(new BoardColumn { Name = "Backlog", Category = Domain.Enums.ColumnCategory.Backlog, Color = "#8A90A0", Position = "V" });
-            board.Columns.Add(new BoardColumn { Name = "To do", Category = Domain.Enums.ColumnCategory.ToDo, Color = "#5B8DE8", Position = "l" });
-            board.Columns.Add(new BoardColumn { Name = "In progress", Category = Domain.Enums.ColumnCategory.InProgress, Color = "#E8945B", Position = "t" });
-            board.Columns.Add(new BoardColumn { Name = "Done", Category = Domain.Enums.ColumnCategory.Done, Color = "#2A9D8F", Position = "x" });
         }
     }
 }

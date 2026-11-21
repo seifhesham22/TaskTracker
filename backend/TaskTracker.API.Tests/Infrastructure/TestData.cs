@@ -18,7 +18,7 @@ public static class TestData
     public static async Task<TestProject> CreateProjectAsync(ApplicationDbContext db)
     {
         var member = NewUser();
-        var project = new Project { Name = "Test project", Key = NewProjectKey() };
+        var project = new Project("Test project", NewProjectKey());
         project.ProjectMembers.Add(new ProjectMember
         {
             UserId = member.Id,

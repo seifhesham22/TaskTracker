@@ -13,6 +13,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`projects`](queries/projects.md) | query | yes | The projects a user is a member of, with their boards and members |
+| [`createProject`](mutations/createProject.md) | mutation | yes | Creates a project with a default board; the logged-in user becomes its owner |
 | [`board`](queries/board.md) | query | yes | One board with its columns |
 | [`createTask`](mutations/createTask.md) | mutation | yes | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](mutations/moveTask.md) | mutation | yes | Moves a task to another column, which changes its status |
