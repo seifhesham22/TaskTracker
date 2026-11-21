@@ -5,6 +5,7 @@ using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Features.Tasks.MoveTask;
 using TaskTracker.API.Shared.Completion;
+using TaskTracker.API.Shared.Dependencies;
 using TaskTracker.API.Shared.Exceptions;
 using TaskTracker.API.Shared.Positions;
 using TaskTracker.API.Shared.Membership;
@@ -209,7 +210,7 @@ public class MoveTaskHandlerTests(PostgresFixture database)
     {
         await using var db = database.CreateDbContext();
         var ownerId = await TestData.OwnerOfTaskAsync(db, taskId);
-        return await new MoveTaskHandler(db, new TaskLookupService(db, new ProjectMembershipService(database)), new TaskPositionService(db), new TaskCompletionGuard(db))
+        return await new MoveTaskHandler(db, new TaskLookupService(db, new ProjectMembershipService(database)), new TaskPositionService(db), new TaskCompletionGuard(db), new TaskBlockerGuard(db))
             .HandleAsync(new MoveTaskInput(taskId, columnId), ownerId, CancellationToken.None);
     }
 }

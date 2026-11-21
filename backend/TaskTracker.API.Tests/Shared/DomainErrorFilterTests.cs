@@ -85,6 +85,25 @@ public class DomainErrorFilterTests
     }
 
     [Fact]
+    public void A_blocked_task_gets_the_BAD_USER_INPUT_code_and_its_blockers_in_the_extensions()
+    {
+        var blockerId = Guid.NewGuid();
+        var exception = new BlockedTaskException(
+            "TES-2 is blocked by this unfinished task: TES-1 (Design). It can't be started until that task is done.",
+            [new TaskBlocker(blockerId, "TES-1", "Design")]);
+
+        var error = _filter.OnError(ErrorFrom(exception));
+
+        Assert.Equal("BAD_USER_INPUT", error.Code);
+        Assert.Equal(exception.Message, error.Message);
+        var blockers = Assert.IsType<List<Dictionary<string, object?>>>(error.Extensions!["blockers"]);
+        var blocker = Assert.Single(blockers);
+        Assert.Equal(blockerId.ToString(), blocker["id"]);
+        Assert.Equal("TES-1", blocker["readableId"]);
+        Assert.Equal("Design", blocker["title"]);
+    }
+
+    [Fact]
     public void Other_errors_are_left_unchanged()
     {
         var original = ErrorFrom(new InvalidOperationException("Something broke"));

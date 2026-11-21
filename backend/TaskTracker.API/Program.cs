@@ -98,6 +98,7 @@ builder.Services.AddScoped<ITaskCompletionGuard, TaskCompletionGuard>();
 builder.Services.AddScoped<IProjectMembershipService, ProjectMembershipService>();
 builder.Services.AddScoped<ITaskLookupService, TaskLookupService>();
 builder.Services.AddScoped<ITaskDependencyCycleGuard, TaskDependencyCycleGuard>();
+builder.Services.AddScoped<ITaskBlockerGuard, TaskBlockerGuard>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<GetTasksHandler>();
 builder.Services.AddScoped<GetBacklogHandler>();
