@@ -14,6 +14,8 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`projects`](queries/projects.md) | query | yes | The projects a user is a member of, with their boards and members |
 | [`createProject`](mutations/createProject.md) | mutation | yes | Creates a project with a default board; the logged-in user becomes its owner |
+| [`addProjectMember`](mutations/addProjectMember.md) | mutation | yes | Adds an existing account to a project by email, as a reader or writer |
+| [`removeProjectMember`](mutations/removeProjectMember.md) | mutation | yes | Removes a reader or writer from a project; the owner can't be removed |
 | [`board`](queries/board.md) | query | yes | One board with its columns |
 | [`createTask`](mutations/createTask.md) | mutation | yes | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](mutations/moveTask.md) | mutation | yes | Moves a task to another column, which changes its status |
@@ -86,4 +88,4 @@ Each operation page lists the cases and messages for that operation.
 
 [`projects`](queries/projects.md) still takes the user's id as an argument. It can switch to the user from the token, like [`me`](queries/me.md).
 
-Only [`backlog`](queries/backlog.md) and [`addTaskDependency`](mutations/addTaskDependency.md) check that the user is a member of the project. The other operations need a token but don't check membership yet.
+Only [`backlog`](queries/backlog.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`addProjectMember`](mutations/addProjectMember.md) and [`removeProjectMember`](mutations/removeProjectMember.md) check that the user is a member of the project. The other operations need a token but don't check membership yet.

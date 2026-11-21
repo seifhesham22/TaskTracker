@@ -125,6 +125,33 @@ public class ProjectTests
         Assert.Equal(ProjectRole.Owner, member.ProjectRole);
     }
 
+    [Theory]
+    [InlineData(ProjectRole.Reader)]
+    [InlineData(ProjectRole.Writer)]
+    public void Readers_and_writers_can_be_added_as_members(ProjectRole role)
+    {
+        var project = new Project("Website");
+        var userId = Guid.NewGuid();
+
+        var member = project.AddMember(userId, role);
+
+        Assert.Same(member, Assert.Single(project.ProjectMembers));
+        Assert.Equal(role, member.ProjectRole);
+        Assert.Equal(userId, member.UserId);
+    }
+
+    [Fact]
+    public void A_second_owner_cannot_be_added()
+    {
+        var project = new Project("Website");
+        project.AddOwner(Guid.NewGuid());
+
+        var error = Assert.Throws<DomainException>(() => project.AddMember(Guid.NewGuid(), ProjectRole.Owner));
+
+        Assert.Equal("A project has only one owner. New members can be readers or writers.", error.Message);
+        Assert.Single(project.ProjectMembers);
+    }
+
     [Fact]
     public void The_default_board_has_the_four_default_columns_in_order()
     {

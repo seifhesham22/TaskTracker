@@ -94,9 +94,22 @@ public static class TestData
 
     private static string NewProjectKey() => "T" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
 
+    public static async Task<(Guid Id, string Email)> CreateAccountAsync(ApplicationDbContext db)
+    {
+        var user = NewUser();
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return (user.Id, user.Email!);
+    }
+
     private static User NewUser()
     {
-        return new User($"{Guid.NewGuid():N}@test.local");
+        var email = $"{Guid.NewGuid():N}@test.local";
+        return new User(email)
+        {
+            NormalizedEmail = email.ToUpperInvariant(),
+            NormalizedUserName = email.ToUpperInvariant()
+        };
     }
 
     private static BoardColumn NewColumn(string name, ColumnCategory category, string position) =>

@@ -63,7 +63,7 @@ public class AddTaskDependencyHandlerTests(PostgresFixture database)
         var mine = await GivenProjectAsync();
         var other = await GivenProjectAsync();
         await using (var db = database.CreateDbContext())
-            await TestData.AddMemberAsync(db, other.ProjectId, ProjectRole.Owner, mine.MemberId);
+            await TestData.AddMemberAsync(db, other.ProjectId, ProjectRole.Writer, mine.MemberId);
         var a = await CreateTaskAsync(mine.BoardId, "A");
         var foreign = await CreateTaskAsync(other.BoardId, "Foreign");
 
@@ -158,7 +158,7 @@ public class AddTaskDependencyHandlerTests(PostgresFixture database)
         var project = await GivenProjectAsync();
         var a = await CreateTaskAsync(project.BoardId, "A");
         var b = await CreateTaskAsync(project.BoardId, "B");
-        var memberId = await AddMemberAsync(project, role);
+        var memberId = role == ProjectRole.Owner ? project.MemberId : await AddMemberAsync(project, role);
 
         await AddAsync(a.Id, b.Id, memberId);
 

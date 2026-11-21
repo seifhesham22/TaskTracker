@@ -14,6 +14,8 @@ namespace TaskTracker.API.Data.SchemaConfigurations
             builder.Property(x => x.Key).HasMaxLength(Project.KeyMaxLength);
             builder.Property(x => x.Description).HasMaxLength(Project.DescriptionMaxLength);
 
+            builder.Property<uint>("Version").IsRowVersion();
+
             builder.HasIndex(x => x.Key).IsUnique();
             builder.HasQueryFilter(x => !x.IsDeleted);
         }

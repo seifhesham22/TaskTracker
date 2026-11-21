@@ -308,9 +308,12 @@ public class GetBacklogHandlerTests(PostgresFixture database)
     {
         var project = await GivenProjectAsync();
         await CreateTaskAsync(project.BoardId, "Shared");
-        Guid memberId;
-        await using (var db = database.CreateDbContext())
+        var memberId = project.MemberId;
+        if (role != ProjectRole.Owner)
+        {
+            await using var db = database.CreateDbContext();
             memberId = await TestData.AddMemberAsync(db, project.ProjectId, role);
+        }
 
         var backlog = await GetBacklogAsync(project.ProjectId, memberId);
 

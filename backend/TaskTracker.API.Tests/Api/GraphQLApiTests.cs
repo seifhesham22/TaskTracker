@@ -604,6 +604,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("query { backlog(projectId: \"00000000-0000-0000-0000-000000000001\") { totalCount } }")]
     [InlineData("mutation { addTaskDependency(input: { blockingTaskId: \"00000000-0000-0000-0000-000000000001\", blockedTaskId: \"00000000-0000-0000-0000-000000000002\" }) { blockedTask { id } } }")]
     [InlineData("mutation { createProject(input: { name: \"No token\" }) { id } }")]
+    [InlineData("mutation { addProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", email: \"a@b.c\" }) { userId } }")]
+    [InlineData("mutation { removeProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { userId } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
     {
         var json = await PostAnonymousGraphQLAsync(query);
@@ -988,7 +990,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         {
             mine = await TestData.CreateProjectAsync(db);
             other = await TestData.CreateProjectAsync(db);
-            await TestData.AddMemberAsync(db, other.ProjectId, ProjectRole.Owner, mine.MemberId);
+            await TestData.AddMemberAsync(db, other.ProjectId, ProjectRole.Writer, mine.MemberId);
         }
         var a = await CreateTaskThroughTheApiAsync(mine.BoardId, "Mine");
         var foreign = await CreateTaskThroughTheApiAsync(other.BoardId, "Foreign");
@@ -1074,6 +1076,121 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
         Assert.Equal(message, error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AddProjectMember_gives_the_account_access_to_the_project()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var email = $"{Guid.NewGuid():N}@test.local";
+        var userId = await RegisterAsync(email);
+        var token = await LoginAsync(email);
+        Assert.Equal("NOT_FOUND", ErrorCode(await SendGraphQLAsync(BacklogOf(project), token)));
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { addProjectMember(input: { projectId: "{{project.ProjectId}}", email: "{{email}}", role: READER }) { projectId userId userName role } }
+            """);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var member = json.GetProperty("data").GetProperty("addProjectMember");
+        Assert.Equal(userId, member.GetProperty("userId").GetString());
+        Assert.Equal(email, member.GetProperty("userName").GetString());
+        Assert.Equal("READER", member.GetProperty("role").GetString());
+
+        var projects = await SendGraphQLAsync($$"""query { projects(userId: "{{userId}}") { id role } }""", token);
+        var listed = Assert.Single(projects.GetProperty("data").GetProperty("projects").EnumerateArray());
+        Assert.Equal(project.ProjectId.ToString(), listed.GetProperty("id").GetString());
+        Assert.Equal("READER", listed.GetProperty("role").GetString());
+        var backlog = await SendGraphQLAsync(BacklogOf(project), token);
+        Assert.False(backlog.TryGetProperty("errors", out var backlogErrors), backlogErrors.ToString());
+    }
+
+    [Fact]
+    public async Task RemoveProjectMember_ends_the_access_of_the_removed_account()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var email = $"{Guid.NewGuid():N}@test.local";
+        var userId = await RegisterAsync(email);
+        var token = await LoginAsync(email);
+        await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { addProjectMember(input: { projectId: "{{project.ProjectId}}", email: "{{email}}" }) { userId } }
+            """);
+        Assert.False((await SendGraphQLAsync(BacklogOf(project), token)).TryGetProperty("errors", out _));
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { removeProjectMember(input: { projectId: "{{project.ProjectId}}", userId: "{{userId}}" }) { userId role } }
+            """);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var removed = json.GetProperty("data").GetProperty("removeProjectMember");
+        Assert.Equal(userId, removed.GetProperty("userId").GetString());
+        Assert.Equal("WRITER", removed.GetProperty("role").GetString());
+        Assert.Equal("NOT_FOUND", ErrorCode(await SendGraphQLAsync(BacklogOf(project), token)));
+        var projects = await SendGraphQLAsync($$"""query { projects(userId: "{{userId}}") { id } }""", token);
+        Assert.Empty(projects.GetProperty("data").GetProperty("projects").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task RemoveProjectMember_of_the_owner_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { removeProjectMember(input: { projectId: "{{project.ProjectId}}", userId: "{{project.MemberId}}" }) { userId } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.EndsWith("is the owner of this project and can't be removed.", error.GetProperty("message").GetString());
+        Assert.False((await PostGraphQLAsMemberAsync(project, BacklogOf(project))).TryGetProperty("errors", out _));
+    }
+
+    [Fact]
+    public async Task AddProjectMember_as_OWNER_comes_back_with_BAD_USER_INPUT()
+    {
+        TestProject project;
+        (Guid Id, string Email) account;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            account = await TestData.CreateAccountAsync(db);
+        }
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { addProjectMember(input: { projectId: "{{project.ProjectId}}", email: "{{account.Email}}", role: OWNER }) { userId } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            "A project has only one owner. New members can be readers or writers.",
+            error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AddProjectMember_by_a_reader_comes_back_with_AUTH_NOT_AUTHORIZED()
+    {
+        TestProject project;
+        Guid readerId;
+        (Guid Id, string Email) account;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+            account = await TestData.CreateAccountAsync(db);
+        }
+
+        var json = await SendGraphQLAsync($$"""
+            mutation { addProjectMember(input: { projectId: "{{project.ProjectId}}", email: "{{account.Email}}" }) { userId } }
+            """, TokenFor(readerId));
+
+        Assert.Equal("AUTH_NOT_AUTHORIZED", ErrorCode(json));
     }
 
     [Fact]
@@ -1203,6 +1320,9 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private static string[] ReadableIds(JsonElement tasks) =>
         tasks.EnumerateArray().Select(t => t.GetProperty("readableId").GetString()!).ToArray();
+
+    private static string BacklogOf(TestProject project) =>
+        $$"""query { backlog(projectId: "{{project.ProjectId}}") { totalCount } }""";
 
     private string TokenFor(Guid userId) =>
         _factory.Services.GetRequiredService<IAccessTokenService>().Create(userId, $"{userId:N}@test.local").Token;

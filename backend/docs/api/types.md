@@ -130,6 +130,8 @@ Returned by [`projects`](queries/projects.md) and [`createProject`](mutations/cr
 
 ## ProjectMember
 
+A member of a project. Returned inside [`Project`](#project), and by [`addProjectMember`](mutations/addProjectMember.md) and [`removeProjectMember`](mutations/removeProjectMember.md).
+
 | Field       | Type                           | Notes |
 | ----------- | ------------------------------ | ----- |
 | `projectId` | `UUID!`                        | |
@@ -178,3 +180,9 @@ Returned by [`login`](mutations/login.md).
 ### ProjectRole
 
 `READER`, `WRITER`, `OWNER`
+
+| Role     | Who | Can do |
+| -------- | --- | ------ |
+| `OWNER`  | Exactly one per project: the user who created it. Can't be removed | Everything a writer can |
+| `WRITER` | Added with [`addProjectMember`](mutations/addProjectMember.md) | Manage members (readers and writers), add task dependencies, read the project |
+| `READER` | Added with [`addProjectMember`](mutations/addProjectMember.md) | Read the project, for example its [`backlog`](queries/backlog.md) |

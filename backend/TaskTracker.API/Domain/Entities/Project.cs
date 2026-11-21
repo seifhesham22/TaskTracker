@@ -76,14 +76,31 @@ namespace TaskTracker.API.Domain.Entities
             Key = normalized;
         }
 
-        public void AddOwner(Guid userId) =>
-            ProjectMembers.Add(new ProjectMember
+        public ProjectMember AddMember(Guid userId, ProjectRole role)
+        {
+            if (role == ProjectRole.Owner)
+                throw new DomainException("A project has only one owner. New members can be readers or writers.");
+
+            return Join(userId, role);
+        }
+
+        public void AddOwner(Guid userId) => Join(userId, ProjectRole.Owner);
+
+        public void Touch() => Update();
+
+        private ProjectMember Join(Guid userId, ProjectRole role)
+        {
+            var member = new ProjectMember
             {
                 ProjectId = Id,
                 UserId = userId,
-                ProjectRole = ProjectRole.Owner,
+                ProjectRole = role,
                 JoinedAt = DateTime.UtcNow
-            });
+            };
+
+            ProjectMembers.Add(member);
+            return member;
+        }
 
         public Board AddDefaultBoard()
         {
