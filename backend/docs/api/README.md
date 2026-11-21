@@ -10,7 +10,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`login`](mutations/login.md) | mutation | no | Checks an email and password and returns an access token |
 | [`logout`](mutations/logout.md) | mutation | yes | Ends the current session, so its token stops working |
 | [`me`](queries/me.md) | query | yes | The user the token belongs to |
-| [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
+| [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or of all your projects), with title search and status, priority and assignee filters |
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`workload`](queries/workload.md) | query | yes | Each member's open tasks with counts, to compare workloads; owner only |
 | [`projects`](queries/projects.md) | query | yes | The projects of the logged-in user, with their boards and members |
@@ -69,7 +69,7 @@ Queries are the entry points. From what they return, a request follows fields to
 me ──► User
 projects ─────────► Project ──► boards ──► Board ──► columns ──► Column
 board(id) ────────────────────────────────► Board ──► columns ──► Column
-tasks(boardId) ──► Task ──► column, status, assignees, blocks, blockedBy
+tasks(boardId, search, where) ──► Task ──► column, status, assignees, blocks, blockedBy
 backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──► items ──► Task
 workload(projectId) ──► ProjectWorkload ──► members ──► MemberWorkload ──► openTasks ──► Task
 ```

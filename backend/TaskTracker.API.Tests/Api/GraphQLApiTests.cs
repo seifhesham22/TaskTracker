@@ -1632,6 +1632,87 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
     }
 
+    [Theory]
+    [InlineData("", "Login API|Login page|Login tests|Signup API")]
+    [InlineData("search: \"LOGIN\"", "Login API|Login page|Login tests")]
+    [InlineData("where: { status: { eq: IN_PROGRESS } }", "Login API|Signup API")]
+    [InlineData("where: { priority: { in: [HIGH, CRITICAL] } }", "Login API|Login tests|Signup API")]
+    [InlineData("where: { assignees: { some: { userId: { eq: \"{writer}\" } } } }", "Login API|Login page")]
+    [InlineData("where: { assignees: { some: { userId: { in: [\"{writer}\", \"{reader}\"] } } } }", "Login API|Login page|Signup API")]
+    [InlineData("where: { assignees: { any: false } }", "Login tests")]
+    [InlineData("search: \"login\", where: { status: { eq: IN_PROGRESS }, assignees: { some: { userId: { eq: \"{writer}\" } } } }", "Login API")]
+    [InlineData("search: \"nothing like this\"", "")]
+    public async Task Tasks_of_a_board_can_be_searched_and_filtered(string arguments, string expected)
+    {
+        var (project, writerId, readerId) = await GivenBoardToFilterAsync();
+        arguments = arguments.Replace("{writer}", writerId.ToString()).Replace("{reader}", readerId.ToString());
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { tasks(boardId: "{{project.BoardId}}", {{arguments}}) { title } }
+            """);
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        Assert.Equal(
+            expected.Split('|', StringSplitOptions.RemoveEmptyEntries),
+            json.GetProperty("data").GetProperty("tasks").EnumerateArray().Select(t => t.GetProperty("title").GetString()));
+    }
+
+    [Fact]
+    public async Task Tasks_take_the_filter_as_a_variable_within_the_cost_limit()
+    {
+        var (project, writerId, _) = await GivenBoardToFilterAsync();
+
+        var json = await SendGraphQLAsync(
+            """
+            query Board($boardId: UUID!, $search: String, $where: TaskFilterInput) {
+              tasks(boardId: $boardId, search: $search, where: $where) {
+                id readableId title description priority status startDate dueDate parentTaskId boardId columnId position
+                column { id name category }
+                assignees { id userName }
+                blocks { readableId }
+                blockedBy { readableId }
+              }
+            }
+            """,
+            TokenFor(project.MemberId),
+            new
+            {
+                boardId = project.BoardId,
+                search = "login",
+                where = new { assignees = new { some = new { userId = new { eq = writerId } } } }
+            });
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        Assert.Equal(new[] { "Login API", "Login page" },
+            json.GetProperty("data").GetProperty("tasks").EnumerateArray().Select(t => t.GetProperty("title").GetString()));
+    }
+
+    [Fact]
+    public async Task Backlog_can_be_filtered_by_assignee_too()
+    {
+        var (project, _, readerId) = await GivenBoardToFilterAsync();
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { backlog(projectId: "{{project.ProjectId}}", where: { assignees: { some: { userId: { eq: "{{readerId}}" } } } }) { items { title } } }
+            """);
+
+        Assert.Equal(new[] { "Login page", "Signup API" }, BacklogTitles(json));
+    }
+
+    [Fact]
+    public async Task Filtering_a_board_of_a_project_the_user_is_not_in_comes_back_with_NOT_FOUND()
+    {
+        var (project, _, _) = await GivenBoardToFilterAsync();
+
+        var json = await PostGraphQLAsync($$"""
+            query { tasks(boardId: "{{project.BoardId}}", search: "login", where: { assignees: { any: true } }) { title } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
+    }
+
     [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
@@ -1824,6 +1905,41 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var task = json.GetProperty("data").GetProperty("tasks").EnumerateArray()
             .Single(t => t.GetProperty("id").GetString() == taskId);
         return task.GetProperty("assignees").EnumerateArray().Select(a => a.GetProperty("id").GetString()!).ToArray();
+    }
+
+    private async Task<(TestProject Project, Guid WriterId, Guid ReaderId)> GivenBoardToFilterAsync()
+    {
+        TestProject project;
+        Guid writerId, readerId, otherBoardId, otherColumnId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            writerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer);
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+            (otherBoardId, otherColumnId) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
+        }
+
+        await CreateTaskInColumnAsync(project.BoardId, project.InProgressColumnId, "Login API", "HIGH");
+        await CreateTaskInColumnAsync(project.BoardId, project.BacklogColumnId, "Login page", "LOW");
+        await CreateTaskInColumnAsync(project.BoardId, project.DoneColumnId, "Login tests", "CRITICAL");
+        await CreateTaskInColumnAsync(project.BoardId, project.InProgressColumnId, "Signup API", "HIGH");
+        await CreateTaskInColumnAsync(otherBoardId, otherColumnId, "Login on another board", "HIGH");
+
+        var tasks = (await PostGraphQLAsMemberAsync(project, $$"""
+                query { tasks(boardId: "{{project.BoardId}}") { id title } }
+                """))
+            .GetProperty("data").GetProperty("tasks").EnumerateArray()
+            .ToDictionary(t => t.GetProperty("title").GetString()!, t => t.GetProperty("id").GetString()!);
+
+        foreach (var (title, userId) in new[] { ("Login API", writerId), ("Login page", writerId), ("Login page", readerId), ("Signup API", readerId) })
+        {
+            var assigned = await PostGraphQLAsMemberAsync(project, $$"""
+                mutation { assignTask(input: { taskId: "{{tasks[title]}}", userId: "{{userId}}" }) { id } }
+                """);
+            Assert.False(assigned.TryGetProperty("errors", out var errors), errors.ToString());
+        }
+
+        return (project, writerId, readerId);
     }
 
     private static string BacklogOf(TestProject project) =>

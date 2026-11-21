@@ -1,6 +1,6 @@
 using HotChocolate.Data.Filters;
 
-namespace TaskTracker.API.Features.Tasks.GetBacklog
+namespace TaskTracker.API.Shared.Filtering
 {
     public sealed class IdOperationFilterInputType : ComparableOperationFilterInputType<UuidType>
     {

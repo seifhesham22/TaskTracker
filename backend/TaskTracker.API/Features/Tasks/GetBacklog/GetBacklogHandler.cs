@@ -4,6 +4,7 @@ using TaskTracker.API.Data;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Filtering;
 using TaskTracker.API.Shared.Membership;
 
 namespace TaskTracker.API.Features.Tasks.GetBacklog
@@ -12,7 +13,6 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
     {
         public const int DefaultPageSize = 20;
         public const int MaxPageSize = 100;
-        public const int MaxSearchLength = TaskItem.TitleMaxLength;
 
         public async Task<BacklogPage> HandleAsync(
             Guid projectId,
@@ -28,9 +28,7 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
             if (pageSize is < 1 or > MaxPageSize)
                 throw new BadUserInputException($"Page size must be between 1 and {MaxPageSize}.");
 
-            var term = search?.Trim() ?? "";
-            if (term.Length > MaxSearchLength)
-                throw new BadUserInputException($"Search cannot be longer than {MaxSearchLength} characters.");
+            var term = TaskTitleSearch.Normalize(search);
 
             (await membership.GetRoleAsync(projectId, userId, ct)).EnsureCanRead($"Project '{projectId}' was not found.");
 
@@ -43,11 +41,7 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
             if (where is not null)
                 query = query.Where(where);
 
-            if (term.Length > 0)
-            {
-                var pattern = $"%{EscapeLike(term)}%";
-                query = query.Where(t => EF.Functions.ILike(t.Title, pattern, @"\"));
-            }
+            query = query.WithTitleContaining(term);
 
             var totalCount = await query.CountAsync(ct);
             var skip = (long)(page - 1) * pageSize;
@@ -64,8 +58,5 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
 
             return new BacklogPage(items, totalCount, page, pageSize);
         }
-
-        private static string EscapeLike(string text) =>
-            text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
     }
 }
