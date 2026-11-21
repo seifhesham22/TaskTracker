@@ -16,5 +16,17 @@ namespace TaskTracker.API.Shared.Positions
 
             return PositionKey.After(lastPosition);
         }
+
+        public async Task<string> GetNextRankAsync(Guid projectId, CancellationToken ct)
+        {
+            var lastRank = await db.Set<TaskItem>()
+                .IgnoreQueryFilters()
+                .Where(t => t.ProjectId == projectId)
+                .OrderByDescending(t => t.Rank)
+                .Select(t => t.Rank)
+                .FirstOrDefaultAsync(ct);
+
+            return PositionKey.After(lastRank);
+        }
     }
 }

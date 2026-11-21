@@ -42,6 +42,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 await positions.GetNextPositionAsync(column.Id, ct),
                 input.Priority);
 
+            task.ChangeRank(await positions.GetNextRankAsync(board.ProjectId, ct));
             task.SetDescription(input.Description);
             task.Reschedule(input.StartDate, input.DueDate);
             task.ParentTaskId = input.ParentTaskId;

@@ -56,9 +56,7 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
                 return new BacklogPage([], totalCount, page, pageSize);
 
             var items = await query
-                .OrderBy(t => t.Board.Position).ThenBy(t => t.BoardId)
-                .ThenBy(t => t.Column.Position).ThenBy(t => t.ColumnId)
-                .ThenBy(t => t.Position).ThenBy(t => t.Id)
+                .OrderBy(t => t.Rank).ThenBy(t => t.Id)
                 .Skip((int)skip)
                 .Take(pageSize)
                 .Select(t => new TaskNode(t, t.Project.Key))

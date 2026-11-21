@@ -645,6 +645,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { createBoard(input: { projectId: \"00000000-0000-0000-0000-000000000001\", name: \"No token\" }) { id } }")]
     [InlineData("mutation { assignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
     [InlineData("mutation { unassignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
+    [InlineData("mutation { rankTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\" }) { id } }")]
     [InlineData("mutation { addProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", email: \"a@b.c\" }) { userId } }")]
     [InlineData("mutation { removeProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { userId } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
@@ -794,10 +795,10 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     [Theory]
     [InlineData("where: { status: { eq: IN_PROGRESS } }", "Login API|Signup API")]
-    [InlineData("where: { priority: { in: [HIGH, CRITICAL] } }", "Login API|Signup API|Login tests")]
+    [InlineData("where: { priority: { in: [HIGH, CRITICAL] } }", "Login API|Login tests|Signup API")]
     [InlineData("where: { status: { neq: DONE }, priority: { eq: HIGH } }", "Login API|Signup API")]
     [InlineData("where: { or: [{ status: { eq: BACKLOG } }, { priority: { eq: CRITICAL } }] }", "Login page|Login tests")]
-    [InlineData("search: \"LOGIN\"", "Login page|Login API|Login tests")]
+    [InlineData("search: \"LOGIN\"", "Login API|Login page|Login tests")]
     [InlineData("search: \"login\", where: { priority: { eq: HIGH } }", "Login API")]
     public async Task Backlog_applies_the_search_and_the_filters_sent_by_the_frontend(string arguments, string expected)
     {
@@ -1253,6 +1254,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("unassignTask", false)]
     [InlineData("assignTask", true)]
     [InlineData("unassignTask", true)]
+    [InlineData("rankTask", false)]
+    [InlineData("rankTask", true)]
     public async Task Someone_who_is_not_or_no_longer_a_member_gets_NOT_FOUND_and_changes_nothing(string operation, bool wasMember)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1303,6 +1306,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("addTaskDependency", "Only writers and owners of the project can add dependencies.")]
     [InlineData("assignTask", "Only writers and owners of the project can assign tasks.")]
     [InlineData("unassignTask", "Only writers and owners of the project can unassign tasks.")]
+    [InlineData("rankTask", "Only writers and owners of the project can change the backlog order.")]
     public async Task A_reader_cannot_change_tasks(string operation, string message)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1325,6 +1329,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("addTaskDependency")]
     [InlineData("assignTask")]
     [InlineData("unassignTask")]
+    [InlineData("rankTask")]
     public async Task A_writer_can_change_tasks(string operation)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1527,6 +1532,36 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
+    public async Task RankTask_changes_the_backlog_order_for_every_member()
+    {
+        TestProject project;
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+        }
+        var a = await CreateTaskThroughTheApiAsync(project.BoardId, "A");
+        var b = await CreateTaskThroughTheApiAsync(project.BoardId, "B");
+        var c = await CreateTaskThroughTheApiAsync(project.BoardId, "C");
+
+        var toTop = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { rankTask(input: { taskId: "{{c.Id}}" }) { readableId } }
+            """);
+        var afterB = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { rankTask(input: { taskId: "{{a.Id}}", afterTaskId: "{{b.Id}}" }) { readableId } }
+            """);
+
+        Assert.False(toTop.TryGetProperty("errors", out var errors), errors.ToString());
+        Assert.False(afterB.TryGetProperty("errors", out errors), errors.ToString());
+        Assert.Equal(c.ReadableId, toTop.GetProperty("data").GetProperty("rankTask").GetProperty("readableId").GetString());
+        var seenByReader = await SendGraphQLAsync($$"""
+            query { backlog(projectId: "{{project.ProjectId}}") { items { title } } }
+            """, TokenFor(readerId));
+        Assert.Equal(new[] { "C", "B", "A" }, BacklogTitles(seenByReader));
+    }
+
+    [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
         var email = $"{Guid.NewGuid():N}@test.local";
@@ -1683,6 +1718,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         "addTaskDependency" => $$"""mutation { addTaskDependency(input: { blockingTaskId: "{{taskId}}", blockedTaskId: "{{otherTaskId}}" }) { blockedTask { id } } }""",
         "assignTask" => $$"""mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
         "unassignTask" => $$"""mutation { unassignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
+        "rankTask" => $$"""mutation { rankTask(input: { taskId: "{{taskId}}", afterTaskId: "{{otherTaskId}}" }) { id } }""",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
     };
 
@@ -1699,9 +1735,10 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var tasks = await db.Set<TaskItem>()
             .Where(t => t.ProjectId == project.ProjectId)
             .OrderBy(t => t.Number)
-            .Select(t => new { t.Title, t.ColumnId })
+            .Select(t => new { t.Title, t.ColumnId, t.Rank })
             .ToListAsync();
         Assert.Equal(new[] { "First", "Second" }, tasks.Select(t => t.Title));
+        Assert.True(string.CompareOrdinal(tasks[0].Rank, tasks[1].Rank) < 0, "The backlog order changed.");
         Assert.All(tasks, t => Assert.Equal(project.BacklogColumnId, t.ColumnId));
         Assert.False(await db.taskDependencies.AnyAsync(d => d.BlockingTask.ProjectId == project.ProjectId));
         Assert.False(await db.assignees.AnyAsync(a => a.Task.ProjectId == project.ProjectId));

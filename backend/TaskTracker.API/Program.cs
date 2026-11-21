@@ -24,6 +24,7 @@ using TaskTracker.API.Features.Tasks.CreateTask;
 using TaskTracker.API.Features.Tasks.GetBacklog;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Features.Tasks.MoveTask;
+using TaskTracker.API.Features.Tasks.RankTask;
 using TaskTracker.API.Features.Tasks.UpdateTask;
 using TaskTracker.API.Features.Users.Me;
 using TaskTracker.API.Shared.Auth;
@@ -109,6 +110,7 @@ builder.Services.AddScoped<RemoveProjectMemberHandler>();
 builder.Services.AddScoped<GetBoardHandler>();
 builder.Services.AddScoped<CreateBoardHandler>();
 builder.Services.AddScoped<MoveTaskHandler>();
+builder.Services.AddScoped<RankTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<AddTaskDependencyHandler>();
 builder.Services.AddScoped<AssignTaskHandler>();
@@ -141,6 +143,7 @@ builder.Services
     .AddType<CreateBoardMutation>()
     .AddType<CreateTaskMutation>()
     .AddType<MoveTaskMutation>()
+    .AddType<RankTaskMutation>()
     .AddType<UpdateTaskMutation>()
     .AddType<AddTaskDependencyMutation>()
     .AddType<AssignTaskMutation>()
