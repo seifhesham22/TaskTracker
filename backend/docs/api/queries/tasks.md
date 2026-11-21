@@ -1,8 +1,10 @@
 # tasks
 
-Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `boardId` for the tasks of one board, or leave it out for all tasks. A board with no tasks returns an empty list.
+Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `boardId` for the tasks of one board, or leave it out for the tasks of every project the user is a member of. A board with no tasks returns an empty list.
 
 **Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
+
+**Members only**: with a `boardId`, the user in the token must be a member of the board's project, with any role (`READER`, `WRITER` or `OWNER`). For anyone else the board doesn't seem to exist (`NOT_FOUND`). See [Project access](../README.md#project-access).
 
 [Back to the API index](../README.md)
 
@@ -10,7 +12,7 @@ Returns tasks in the order they were created (`TES-1`, `TES-2`, …). Give a `bo
 
 | Argument  | Type   | Required | Notes |
 | --------- | ------ | -------- | ----- |
-| `boardId` | `UUID` | no       | Only the tasks of this board |
+| `boardId` | `UUID` | no       | Only the tasks of this board. Left out: the tasks of all the user's projects, never anyone else's |
 
 ## Returns
 
@@ -86,7 +88,7 @@ query {
 
 | Case                 | `extensions.code` | Message |
 | -------------------- | ----------------- | ------- |
-| Board does not exist | `NOT_FOUND`       | Board '…' was not found. |
+| Board does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Board '…' was not found. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes

@@ -12,7 +12,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`me`](queries/me.md) | query | yes | The user the token belongs to |
 | [`tasks`](queries/tasks.md) | query | yes | The tasks of a board (or all tasks), in the order they were created |
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
-| [`projects`](queries/projects.md) | query | yes | The projects a user is a member of, with their boards and members |
+| [`projects`](queries/projects.md) | query | yes | The projects of the logged-in user, with their boards and members |
 | [`createProject`](mutations/createProject.md) | mutation | yes | Creates a project with a default board; the logged-in user becomes its owner |
 | [`addProjectMember`](mutations/addProjectMember.md) | mutation | yes | Adds an existing account to a project by email, as a reader or writer |
 | [`removeProjectMember`](mutations/removeProjectMember.md) | mutation | yes | Removes a reader or writer from a project; the owner can't be removed |
@@ -41,13 +41,27 @@ The token carries the user's id in its `sub` claim and the email in `email`. On 
 
 A request without a valid token to an operation that needs one gets `AUTH_NOT_AUTHENTICATED`. That includes a missing token, an expired one, a logged-out one, and one signed with a different key.
 
+## Project access
+
+Everything about a project, its boards and its tasks is for the project's members only. The user is always the one in the token.
+
+| Kind | Operations | Who can | Everyone else |
+| --- | --- | --- | --- |
+| Read | [`projects`](queries/projects.md), [`board`](queries/board.md), [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) | Any member: `READER`, `WRITER` or `OWNER` | `NOT_FOUND` |
+| Write | [`createTask`](mutations/createTask.md), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`addProjectMember`](mutations/addProjectMember.md), [`removeProjectMember`](mutations/removeProjectMember.md) | `WRITER`s and the `OWNER` | A `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
+
+- A non-member gets exactly the same `NOT_FOUND` as for an id that doesn't exist, so nobody can find out which projects, boards or tasks exist by trying ids.
+- Fields inside a result (`Project.boards`, `Board.columns`, `Task.assignees`, `Task.blocks`, …) always belong to the same project, so the check on the operation covers them.
+- A removed member loses access with their next request.
+- [`createProject`](mutations/createProject.md) is open to every logged-in user, who becomes the owner. [`me`](queries/me.md), [`register`](mutations/register.md), [`login`](mutations/login.md) and [`logout`](mutations/logout.md) aren't about projects.
+
 ## How the schema fits together
 
 Queries are the entry points. From what they return, a request follows fields to related data:
 
 ```
 me ──► User
-projects(userId) ──► Project ──► boards ──► Board ──► columns ──► Column
+projects ─────────► Project ──► boards ──► Board ──► columns ──► Column
 board(id) ────────────────────────────────► Board ──► columns ──► Column
 tasks(boardId) ──► Task ──► column, status, assignees, blocks, blockedBy
 backlog(projectId, search, where, page, pageSize) ──► BacklogPage ──► items ──► Task
@@ -63,11 +77,11 @@ Errors come back in the GraphQL `errors` list, with a code in `extensions.code`.
 
 | Code | Meaning |
 | --- | --- |
-| `NOT_FOUND` | Something the request points to doesn't exist, for example a board id or a column that isn't on the task's board |
+| `NOT_FOUND` | Something the request points to doesn't exist, or belongs to a project the user isn't a member of. For example a board id, or a column that isn't on the task's board |
 | `BAD_USER_INPUT` | The request is understood but breaks a rule, for example an empty title |
 | `INVALID_CREDENTIALS` | `login` got a wrong email or password. The message is always the same, so it never says which one was wrong |
 | `AUTH_NOT_AUTHENTICATED` | The operation needs a token, and the request has none or an invalid one |
-| `AUTH_NOT_AUTHORIZED` | The user is a member of the project, but their role isn't allowed to do this, for example a `READER` adding a dependency |
+| `AUTH_NOT_AUTHORIZED` | The user is a member of the project, but their role isn't allowed to do this, for example a `READER` creating a task. Also: `projects` with someone else's `userId` |
 | (none) | The schema refused the request before it ran, for example a required field is missing. The message says which |
 
 ```json
@@ -83,9 +97,3 @@ Errors come back in the GraphQL `errors` list, with a code in `extensions.code`.
 ```
 
 Each operation page lists the cases and messages for that operation.
-
-## Not there yet
-
-[`projects`](queries/projects.md) still takes the user's id as an argument. It can switch to the user from the token, like [`me`](queries/me.md).
-
-Only [`backlog`](queries/backlog.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`addProjectMember`](mutations/addProjectMember.md) and [`removeProjectMember`](mutations/removeProjectMember.md) check that the user is a member of the project. The other operations need a token but don't check membership yet.

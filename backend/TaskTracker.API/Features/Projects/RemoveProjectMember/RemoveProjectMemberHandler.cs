@@ -20,8 +20,7 @@ namespace TaskTracker.API.Features.Projects.RemoveProjectMember
             if (project is null || await membership.GetRoleAsync(input.ProjectId, userId, ct) is not ProjectRole role)
                 throw new NotFoundException($"Project '{input.ProjectId}' was not found.");
 
-            if (!role.CanEdit())
-                throw new ForbiddenException("Only writers and owners of the project can remove members.");
+            role.EnsureCanEdit("Only writers and owners of the project can remove members.");
 
             var member = await db.projectMembers
                 .Include(m => m.User)

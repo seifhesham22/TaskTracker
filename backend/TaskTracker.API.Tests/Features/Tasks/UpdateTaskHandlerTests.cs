@@ -180,13 +180,15 @@ public class UpdateTaskHandlerTests(PostgresFixture database)
         var project = await TestData.CreateProjectAsync(db);
         return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(
             new CreateTaskInput(project.BoardId, null, "Original title", "Original description", null, TaskPriority.Low, November5),
+            project.MemberId,
             CancellationToken.None);
     }
 
     private async Task<TaskNode> UpdateAsync(UpdateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new UpdateTaskHandler(db, new TaskLookupService(db)).HandleAsync(input, CancellationToken.None);
+        var ownerId = await TestData.OwnerOfTaskAsync(db, input.TaskId);
+        return await new UpdateTaskHandler(db, new TaskLookupService(db, new ProjectMembershipService(database))).HandleAsync(input, ownerId, CancellationToken.None);
     }
 
     private async Task<TaskItem> SavedAsync(Guid taskId)

@@ -40,7 +40,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "From the API" }) { readableId status } }
             """);
 
@@ -69,7 +69,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "{{title}}" }) { id } }
             """);
 
@@ -117,20 +117,20 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             (otherBoardId, _) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
         }
 
-        var created = await PostGraphQLAsync($$"""
+        var created = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Board A task" }) { id title } }
             """);
         var task = created.GetProperty("data").GetProperty("createTask");
         var taskId = task.GetProperty("id").GetString();
         Assert.Equal("Board A task", task.GetProperty("title").GetString());
 
-        var onRequestedBoard = await PostGraphQLAsync($$"""
+        var onRequestedBoard = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{project.BoardId}}") { id } }
             """);
         var listedTask = Assert.Single(onRequestedBoard.GetProperty("data").GetProperty("tasks").EnumerateArray());
         Assert.Equal(taskId, listedTask.GetProperty("id").GetString());
 
-        var onOtherBoard = await PostGraphQLAsync($$"""
+        var onOtherBoard = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{otherBoardId}}") { id } }
             """);
         Assert.Empty(onOtherBoard.GetProperty("data").GetProperty("tasks").EnumerateArray());
@@ -147,14 +147,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        await PostGraphQLAsync($$"""
+        await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Assigned", assigneeId: "{{project.MemberId}}" }) { id } }
             """);
-        await PostGraphQLAsync($$"""
+        await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Nobody" }) { id } }
             """);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{project.BoardId}}") { readableId title column { name category } assignees { id userName } } }
             """);
 
@@ -194,7 +194,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             query { projects(userId: "{{project.MemberId}}") { id key role projectMembers { userId userName role } } }
             """);
 
@@ -224,7 +224,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsDeleted, true));
         }
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             query { projects(userId: "{{project.MemberId}}") { boards { id name } } }
             """);
 
@@ -252,7 +252,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             await db.SaveChangesAsync();
         }
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(first, $$"""
             query { projects(userId: "{{first.MemberId}}") { id boards { id } } }
             """);
 
@@ -266,17 +266,37 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
-    public async Task Projects_of_an_unknown_user_come_back_with_the_NOT_FOUND_code()
+    public async Task Projects_of_another_user_come_back_with_AUTH_NOT_AUTHORIZED()
     {
-        var userId = Guid.NewGuid();
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
 
         var json = await PostGraphQLAsync($$"""
-            query { projects(userId: "{{userId}}") { id } }
+            query { projects(userId: "{{project.MemberId}}") { id projectMembers { userName } } }
             """);
 
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
-        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
-        Assert.Equal($"User '{userId}' was not found.", error.GetProperty("message").GetString());
+        Assert.Equal("AUTH_NOT_AUTHORIZED", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal("You can only list your own projects.", error.GetProperty("message").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
+    }
+
+    [Fact]
+    public async Task Projects_without_a_user_id_lists_the_projects_of_the_logged_in_user()
+    {
+        TestProject mine;
+        await using (var db = database.CreateDbContext())
+        {
+            mine = await TestData.CreateProjectAsync(db);
+            await TestData.CreateProjectAsync(db);
+        }
+
+        var json = await PostGraphQLAsMemberAsync(mine, "query { projects { id role } }");
+
+        var listed = Assert.Single(json.GetProperty("data").GetProperty("projects").EnumerateArray());
+        Assert.Equal(mine.ProjectId.ToString(), listed.GetProperty("id").GetString());
+        Assert.Equal("OWNER", listed.GetProperty("role").GetString());
     }
 
     [Fact]
@@ -344,19 +364,19 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var parentJson = await PostGraphQLAsync($$"""
+        var parentJson = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Parent" }) { id parentTaskId } }
             """);
         var parent = parentJson.GetProperty("data").GetProperty("createTask");
         var parentId = parent.GetProperty("id").GetString();
         Assert.Equal(JsonValueKind.Null, parent.GetProperty("parentTaskId").ValueKind);
 
-        var childJson = await PostGraphQLAsync($$"""
+        var childJson = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { parentTaskId } }
             """);
         Assert.Equal(parentId, childJson.GetProperty("data").GetProperty("createTask").GetProperty("parentTaskId").GetString());
 
-        var tasksJson = await PostGraphQLAsync($$"""
+        var tasksJson = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{project.BoardId}}") { title parentTaskId } }
             """);
         var tasks = tasksJson.GetProperty("data").GetProperty("tasks").EnumerateArray().ToList();
@@ -372,13 +392,11 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         {
             project = await TestData.CreateProjectAsync(db);
             otherProject = await TestData.CreateProjectAsync(db);
+            await TestData.AddMemberAsync(db, otherProject.ProjectId, ProjectRole.Writer, project.MemberId);
         }
-        var parentJson = await PostGraphQLAsync($$"""
-            mutation { createTask(input: { boardId: "{{otherProject.BoardId}}", title: "Parent elsewhere" }) { id } }
-            """);
-        var parentId = parentJson.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
+        var (parentId, _) = await CreateTaskThroughTheApiAsync(otherProject.BoardId, "Parent elsewhere");
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { id } }
             """);
 
@@ -387,6 +405,26 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(
             $"Parent task '{parentId}' is in another project. A subtask must be in the same project as its parent.",
             error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task A_subtask_with_a_parent_in_a_project_the_user_is_not_in_comes_back_with_NOT_FOUND()
+    {
+        TestProject project, hiddenProject;
+        await using (var db = database.CreateDbContext())
+        {
+            project = await TestData.CreateProjectAsync(db);
+            hiddenProject = await TestData.CreateProjectAsync(db);
+        }
+        var (parentId, _) = await CreateTaskThroughTheApiAsync(hiddenProject.BoardId, "Hidden parent");
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal($"Parent task '{parentId}' was not found.", error.GetProperty("message").GetString());
     }
 
     [Fact]
@@ -402,7 +440,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             mutation { moveTask(input: { taskId: "{{parentId}}", columnId: "{{project.DoneColumnId}}" }) { status } }
             """;
 
-        var refused = await PostGraphQLAsync(completeParent);
+        var refused = await PostGraphQLAsMemberAsync(project, completeParent);
 
         var error = Assert.Single(refused.GetProperty("errors").EnumerateArray());
         var extensions = error.GetProperty("extensions");
@@ -412,11 +450,11 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             extensions.GetProperty("incompleteSubtasks").EnumerateArray().Select(s => s.GetProperty("readableId").GetString()));
 
         foreach (var subtaskId in new[] { firstId, secondId })
-            await PostGraphQLAsync($$"""
+            await PostGraphQLAsMemberAsync(project, $$"""
                 mutation { moveTask(input: { taskId: "{{subtaskId}}", columnId: "{{project.DoneColumnId}}" }) { id } }
                 """);
 
-        var accepted = await PostGraphQLAsync(completeParent);
+        var accepted = await PostGraphQLAsMemberAsync(project, completeParent);
 
         Assert.Equal("DONE", accepted.GetProperty("data").GetProperty("moveTask").GetProperty("status").GetString());
     }
@@ -429,7 +467,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             project = await TestData.CreateProjectAsync(db);
         var parentId = Guid.NewGuid();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Child", parentTaskId: "{{parentId}}" }) { id } }
             """);
 
@@ -445,12 +483,12 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var created = await PostGraphQLAsync($$"""
+        var created = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Move me" }) { id } }
             """);
         var taskId = created.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{project.InProgressColumnId}}" }) { id status columnId column { name category } } }
             """);
 
@@ -460,7 +498,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(project.InProgressColumnId.ToString(), moved.GetProperty("columnId").GetString());
         Assert.Equal("In requirement state", moved.GetProperty("column").GetProperty("name").GetString());
 
-        var tasksJson = await PostGraphQLAsync($$"""
+        var tasksJson = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{project.BoardId}}") { id status } }
             """);
         var task = Assert.Single(tasksJson.GetProperty("data").GetProperty("tasks").EnumerateArray());
@@ -478,12 +516,12 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             (_, otherColumnId) = await TestData.CreateBoardWithColumnAsync(db, project.ProjectId);
         }
 
-        var created = await PostGraphQLAsync($$"""
+        var created = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Stay" }) { id } }
             """);
         var taskId = created.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{otherColumnId}}" }) { id } }
             """);
 
@@ -640,14 +678,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "With dates", startDate: "2026-11-02T00:00:00Z", dueDate: "2026-11-09T00:00:00Z" }) { startDate dueDate } }
             """);
 
         var created = json.GetProperty("data").GetProperty("createTask");
         Assert.Equal(new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero), created.GetProperty("startDate").GetDateTimeOffset());
 
-        var tasks = await PostGraphQLAsync($$"""
+        var tasks = await PostGraphQLAsMemberAsync(project, $$"""
             query { tasks(boardId: "{{project.BoardId}}") { startDate dueDate } }
             """);
         var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
@@ -662,7 +700,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Bad dates", startDate: "2026-11-09T00:00:00Z", dueDate: "2026-11-02T00:00:00Z" }) { id } }
             """);
 
@@ -676,7 +714,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     {
         var (boardId, taskId) = await GivenTaskThroughTheApiAsync();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             mutation {
               updateTask(input: {
                 taskId: "{{taskId}}"
@@ -693,7 +731,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal("Updated title", updated.GetProperty("title").GetString());
         Assert.Equal("HIGH", updated.GetProperty("priority").GetString());
 
-        var tasks = await PostGraphQLAsync($$"""
+        var tasks = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             query { tasks(boardId: "{{boardId}}") { id title description priority startDate dueDate } }
             """);
         var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
@@ -707,9 +745,9 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [Fact]
     public async Task UpdateTask_clears_a_field_sent_as_null_and_keeps_the_fields_left_out()
     {
-        var (_, taskId) = await GivenTaskThroughTheApiAsync();
+        var (boardId, taskId) = await GivenTaskThroughTheApiAsync();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             mutation { updateTask(input: { taskId: "{{taskId}}", description: null }) { title description priority } }
             """);
 
@@ -724,7 +762,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     {
         var (boardId, taskId) = await GivenTaskThroughTheApiAsync();
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             mutation { updateTask(input: { taskId: "{{taskId}}", title: "", priority: CRITICAL }) { id } }
             """);
 
@@ -732,7 +770,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
         Assert.Equal("Title cannot be empty or only spaces.", error.GetProperty("message").GetString());
 
-        var tasks = await PostGraphQLAsync($$"""
+        var tasks = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             query { tasks(boardId: "{{boardId}}") { title priority } }
             """);
         var task = Assert.Single(tasks.GetProperty("data").GetProperty("tasks").EnumerateArray());
@@ -1193,6 +1231,119 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal("AUTH_NOT_AUTHORIZED", ErrorCode(json));
     }
 
+    [Theory]
+    [InlineData("tasks", false)]
+    [InlineData("board", false)]
+    [InlineData("backlog", false)]
+    [InlineData("createTask", false)]
+    [InlineData("moveTask", false)]
+    [InlineData("updateTask", false)]
+    [InlineData("addTaskDependency", false)]
+    [InlineData("tasks", true)]
+    [InlineData("board", true)]
+    [InlineData("backlog", true)]
+    [InlineData("createTask", true)]
+    [InlineData("moveTask", true)]
+    [InlineData("updateTask", true)]
+    [InlineData("addTaskDependency", true)]
+    public async Task Someone_who_is_not_or_no_longer_a_member_gets_NOT_FOUND_and_changes_nothing(string operation, bool wasMember)
+    {
+        var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
+        (Guid Id, string Email) outsider;
+        await using (var db = database.CreateDbContext())
+        {
+            outsider = await TestData.CreateAccountAsync(db);
+            if (wasMember)
+                await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer, outsider.Id);
+        }
+        if (wasMember)
+        {
+            var removed = await PostGraphQLAsMemberAsync(project, $$"""
+                mutation { removeProjectMember(input: { projectId: "{{project.ProjectId}}", userId: "{{outsider.Id}}" }) { userId } }
+                """);
+            Assert.False(removed.TryGetProperty("errors", out var removeErrors), removeErrors.ToString());
+        }
+
+        var json = await SendGraphQLAsync(AccessQuery(operation, project, taskId, otherTaskId), TokenFor(outsider.Id));
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(NotFoundMessage(operation, project, taskId), error.GetProperty("message").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("data").ValueKind);
+        await AssertTasksUnchangedAsync(project);
+    }
+
+    [Theory]
+    [InlineData("tasks")]
+    [InlineData("board")]
+    [InlineData("backlog")]
+    public async Task A_reader_can_read_the_project(string operation)
+    {
+        var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+
+        var json = await SendGraphQLAsync(AccessQuery(operation, project, taskId, otherTaskId), TokenFor(readerId));
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+    }
+
+    [Theory]
+    [InlineData("createTask", "Only writers and owners of the project can create tasks.")]
+    [InlineData("moveTask", "Only writers and owners of the project can move tasks.")]
+    [InlineData("updateTask", "Only writers and owners of the project can edit tasks.")]
+    [InlineData("addTaskDependency", "Only writers and owners of the project can add dependencies.")]
+    public async Task A_reader_cannot_change_tasks(string operation, string message)
+    {
+        var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+
+        var json = await SendGraphQLAsync(AccessQuery(operation, project, taskId, otherTaskId), TokenFor(readerId));
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("AUTH_NOT_AUTHORIZED", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(message, error.GetProperty("message").GetString());
+        await AssertTasksUnchangedAsync(project);
+    }
+
+    [Theory]
+    [InlineData("createTask")]
+    [InlineData("moveTask")]
+    [InlineData("updateTask")]
+    [InlineData("addTaskDependency")]
+    public async Task A_writer_can_change_tasks(string operation)
+    {
+        var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
+        Guid writerId;
+        await using (var db = database.CreateDbContext())
+            writerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer);
+
+        var json = await SendGraphQLAsync(AccessQuery(operation, project, taskId, otherTaskId), TokenFor(writerId));
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+    }
+
+    [Fact]
+    public async Task Tasks_without_a_board_lists_only_the_tasks_of_the_users_projects()
+    {
+        TestProject mine, theirs;
+        await using (var db = database.CreateDbContext())
+        {
+            mine = await TestData.CreateProjectAsync(db);
+            theirs = await TestData.CreateProjectAsync(db);
+        }
+        var (_, myTask) = await CreateTaskThroughTheApiAsync(mine.BoardId, "Mine");
+        await CreateTaskThroughTheApiAsync(theirs.BoardId, "Theirs");
+
+        var json = await PostGraphQLAsMemberAsync(mine, "query { tasks { readableId title } }");
+
+        var task = Assert.Single(json.GetProperty("data").GetProperty("tasks").EnumerateArray());
+        Assert.Equal(myTask, task.GetProperty("readableId").GetString());
+    }
+
     [Fact]
     public async Task Logout_ends_the_session_so_its_token_no_longer_works()
     {
@@ -1281,7 +1432,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private async Task<List<JsonElement>> GetBoardColumnsAsync(Guid boardId)
     {
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             query { board(id: "{{boardId}}") { id name columns { id name category position } } }
             """);
 
@@ -1296,6 +1447,14 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private Task<JsonElement> PostGraphQLAsMemberAsync(TestProject project, string query) =>
         SendGraphQLAsync(query, TokenFor(project.MemberId));
+
+    private async Task<JsonElement> PostGraphQLAsOwnerOfBoardAsync(Guid boardId, string query)
+    {
+        Guid ownerId;
+        await using (var db = database.CreateDbContext())
+            ownerId = await TestData.OwnerOfBoardAsync(db, boardId);
+        return await SendGraphQLAsync(query, TokenFor(ownerId));
+    }
 
     private Task<JsonElement> AddTaskDependencyAsync(TestProject project, string blockingTaskId, string blockedTaskId) =>
         PostGraphQLAsMemberAsync(project, AddTaskDependencyMutation(blockingTaskId, blockedTaskId));
@@ -1320,6 +1479,48 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private static string[] ReadableIds(JsonElement tasks) =>
         tasks.EnumerateArray().Select(t => t.GetProperty("readableId").GetString()!).ToArray();
+
+    private async Task<(TestProject Project, string TaskId, string OtherTaskId)> GivenProjectWithTwoTasksAsync()
+    {
+        TestProject project;
+        await using (var db = database.CreateDbContext())
+            project = await TestData.CreateProjectAsync(db);
+        var (taskId, _) = await CreateTaskThroughTheApiAsync(project.BoardId, "First");
+        var (otherTaskId, _) = await CreateTaskThroughTheApiAsync(project.BoardId, "Second");
+        return (project, taskId, otherTaskId);
+    }
+
+    private static string AccessQuery(string operation, TestProject project, string taskId, string otherTaskId) => operation switch
+    {
+        "tasks" => $$"""query { tasks(boardId: "{{project.BoardId}}") { id title } }""",
+        "board" => $$"""query { board(id: "{{project.BoardId}}") { id name columns { id } } }""",
+        "backlog" => $$"""query { backlog(projectId: "{{project.ProjectId}}") { totalCount items { title } } }""",
+        "createTask" => $$"""mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Added" }) { id } }""",
+        "moveTask" => $$"""mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{project.InProgressColumnId}}" }) { id } }""",
+        "updateTask" => $$"""mutation { updateTask(input: { taskId: "{{taskId}}", title: "Changed" }) { id } }""",
+        "addTaskDependency" => $$"""mutation { addTaskDependency(input: { blockingTaskId: "{{taskId}}", blockedTaskId: "{{otherTaskId}}" }) { blockedTask { id } } }""",
+        _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
+    };
+
+    private static string NotFoundMessage(string operation, TestProject project, string taskId) => operation switch
+    {
+        "tasks" or "board" or "createTask" => $"Board '{project.BoardId}' was not found.",
+        "backlog" => $"Project '{project.ProjectId}' was not found.",
+        _ => $"Task '{taskId}' was not found."
+    };
+
+    private async Task AssertTasksUnchangedAsync(TestProject project)
+    {
+        await using var db = database.CreateDbContext();
+        var tasks = await db.Set<TaskItem>()
+            .Where(t => t.ProjectId == project.ProjectId)
+            .OrderBy(t => t.Number)
+            .Select(t => new { t.Title, t.ColumnId })
+            .ToListAsync();
+        Assert.Equal(new[] { "First", "Second" }, tasks.Select(t => t.Title));
+        Assert.All(tasks, t => Assert.Equal(project.BacklogColumnId, t.ColumnId));
+        Assert.False(await db.taskDependencies.AnyAsync(d => d.BlockingTask.ProjectId == project.ProjectId));
+    }
 
     private static string BacklogOf(TestProject project) =>
         $$"""query { backlog(projectId: "{{project.ProjectId}}") { totalCount } }""";
@@ -1352,7 +1553,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private async Task CreateTaskInColumnAsync(Guid boardId, Guid columnId, string title, string priority)
     {
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             mutation { createTask(input: { boardId: "{{boardId}}", columnId: "{{columnId}}", title: "{{title}}", priority: {{priority}} }) { id } }
             """);
         Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
@@ -1380,7 +1581,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         await using (var db = database.CreateDbContext())
             project = await TestData.CreateProjectAsync(db);
 
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
             mutation { createTask(input: { boardId: "{{project.BoardId}}", title: "Original title", description: "Original description", priority: LOW }) { id } }
             """);
         return (project.BoardId, json.GetProperty("data").GetProperty("createTask").GetProperty("id").GetString()!);
@@ -1389,7 +1590,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     private async Task<(string Id, string ReadableId)> CreateTaskThroughTheApiAsync(Guid boardId, string title, string? parentId = null)
     {
         var parent = parentId is null ? "" : $", parentTaskId: \"{parentId}\"";
-        var json = await PostGraphQLAsync($$"""
+        var json = await PostGraphQLAsOwnerOfBoardAsync(boardId, $$"""
             mutation { createTask(input: { boardId: "{{boardId}}", title: "{{title}}"{{parent}} }) { id readableId } }
             """);
         var created = json.GetProperty("data").GetProperty("createTask");

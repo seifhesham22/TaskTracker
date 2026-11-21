@@ -83,17 +83,33 @@ public class GetTasksHandlerTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task Returns_the_tasks_of_all_boards_when_no_board_is_given()
+    public async Task Without_a_board_returns_the_tasks_of_every_project_of_the_user_and_no_others()
     {
-        var first = await GivenProjectAsync();
-        var second = await GivenProjectAsync();
-        var firstTask = await CreateTaskAsync(first.BoardId, "First project");
-        var secondTask = await CreateTaskAsync(second.BoardId, "Second project");
+        var mine = await GivenProjectAsync();
+        var shared = await GivenProjectAsync();
+        var theirs = await GivenProjectAsync();
+        await using (var db = database.CreateDbContext())
+            await TestData.AddMemberAsync(db, shared.ProjectId, ProjectRole.Reader, mine.MemberId);
+        var myTask = await CreateTaskAsync(mine.BoardId, "Mine");
+        var sharedTask = await CreateTaskAsync(shared.BoardId, "Shared with me");
+        await CreateTaskAsync(theirs.BoardId, "Not mine");
 
-        var ids = (await GetTasksAsync()).Select(t => t.Id).ToList();
+        var ids = (await GetTasksAsync(userId: mine.MemberId)).Select(t => t.Id).ToList();
 
-        Assert.Contains(firstTask.Id, ids);
-        Assert.Contains(secondTask.Id, ids);
+        Assert.Equal(new[] { myTask.Id, sharedTask.Id }.Order(), ids.Order());
+    }
+
+    [Fact]
+    public async Task A_user_who_is_not_a_member_of_the_board_gets_not_found()
+    {
+        var project = await GivenProjectAsync();
+        var other = await GivenProjectAsync();
+        await CreateTaskAsync(project.BoardId, "Private");
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(
+            () => GetTasksAsync(boardId: project.BoardId, userId: other.MemberId));
+
+        Assert.Equal($"Board '{project.BoardId}' was not found.", error.Message);
     }
 
     [Fact]
@@ -131,9 +147,13 @@ public class GetTasksHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, await TestData.OwnerOfBoardAsync(db, input.BoardId), CancellationToken.None);
     }
 
-    private Task<IReadOnlyList<TaskNode>> GetTasksAsync(Guid? boardId = null) =>
-        new GetTasksHandler(database).HandleAsync(boardId, CancellationToken.None);
+    private async Task<IReadOnlyList<TaskNode>> GetTasksAsync(Guid? boardId = null, Guid? userId = null)
+    {
+        await using var db = database.CreateDbContext();
+        var reader = userId ?? await TestData.OwnerOfBoardAsync(db, boardId ?? Guid.Empty);
+        return await new GetTasksHandler(database, new ProjectMembershipService(database)).HandleAsync(boardId, reader, CancellationToken.None);
+    }
 }

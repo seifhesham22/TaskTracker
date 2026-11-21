@@ -1,14 +1,16 @@
 using TaskTracker.API.Data;
 using TaskTracker.API.Features.Tasks.GetTasks;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Shared.Tasks;
 
 namespace TaskTracker.API.Features.Tasks.UpdateTask
 {
     public class UpdateTaskHandler(ApplicationDbContext db, ITaskLookupService tasks)
     {
-        public async Task<TaskNode> HandleAsync(UpdateTaskInput input, CancellationToken ct)
+        public async Task<TaskNode> HandleAsync(UpdateTaskInput input, Guid userId, CancellationToken ct)
         {
-            var task = await tasks.GetAsync(input.TaskId, ct);
+            var (task, role) = await tasks.GetAsync(input.TaskId, userId, ct);
+            role.EnsureCanEdit("Only writers and owners of the project can edit tasks.");
 
             if (input.Title.HasValue)
                 task.Rename(input.Title.Value ?? string.Empty);

@@ -239,6 +239,8 @@ public class CreateTaskHandlerTests(PostgresFixture database)
     {
         var project = await GivenProjectAsync();
         var otherProject = await GivenProjectAsync();
+        await using (var db = database.CreateDbContext())
+            await TestData.AddMemberAsync(db, otherProject.ProjectId, ProjectRole.Writer, project.MemberId);
         var parent = await CreateTaskAsync(TitleOnly(otherProject.BoardId, "In another project"));
 
         var error = await Assert.ThrowsAsync<BadUserInputException>(() =>
@@ -247,8 +249,66 @@ public class CreateTaskHandlerTests(PostgresFixture database)
         Assert.Equal(
             $"Parent task '{parent.Id}' is in another project. A subtask must be in the same project as its parent.",
             error.Message);
+        await using var check = database.CreateDbContext();
+        Assert.False(await check.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
+    [Fact]
+    public async Task A_parent_in_a_project_the_user_is_not_in_is_not_found()
+    {
+        var project = await GivenProjectAsync();
+        var hiddenProject = await GivenProjectAsync();
+        var parent = await CreateTaskAsync(TitleOnly(hiddenProject.BoardId, "Hidden"));
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(() =>
+            CreateTaskAsync(TitleOnly(project.BoardId, "Never saved") with { ParentTaskId = parent.Id }));
+
+        Assert.Equal($"Parent task '{parent.Id}' was not found.", error.Message);
         await using var db = database.CreateDbContext();
         Assert.False(await db.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
+    [Fact]
+    public async Task A_user_who_is_not_a_member_of_the_board_gets_not_found_and_nothing_is_created()
+    {
+        var project = await GivenProjectAsync();
+        var other = await GivenProjectAsync();
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(() =>
+            CreateTaskAsAsync(TitleOnly(project.BoardId, "Never saved"), other.MemberId));
+
+        Assert.Equal($"Board '{project.BoardId}' was not found.", error.Message);
+        await using var db = database.CreateDbContext();
+        Assert.False(await db.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
+    [Fact]
+    public async Task A_reader_cannot_create_tasks()
+    {
+        var project = await GivenProjectAsync();
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+
+        var error = await Assert.ThrowsAsync<ForbiddenException>(() =>
+            CreateTaskAsAsync(TitleOnly(project.BoardId, "Never saved"), readerId));
+
+        Assert.Equal("Only writers and owners of the project can create tasks.", error.Message);
+        await using var check = database.CreateDbContext();
+        Assert.False(await check.Set<TaskItem>().AnyAsync(t => t.BoardId == project.BoardId));
+    }
+
+    [Fact]
+    public async Task A_writer_can_create_tasks()
+    {
+        var project = await GivenProjectAsync();
+        Guid writerId;
+        await using (var db = database.CreateDbContext())
+            writerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer);
+
+        var created = await CreateTaskAsAsync(TitleOnly(project.BoardId, "By a writer"), writerId);
+
+        Assert.Equal("By a writer", created.Title);
     }
 
     [Fact]
@@ -322,7 +382,14 @@ public class CreateTaskHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, CancellationToken.None);
+        return await CreateTaskAsAsync(input, await TestData.OwnerOfBoardAsync(db, input.BoardId));
+    }
+
+    private async Task<TaskDto> CreateTaskAsAsync(CreateTaskInput input, Guid userId)
+    {
+        await using var db = database.CreateDbContext();
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database))
+            .HandleAsync(input, userId, CancellationToken.None);
     }
 
     private static CreateTaskInput TitleOnly(Guid boardId, string title = "A task") =>

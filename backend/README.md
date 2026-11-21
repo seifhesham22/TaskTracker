@@ -69,7 +69,7 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | --- | --- | --- |
 | [`tasks`](docs/api/queries/tasks.md) | query | The tasks of a board (or all tasks), in the order they were created |
 | [`backlog`](docs/api/queries/backlog.md) | query | All tasks of a project as one ordered list, in pages, with search and filters |
-| [`projects`](docs/api/queries/projects.md) | query | The projects a user is a member of, with their boards and members |
+| [`projects`](docs/api/queries/projects.md) | query | The projects of the logged-in user, with their boards and members |
 | [`createProject`](docs/api/mutations/createProject.md) | mutation | Creates a project with a default board; the logged-in user becomes its owner |
 | [`addProjectMember`](docs/api/mutations/addProjectMember.md) | mutation | Adds an existing account to a project by email, as a reader or writer |
 | [`removeProjectMember`](docs/api/mutations/removeProjectMember.md) | mutation | Removes a reader or writer from a project; the owner can't be removed |

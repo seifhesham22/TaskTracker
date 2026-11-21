@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TaskTracker.API.Data;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Domain.Enums;
@@ -93,6 +94,22 @@ public static class TestData
     }
 
     private static string NewProjectKey() => "T" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+
+    public static Task<Guid> OwnerOfBoardAsync(ApplicationDbContext db, Guid boardId) =>
+        db.boards
+            .Where(b => b.Id == boardId)
+            .SelectMany(b => b.Project.ProjectMembers)
+            .Where(m => m.ProjectRole == ProjectRole.Owner)
+            .Select(m => m.UserId)
+            .FirstOrDefaultAsync();
+
+    public static Task<Guid> OwnerOfTaskAsync(ApplicationDbContext db, Guid taskId) =>
+        db.Set<TaskItem>()
+            .Where(t => t.Id == taskId)
+            .SelectMany(t => t.Project.ProjectMembers)
+            .Where(m => m.ProjectRole == ProjectRole.Owner)
+            .Select(m => m.UserId)
+            .FirstOrDefaultAsync();
 
     public static async Task<(Guid Id, string Email)> CreateAccountAsync(ApplicationDbContext db)
     {

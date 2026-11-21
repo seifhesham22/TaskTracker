@@ -202,12 +202,14 @@ public class MoveTaskHandlerTests(PostgresFixture database)
     private async Task<TaskDto> CreateTaskAsync(CreateTaskInput input)
     {
         await using var db = database.CreateDbContext();
-        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, CancellationToken.None);
+        return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(input, await TestData.OwnerOfBoardAsync(db, input.BoardId), CancellationToken.None);
     }
 
     private async Task<TaskNode> MoveTaskAsync(Guid taskId, Guid columnId)
     {
         await using var db = database.CreateDbContext();
-        return await new MoveTaskHandler(db, new TaskLookupService(db), new TaskPositionService(db), new TaskCompletionGuard(db)).HandleAsync(new MoveTaskInput(taskId, columnId), CancellationToken.None);
+        var ownerId = await TestData.OwnerOfTaskAsync(db, taskId);
+        return await new MoveTaskHandler(db, new TaskLookupService(db, new ProjectMembershipService(database)), new TaskPositionService(db), new TaskCompletionGuard(db))
+            .HandleAsync(new MoveTaskInput(taskId, columnId), ownerId, CancellationToken.None);
     }
 }

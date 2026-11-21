@@ -56,7 +56,7 @@ public class TaskItemDatabaseTests(PostgresFixture database)
         await using var db = database.CreateDbContext();
         var project = await TestData.CreateProjectAsync(db);
         var task = await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database))
-            .HandleAsync(new CreateTaskInput(project.BoardId, null, "Valid task", null, null, null, null), CancellationToken.None);
+            .HandleAsync(new CreateTaskInput(project.BoardId, null, "Valid task", null, null, null, null), project.MemberId, CancellationToken.None);
         return task.Id;
     }
 }
