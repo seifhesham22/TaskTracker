@@ -40,6 +40,7 @@ Tasks on deleted boards are not listed. Tasks of other projects never are.
 | `priority`     | `eq`, `neq`, `in`, `nin` with [`TaskPriority`](../types.md#taskpriority) values, or `null` | `{ priority: { in: [HIGH, CRITICAL] } }` |
 | `boardId`      | `eq`, `neq`, `in`, `nin` | `{ boardId: { eq: "01a1…" } }` |
 | `parentTaskId` | `eq`, `neq`, `in`, `nin` | `{ parentTaskId: { eq: null } }` for tasks that aren't subtasks |
+| `assignees`    | `some`, `none`, `all` with `{ userId: { eq / neq / in / nin } }`, or `any: true / false` | `{ assignees: { some: { userId: { eq: "01a1…" } } } }` for the tasks of one member; `{ assignees: { any: false } }` for unassigned tasks |
 | `and`, `or`    | a list of filters      | `{ or: [{ status: { eq: BACKLOG } }, { priority: { eq: CRITICAL } }] }` |
 
 Fields in the same object must all match (AND):
