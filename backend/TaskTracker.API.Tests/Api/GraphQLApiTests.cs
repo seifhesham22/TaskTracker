@@ -643,6 +643,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("mutation { addTaskDependency(input: { blockingTaskId: \"00000000-0000-0000-0000-000000000001\", blockedTaskId: \"00000000-0000-0000-0000-000000000002\" }) { blockedTask { id } } }")]
     [InlineData("mutation { createProject(input: { name: \"No token\" }) { id } }")]
     [InlineData("mutation { createBoard(input: { projectId: \"00000000-0000-0000-0000-000000000001\", name: \"No token\" }) { id } }")]
+    [InlineData("mutation { assignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
+    [InlineData("mutation { unassignTask(input: { taskId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { id } }")]
     [InlineData("mutation { addProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", email: \"a@b.c\" }) { userId } }")]
     [InlineData("mutation { removeProjectMember(input: { projectId: \"00000000-0000-0000-0000-000000000001\", userId: \"00000000-0000-0000-0000-000000000002\" }) { userId } }")]
     public async Task Protected_operations_are_refused_without_a_token(string query)
@@ -1247,6 +1249,10 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("moveTask", true)]
     [InlineData("updateTask", true)]
     [InlineData("addTaskDependency", true)]
+    [InlineData("assignTask", false)]
+    [InlineData("unassignTask", false)]
+    [InlineData("assignTask", true)]
+    [InlineData("unassignTask", true)]
     public async Task Someone_who_is_not_or_no_longer_a_member_gets_NOT_FOUND_and_changes_nothing(string operation, bool wasMember)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1295,6 +1301,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("moveTask", "Only writers and owners of the project can move tasks.")]
     [InlineData("updateTask", "Only writers and owners of the project can edit tasks.")]
     [InlineData("addTaskDependency", "Only writers and owners of the project can add dependencies.")]
+    [InlineData("assignTask", "Only writers and owners of the project can assign tasks.")]
+    [InlineData("unassignTask", "Only writers and owners of the project can unassign tasks.")]
     public async Task A_reader_cannot_change_tasks(string operation, string message)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1315,6 +1323,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     [InlineData("moveTask")]
     [InlineData("updateTask")]
     [InlineData("addTaskDependency")]
+    [InlineData("assignTask")]
+    [InlineData("unassignTask")]
     public async Task A_writer_can_change_tasks(string operation)
     {
         var (project, taskId, otherTaskId) = await GivenProjectWithTwoTasksAsync();
@@ -1427,6 +1437,56 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
         Assert.Equal("NOT_FOUND", error.GetProperty("extensions").GetProperty("code").GetString());
         Assert.Equal($"Project '{project.ProjectId}' was not found.", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AssignTask_adds_assignees_and_unassignTask_removes_only_that_one()
+    {
+        var (project, taskId, _) = await GivenProjectWithTwoTasksAsync();
+        Guid writerId;
+        await using (var db = database.CreateDbContext())
+            writerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Writer);
+
+        await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id } }
+            """);
+        var assigned = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{writerId}}" }) { id assignees { id userName } } }
+            """);
+
+        Assert.False(assigned.TryGetProperty("errors", out var errors), errors.ToString());
+        var both = new[] { project.MemberId.ToString(), writerId.ToString() }.Order().ToArray();
+        Assert.Equal(both, assigned.GetProperty("data").GetProperty("assignTask").GetProperty("assignees")
+            .EnumerateArray().Select(a => a.GetProperty("id").GetString()).Order());
+        Assert.Equal(both, (await AssigneeIdsInTasksQueryAsync(project, taskId)).Order());
+
+        var unassigned = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { unassignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }
+            """);
+
+        var remaining = Assert.Single(unassigned.GetProperty("data").GetProperty("unassignTask").GetProperty("assignees").EnumerateArray());
+        Assert.Equal(writerId.ToString(), remaining.GetProperty("id").GetString());
+        Assert.Equal(new[] { writerId.ToString() }, await AssigneeIdsInTasksQueryAsync(project, taskId));
+    }
+
+    [Fact]
+    public async Task AssignTask_of_a_user_outside_the_project_comes_back_with_BAD_USER_INPUT()
+    {
+        var (project, taskId, _) = await GivenProjectWithTwoTasksAsync();
+        (Guid Id, string Email) outsider;
+        await using (var db = database.CreateDbContext())
+            outsider = await TestData.CreateAccountAsync(db);
+
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{outsider.Id}}" }) { id } }
+            """);
+
+        var error = Assert.Single(json.GetProperty("errors").EnumerateArray());
+        Assert.Equal("BAD_USER_INPUT", error.GetProperty("extensions").GetProperty("code").GetString());
+        Assert.Equal(
+            $"User '{outsider.Id}' is not a member of project {project.Key}, so they can't be assigned to this task.",
+            error.GetProperty("message").GetString());
+        Assert.Empty(await AssigneeIdsInTasksQueryAsync(project, taskId));
     }
 
     [Fact]
@@ -1584,6 +1644,8 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         "moveTask" => $$"""mutation { moveTask(input: { taskId: "{{taskId}}", columnId: "{{project.InProgressColumnId}}" }) { id } }""",
         "updateTask" => $$"""mutation { updateTask(input: { taskId: "{{taskId}}", title: "Changed" }) { id } }""",
         "addTaskDependency" => $$"""mutation { addTaskDependency(input: { blockingTaskId: "{{taskId}}", blockedTaskId: "{{otherTaskId}}" }) { blockedTask { id } } }""",
+        "assignTask" => $$"""mutation { assignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
+        "unassignTask" => $$"""mutation { unassignTask(input: { taskId: "{{taskId}}", userId: "{{project.MemberId}}" }) { id assignees { id } } }""",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
     };
 
@@ -1605,6 +1667,17 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(new[] { "First", "Second" }, tasks.Select(t => t.Title));
         Assert.All(tasks, t => Assert.Equal(project.BacklogColumnId, t.ColumnId));
         Assert.False(await db.taskDependencies.AnyAsync(d => d.BlockingTask.ProjectId == project.ProjectId));
+        Assert.False(await db.assignees.AnyAsync(a => a.Task.ProjectId == project.ProjectId));
+    }
+
+    private async Task<string[]> AssigneeIdsInTasksQueryAsync(TestProject project, string taskId)
+    {
+        var json = await PostGraphQLAsMemberAsync(project, $$"""
+            query { tasks(boardId: "{{project.BoardId}}") { id assignees { id } } }
+            """);
+        var task = json.GetProperty("data").GetProperty("tasks").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == taskId);
+        return task.GetProperty("assignees").EnumerateArray().Select(a => a.GetProperty("id").GetString()!).ToArray();
     }
 
     private static string BacklogOf(TestProject project) =>

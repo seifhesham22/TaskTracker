@@ -22,6 +22,8 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`moveTask`](mutations/moveTask.md) | mutation | yes | Moves a task to another column, which changes its status |
 | [`updateTask`](mutations/updateTask.md) | mutation | yes | Changes a task's title, description, priority and dates |
 | [`addTaskDependency`](mutations/addTaskDependency.md) | mutation | yes | Says that one task blocks another in the same project, refusing cycles |
+| [`assignTask`](mutations/assignTask.md) | mutation | yes | Adds a project member to a task's assignees; a task can have several |
+| [`unassignTask`](mutations/unassignTask.md) | mutation | yes | Removes one assignee from a task; the others stay |
 
 Every type these operations return is described once in [types.md](types.md).
 
@@ -49,7 +51,7 @@ Everything about a project, its boards and its tasks is for the project's member
 | Kind | Operations | Who can | Everyone else |
 | --- | --- | --- | --- |
 | Read | [`projects`](queries/projects.md), [`board`](queries/board.md), [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) | Any member: `READER`, `WRITER` or `OWNER` | `NOT_FOUND` |
-| Write | [`createTask`](mutations/createTask.md), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`addProjectMember`](mutations/addProjectMember.md), [`removeProjectMember`](mutations/removeProjectMember.md) | `WRITER`s and the `OWNER` | A `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
+| Write | [`createTask`](mutations/createTask.md), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`assignTask`](mutations/assignTask.md), [`unassignTask`](mutations/unassignTask.md), [`addProjectMember`](mutations/addProjectMember.md), [`removeProjectMember`](mutations/removeProjectMember.md) | `WRITER`s and the `OWNER` | A `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
 | Owner only | [`createBoard`](mutations/createBoard.md) | The `OWNER` | A `WRITER` or `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
 
 - A non-member gets exactly the same `NOT_FOUND` as for an id that doesn't exist, so nobody can find out which projects, boards or tasks exist by trying ids.

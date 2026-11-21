@@ -90,10 +90,23 @@ namespace TaskTracker.API.Domain.Entities
             DueDate = dueDate;
         }
 
-        public void AssignTo(Guid userId)
+        public bool AssignTo(Guid userId)
         {
-            if (Assignees.All(a => a.UserId != userId))
-                Assignees.Add(new TaskAssignee(Id, userId));
+            if (Assignees.Any(a => a.UserId == userId))
+                return false;
+
+            Assignees.Add(new TaskAssignee(Id, userId));
+            return true;
+        }
+
+        public bool Unassign(Guid userId)
+        {
+            var assignee = Assignees.FirstOrDefault(a => a.UserId == userId);
+            if (assignee is null)
+                return false;
+
+            Assignees.Remove(assignee);
+            return true;
         }
 
         public void MoveTo(Guid columnId, string position)
