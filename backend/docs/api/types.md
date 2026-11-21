@@ -90,13 +90,13 @@ The task as returned by [`createTask`](mutations/createTask.md). It is a flat sh
 
 ## Board
 
-Returned by [`board`](queries/board.md), and by `Project.boards` in [`projects`](queries/projects.md).
+Returned by [`board`](queries/board.md) and [`createBoard`](mutations/createBoard.md), and by `Project.boards` in [`projects`](queries/projects.md).
 
 | Field       | Type                   | Notes |
 | ----------- | ---------------------- | ----- |
 | `id`        | `UUID!`                | |
 | `projectId` | `UUID!`                | |
-| `name`      | `String!`              | |
+| `name`      | `String!`              | Unique in its project, in any case |
 | `columns`   | [`[Column!]!`](#column) | In board order. An empty list when the board has no columns |
 
 `columns` is loaded with a DataLoader.

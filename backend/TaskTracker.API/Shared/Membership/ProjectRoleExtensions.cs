@@ -17,6 +17,12 @@ namespace TaskTracker.API.Shared.Membership
             return member;
         }
 
+        public static void EnsureIsOwner(this ProjectRole role, string forbiddenMessage)
+        {
+            if (role != ProjectRole.Owner)
+                throw new ForbiddenException(forbiddenMessage);
+        }
+
         public static void EnsureCanEdit(this ProjectRole role, string forbiddenMessage)
         {
             if (!role.CanEdit())

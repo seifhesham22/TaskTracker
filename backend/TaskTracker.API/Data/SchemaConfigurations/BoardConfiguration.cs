@@ -10,7 +10,7 @@ namespace TaskTracker.API.Data.SchemaConfigurations
         {
             builder.ToTable("boards");
 
-            builder.Property(x => x.Name).HasMaxLength(100);
+            builder.Property(x => x.Name).HasMaxLength(Board.NameMaxLength);
             builder.Property(x => x.Description).HasMaxLength(2000);
             builder.Property(x => x.Color).HasMaxLength(7);
             builder.Property(x => x.Icon).HasMaxLength(50);

@@ -102,9 +102,11 @@ namespace TaskTracker.API.Domain.Entities
             return member;
         }
 
-        public Board AddDefaultBoard()
+        public Board AddDefaultBoard() => AddBoard("Board", "V");
+
+        public Board AddBoard(string name, string position)
         {
-            var board = new Board { ProjectId = Id, Name = "Board", Position = "V" };
+            var board = new Board { ProjectId = Id, Name = Board.ValidName(name), Position = position };
             board.AddDefaultColumns();
             Boards.Add(board);
             return board;

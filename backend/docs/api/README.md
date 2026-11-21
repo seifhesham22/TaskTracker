@@ -14,6 +14,7 @@ The endpoint is `/graphql` (for example http://localhost:8080/graphql with Docke
 | [`backlog`](queries/backlog.md) | query | yes | All tasks of a project as one ordered list, in pages, with search and filters |
 | [`projects`](queries/projects.md) | query | yes | The projects of the logged-in user, with their boards and members |
 | [`createProject`](mutations/createProject.md) | mutation | yes | Creates a project with a default board; the logged-in user becomes its owner |
+| [`createBoard`](mutations/createBoard.md) | mutation | yes | Adds a board with the default columns to a project; owner only |
 | [`addProjectMember`](mutations/addProjectMember.md) | mutation | yes | Adds an existing account to a project by email, as a reader or writer |
 | [`removeProjectMember`](mutations/removeProjectMember.md) | mutation | yes | Removes a reader or writer from a project; the owner can't be removed |
 | [`board`](queries/board.md) | query | yes | One board with its columns |
@@ -49,6 +50,7 @@ Everything about a project, its boards and its tasks is for the project's member
 | --- | --- | --- | --- |
 | Read | [`projects`](queries/projects.md), [`board`](queries/board.md), [`tasks`](queries/tasks.md), [`backlog`](queries/backlog.md) | Any member: `READER`, `WRITER` or `OWNER` | `NOT_FOUND` |
 | Write | [`createTask`](mutations/createTask.md), [`moveTask`](mutations/moveTask.md), [`updateTask`](mutations/updateTask.md), [`addTaskDependency`](mutations/addTaskDependency.md), [`addProjectMember`](mutations/addProjectMember.md), [`removeProjectMember`](mutations/removeProjectMember.md) | `WRITER`s and the `OWNER` | A `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
+| Owner only | [`createBoard`](mutations/createBoard.md) | The `OWNER` | A `WRITER` or `READER` gets `AUTH_NOT_AUTHORIZED`, a non-member `NOT_FOUND` |
 
 - A non-member gets exactly the same `NOT_FOUND` as for an id that doesn't exist, so nobody can find out which projects, boards or tasks exist by trying ids.
 - Fields inside a result (`Project.boards`, `Board.columns`, `Task.assignees`, `Task.blocks`, …) always belong to the same project, so the check on the operation covers them.
