@@ -16,7 +16,7 @@ namespace TaskTracker.API.Tests.Features.Tasks;
 public class GetBacklogHandlerTests(PostgresFixture database)
 {
     [Fact]
-    public async Task Lists_the_tasks_board_by_board_column_by_column_in_their_position_order()
+    public async Task New_tasks_are_added_at_the_bottom_whatever_their_board_or_column()
     {
         var project = await GivenProjectAsync();
         var otherBoard = await GivenOtherBoardAsync(project);
@@ -29,7 +29,7 @@ public class GetBacklogHandlerTests(PostgresFixture database)
         var backlog = await GetBacklogAsync(project);
 
         Assert.Equal(
-            new[] { "Backlog 1", "Backlog 2", "In progress 1", "Done 1", "Other board 1" },
+            new[] { "Done 1", "Other board 1", "Backlog 1", "In progress 1", "Backlog 2" },
             backlog.Items.Select(t => t.Title));
     }
 

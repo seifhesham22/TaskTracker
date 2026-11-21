@@ -27,6 +27,7 @@ namespace TaskTracker.API.Domain.Entities
         public decimal? EstimateHours { get; set; }
         public int? StoryPoints { get; set; }
         public string Position { get; set; } = string.Empty;
+        public string Rank { get; private set; } = string.Empty;
         public Guid? CreatedById { get; set; }
         public User? CreatedBy { get; set; }
         public Guid? DeletedById { get; set; }
@@ -113,6 +114,14 @@ namespace TaskTracker.API.Domain.Entities
         {
             ColumnId = columnId;
             Position = position;
+        }
+
+        public void ChangeRank(string rank)
+        {
+            if (string.IsNullOrEmpty(rank))
+                throw new DomainException("A task's rank cannot be empty.");
+
+            Rank = rank;
         }
 
         public static string ReadableId(string projectKey, int number) => $"{projectKey}-{number}";

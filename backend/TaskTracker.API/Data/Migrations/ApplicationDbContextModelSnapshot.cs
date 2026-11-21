@@ -455,6 +455,12 @@ namespace TaskTracker.API.Data.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .UseCollation("C");
+
                     b.Property<DateTime?>("RestoredAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -484,6 +490,8 @@ namespace TaskTracker.API.Data.Migrations
 
                     b.HasIndex("ProjectId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("ProjectId", "Rank");
 
                     b.ToTable("tasks", null, t =>
                         {

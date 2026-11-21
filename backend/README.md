@@ -77,6 +77,7 @@ Every query and mutation has its own page in [docs/api](docs/api/README.md):
 | [`board`](docs/api/queries/board.md) | query | One board with its columns |
 | [`createTask`](docs/api/mutations/createTask.md) | mutation | Creates a task, or a subtask, in a column of a board |
 | [`moveTask`](docs/api/mutations/moveTask.md) | mutation | Moves a task to another column, which changes its status |
+| [`rankTask`](docs/api/mutations/rankTask.md) | mutation | Changes the place of a task in the project's backlog order |
 | [`updateTask`](docs/api/mutations/updateTask.md) | mutation | Changes a task's title, description, priority and dates |
 | [`addTaskDependency`](docs/api/mutations/addTaskDependency.md) | mutation | Says that one task blocks another in the same project, refusing cycles |
 | [`assignTask`](docs/api/mutations/assignTask.md) | mutation | Adds a project member to a task's assignees; a task can have several |

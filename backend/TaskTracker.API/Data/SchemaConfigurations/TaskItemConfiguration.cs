@@ -17,6 +17,8 @@ namespace TaskTracker.API.Data.SchemaConfigurations
             builder.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
             builder.Property(x => x.EstimateHours).HasPrecision(6, 2);
             builder.Property(x => x.Position).HasMaxLength(64).UseCollation("C");
+            builder.Property(x => x.Rank).HasMaxLength(255).UseCollation("C");
+            builder.HasIndex(x => new { x.ProjectId, x.Rank });
 
             builder.Property(x => x.Number).ValueGeneratedOnAdd()
                 .Metadata.SetValueGenerationStrategy(NpgsqlValueGenerationStrategy.None);

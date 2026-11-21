@@ -20,7 +20,13 @@ Returns every task of one project as a single list, one page at a time. The list
 
 ## Order
 
-The order is always the same, so pages never repeat or skip a task: board by board (in board order), column by column (in column order), then the task's position in its column. That is the order the boards show, read left to right and top to bottom.
+The backlog has its own order, its **rank**, saved on each task. It is the same for every member, and it doesn't depend on the boards: a task keeps its place in the backlog when it moves between columns.
+
+- Writers and the owner change the order with [`rankTask`](../mutations/rankTask.md), for example after a drag and drop.
+- A new task goes to the bottom of the backlog.
+- Tasks that existed before the backlog had its own order kept the order they had then: board by board, column by column, then by position in the column.
+
+The order is always the same between requests (rank, then id), so pages never repeat or skip a task.
 
 Tasks on deleted boards are not listed. Tasks of other projects never are.
 
