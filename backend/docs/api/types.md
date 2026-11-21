@@ -114,7 +114,7 @@ A column of a board. Its category is the status of every task in it.
 
 ## Project
 
-Returned by [`projects`](queries/projects.md).
+Returned by [`projects`](queries/projects.md) and [`createProject`](mutations/createProject.md).
 
 | Field            | Type                              | Notes |
 | ---------------- | --------------------------------- | ----- |
@@ -122,7 +122,7 @@ Returned by [`projects`](queries/projects.md).
 | `key`            | `String!`                         | e.g. `TES`. The start of every task's `readableId` |
 | `name`           | `String!`                         | |
 | `description`    | `String`                          | `null` when not set |
-| `role`           | [`ProjectRole!`](#projectrole)    | The role of the user the projects were asked for |
+| `role`           | [`ProjectRole!`](#projectrole)    | The role of the user the projects were asked for. Always `OWNER` from `createProject` |
 | `boards`         | [`[Board!]!`](#board)             | In board order. Deleted boards are left out |
 | `projectMembers` | [`[ProjectMember!]!`](#projectmember) | Sorted by user name |
 

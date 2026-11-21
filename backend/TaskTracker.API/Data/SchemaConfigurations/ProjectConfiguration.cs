@@ -10,9 +10,9 @@ namespace TaskTracker.API.Data.SchemaConfigurations
         {
             builder.ToTable("projects");
 
-            builder.Property(x => x.Name).HasMaxLength(100);
-            builder.Property(x => x.Key).HasMaxLength(10);
-            builder.Property(x => x.Description).HasMaxLength(2000);
+            builder.Property(x => x.Name).HasMaxLength(Project.NameMaxLength);
+            builder.Property(x => x.Key).HasMaxLength(Project.KeyMaxLength);
+            builder.Property(x => x.Description).HasMaxLength(Project.DescriptionMaxLength);
 
             builder.HasIndex(x => x.Key).IsUnique();
             builder.HasQueryFilter(x => !x.IsDeleted);
