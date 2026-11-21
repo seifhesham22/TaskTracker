@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskTracker.API.Data;
 using TaskTracker.API.Domain.Entities;
 using TaskTracker.API.Features.Tasks.GetTasks;
+using TaskTracker.API.Shared.Concurrency;
 using TaskTracker.API.Shared.Dependencies;
 using TaskTracker.API.Shared.Exceptions;
 using TaskTracker.API.Shared.Membership;
@@ -15,12 +16,17 @@ namespace TaskTracker.API.Features.Tasks.AddTaskDependency
         IProjectMembershipService membership,
         ITaskDependencyCycleGuard cycles)
     {
-        public async Task<TaskDependencyPayload> HandleAsync(AddTaskDependencyInput input, Guid userId, CancellationToken ct)
+        public Task<TaskDependencyPayload> HandleAsync(AddTaskDependencyInput input, Guid userId, CancellationToken ct)
         {
             var dependency = new TaskDependency(input.BlockingTaskId, input.BlockedTaskId);
 
-            var blocking = await tasks.GetAsync(input.BlockingTaskId, ct);
-            var blocked = await tasks.GetAsync(input.BlockedTaskId, ct);
+            return db.RetryOnConflictAsync(() => AddAsync(dependency, userId, ct));
+        }
+
+        private async Task<TaskDependencyPayload> AddAsync(TaskDependency dependency, Guid userId, CancellationToken ct)
+        {
+            var blocking = await tasks.GetAsync(dependency.BlockingTaskId, ct);
+            var blocked = await tasks.GetAsync(dependency.BlockedTaskId, ct);
 
             var role = await membership.GetRoleAsync(blocking.ProjectId, userId, ct)
                 ?? throw new NotFoundException($"Task '{blocking.Id}' was not found.");
@@ -38,28 +44,18 @@ namespace TaskTracker.API.Features.Tasks.AddTaskDependency
             if (!role.CanEdit())
                 throw new ForbiddenException("Only writers and owners of the project can add dependencies.");
 
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await LockDependenciesOfProjectAsync(blocking.ProjectId, ct);
-
             if (!await ExistsAsync(dependency, ct))
             {
                 await cycles.EnsureNoCycleAsync(blocking, blocked, blocking.Project.Key, ct);
 
-                db.taskDependencies.Add(dependency);
+                db.taskDependencies.Add(new TaskDependency(dependency.BlockingTaskId, dependency.BlockedTaskId));
+                blocking.Project.Touch();
                 await db.SaveChangesAsync(ct);
             }
-
-            await transaction.CommitAsync(ct);
 
             return new TaskDependencyPayload(
                 new TaskNode(blocking, blocking.Project.Key),
                 new TaskNode(blocked, blocked.Project.Key));
-        }
-
-        private Task LockDependenciesOfProjectAsync(Guid projectId, CancellationToken ct)
-        {
-            var key = BitConverter.ToInt64(projectId.ToByteArray(), 8);
-            return db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({key})", ct);
         }
 
         private Task<bool> ExistsAsync(TaskDependency dependency, CancellationToken ct) =>

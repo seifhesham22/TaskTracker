@@ -96,5 +96,5 @@ In the cycle message, `→` means "blocks", and the chain is the existing path t
   }
   ```
 
-- Two requests that would close a cycle together, sent at the same moment, can't both succeed. Dependencies of one project are added one at a time.
+- Two requests that would close a cycle together, sent at the same moment, can't both succeed. If the project changes while a request is running, the request is checked again against the new data before it saves, and then finds the cycle.
 - There is no mutation to remove a dependency yet.
