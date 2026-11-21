@@ -2,6 +2,8 @@
 
 Changes the title, description, priority and dates of an existing task. **Needs a token** (see [Authentication](../README.md#authentication)).
 
+**Writers and the owner only**: the user in the token must be a `WRITER` or the `OWNER` of the project (see [Project access](../README.md#project-access)). A `READER` gets `AUTH_NOT_AUTHORIZED`. For anyone who isn't a member, the task doesn't seem to exist (`NOT_FOUND`).
+
 Only the fields you send change:
 
 - **Left out**: the field keeps its saved value.
@@ -92,6 +94,7 @@ mutation {
 | Title is empty, only spaces, or `null` | `BAD_USER_INPUT`        | Title cannot be empty or only spaces. |
 | Title longer than 200 characters      | `BAD_USER_INPUT`         | Title cannot be longer than 200 characters. |
 | Due date before the start date        | `BAD_USER_INPUT`         | The due date cannot be before the start date. |
-| Task does not exist                   | `NOT_FOUND`              | Task '…' was not found. |
+| Task does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Task '…' was not found. |
+| The user is a `READER` of the project | `AUTH_NOT_AUTHORIZED`    | Only writers and owners of the project can edit tasks. |
 | `taskId` missing                      | (none)                   | Refused by the schema: the field is required and cannot be null. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |

@@ -287,7 +287,7 @@ public class AddTaskDependencyHandlerTests(PostgresFixture database)
     {
         await using var db = database.CreateDbContext();
         return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database))
-            .HandleAsync(new CreateTaskInput(boardId, null, title, null, null, null, null), CancellationToken.None);
+            .HandleAsync(new CreateTaskInput(boardId, null, title, null, null, null, null), await TestData.OwnerOfBoardAsync(db, boardId), CancellationToken.None);
     }
 
     private async Task<TaskDto[]> CreateTasksAsync(TestProject project, int count)
@@ -305,7 +305,7 @@ public class AddTaskDependencyHandlerTests(PostgresFixture database)
     {
         await using var db = database.CreateDbContext();
         var handler = new AddTaskDependencyHandler(
-            db, new TaskLookupService(db), new ProjectMembershipService(database), new TaskDependencyCycleGuard(db));
+            db, new TaskLookupService(db, new ProjectMembershipService(database)), new TaskDependencyCycleGuard(db));
         return await handler.HandleAsync(new AddTaskDependencyInput(blockingId, blockedId), userId, CancellationToken.None);
     }
 

@@ -102,4 +102,4 @@ mutation {
 ## Notes
 
 - The key can't be changed later, because every task's readable id is built from it.
-- To see the new project in the list: `query { projects(userId: "<your id>") { id key name role } }`. Your id is in [`me`](../queries/me.md).
+- To see the new project in the list: `query { projects { id key name role } }`.

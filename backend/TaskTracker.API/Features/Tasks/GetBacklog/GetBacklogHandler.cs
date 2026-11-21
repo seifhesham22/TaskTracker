@@ -32,8 +32,7 @@ namespace TaskTracker.API.Features.Tasks.GetBacklog
             if (term.Length > MaxSearchLength)
                 throw new BadUserInputException($"Search cannot be longer than {MaxSearchLength} characters.");
 
-            if (await membership.GetRoleAsync(projectId, userId, ct) is null)
-                throw new NotFoundException($"Project '{projectId}' was not found.");
+            (await membership.GetRoleAsync(projectId, userId, ct)).EnsureCanRead($"Project '{projectId}' was not found.");
 
             await using var db = await _db.CreateDbContextAsync(ct);
 

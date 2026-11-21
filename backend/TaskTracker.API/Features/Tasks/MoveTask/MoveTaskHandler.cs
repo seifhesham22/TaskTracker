@@ -4,6 +4,7 @@ using TaskTracker.API.Domain.Enums;
 using TaskTracker.API.Features.Tasks.GetTasks;
 using TaskTracker.API.Shared.Completion;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Shared.Positions;
 using TaskTracker.API.Shared.Tasks;
 
@@ -15,9 +16,10 @@ namespace TaskTracker.API.Features.Tasks.MoveTask
         ITaskPositionService positions,
         ITaskCompletionGuard completion)
     {
-        public async Task<TaskNode> HandleAsync(MoveTaskInput input, CancellationToken ct)
+        public async Task<TaskNode> HandleAsync(MoveTaskInput input, Guid userId, CancellationToken ct)
         {
-            var task = await tasks.GetAsync(input.TaskId, ct);
+            var (task, role) = await tasks.GetAsync(input.TaskId, userId, ct);
+            role.EnsureCanEdit("Only writers and owners of the project can move tasks.");
 
             var targetCategory = await db.boardColumns
                 .Where(c => c.Id == input.ColumnId && c.BoardId == task.BoardId)

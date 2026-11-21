@@ -16,8 +16,12 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
         private record ColumnInfo(Guid Id, string Name, ColumnCategory Category);
         private record BoardInfo(Guid Id, Guid ProjectId, string ProjectKey, ColumnInfo? Column);
 
-        public async Task<TaskDto> HandleAsync(CreateTaskInput input, CancellationToken ct)
+        public async Task<TaskDto> HandleAsync(CreateTaskInput input, Guid userId, CancellationToken ct)
         {
+            (await membership.GetRoleOnBoardAsync(input.BoardId, userId, ct)).EnsureCanWrite(
+                $"Board '{input.BoardId}' was not found.",
+                "Only writers and owners of the project can create tasks.");
+
             var board = await GetBoardAsync(input.BoardId, input.ColumnId, ct);
 
             var column = board.Column ?? throw (input.ColumnId is null
@@ -28,7 +32,7 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                 await EnsureProjectMemberAsync(board, assigneeId, ct);
 
             if (input.ParentTaskId is Guid parentTaskId)
-                await EnsureParentInProjectAsync(board, parentTaskId, ct);
+                await EnsureParentInProjectAsync(board, parentTaskId, userId, ct);
 
             var task = new TaskItem(
                 board.ProjectId,
@@ -88,17 +92,23 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
                     $"User '{userId}' is not a member of project {board.ProjectKey}, so they can't be assigned to this task.");
         }
 
-        private async Task EnsureParentInProjectAsync(BoardInfo board, Guid parentTaskId, CancellationToken ct)
+        private async Task EnsureParentInProjectAsync(BoardInfo board, Guid parentTaskId, Guid userId, CancellationToken ct)
         {
+            var notFound = $"Parent task '{parentTaskId}' was not found.";
+
             var parentProjectId = await db.Set<TaskItem>()
                 .Where(t => t.Id == parentTaskId)
                 .Select(t => (Guid?)t.ProjectId)
                 .FirstOrDefaultAsync(ct)
-                ?? throw new NotFoundException($"Parent task '{parentTaskId}' was not found.");
+                ?? throw new NotFoundException(notFound);
 
-            if (parentProjectId != board.ProjectId)
-                throw new BadUserInputException(
-                    $"Parent task '{parentTaskId}' is in another project. A subtask must be in the same project as its parent.");
+            if (parentProjectId == board.ProjectId)
+                return;
+
+            (await membership.GetRoleAsync(parentProjectId, userId, ct)).EnsureCanRead(notFound);
+
+            throw new BadUserInputException(
+                $"Parent task '{parentTaskId}' is in another project. A subtask must be in the same project as its parent.");
         }
     }
 }

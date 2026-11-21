@@ -8,6 +8,8 @@ The response is the same [`Task`](../types.md#task) type the [`tasks`](../querie
 
 **Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
 
+**Writers and the owner only**: the user in the token must be a `WRITER` or the `OWNER` of the project (see [Project access](../README.md#project-access)). A `READER` gets `AUTH_NOT_AUTHORIZED`. For anyone who isn't a member, the task doesn't seem to exist (`NOT_FOUND`).
+
 [Back to the API index](../README.md)
 
 ## Input
@@ -63,7 +65,8 @@ mutation {
 
 | Case                              | `extensions.code` | Message |
 | --------------------------------- | ----------------- | ------- |
-| Task does not exist               | `NOT_FOUND`       | Task '…' was not found. |
+| Task does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Task '…' was not found. |
+| The user is a `READER` of the project | `AUTH_NOT_AUTHORIZED` | Only writers and owners of the project can move tasks. |
 | Column is not on the task's board | `NOT_FOUND`       | Column '…' was not found on board '…'. |
 | Moving a parent into a Done column while a subtask is not done | `BAD_USER_INPUT` | TES-5 can't be completed while these 2 subtasks are not done: TES-6 (Write tests), TES-7 (Review). |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |

@@ -352,6 +352,7 @@ public class GetBacklogHandlerTests(PostgresFixture database)
         await using var db = database.CreateDbContext();
         return await new CreateTaskHandler(db, new TaskPositionService(db), new ProjectMembershipService(database)).HandleAsync(
             new CreateTaskInput(boardId, columnId, title, null, null, priority, null),
+            await TestData.OwnerOfBoardAsync(db, boardId),
             CancellationToken.None);
     }
 

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using TaskTracker.API.Domain.Enums;
 using TaskTracker.API.Features.Boards.GetBoard;
 using TaskTracker.API.Features.Boards.Nodes;
 using TaskTracker.API.Shared.Exceptions;
+using TaskTracker.API.Shared.Membership;
 using TaskTracker.API.Tests.Infrastructure;
 
 namespace TaskTracker.API.Tests.Features.Boards;
@@ -45,12 +47,40 @@ public class GetBoardHandlerTests(PostgresFixture database)
         Assert.Equal($"Board '{project.BoardId}' was not found.", error.Message);
     }
 
+    [Fact]
+    public async Task A_reader_can_open_the_board()
+    {
+        var project = await GivenProjectAsync();
+        Guid readerId;
+        await using (var db = database.CreateDbContext())
+            readerId = await TestData.AddMemberAsync(db, project.ProjectId, ProjectRole.Reader);
+
+        var board = await GetBoardAsync(project.BoardId, readerId);
+
+        Assert.Equal(project.BoardId, board.Id);
+    }
+
+    [Fact]
+    public async Task A_user_who_is_not_a_member_gets_not_found()
+    {
+        var project = await GivenProjectAsync();
+        var other = await GivenProjectAsync();
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(() => GetBoardAsync(project.BoardId, other.MemberId));
+
+        Assert.Equal($"Board '{project.BoardId}' was not found.", error.Message);
+    }
+
     private async Task<TestProject> GivenProjectAsync()
     {
         await using var db = database.CreateDbContext();
         return await TestData.CreateProjectAsync(db);
     }
 
-    private Task<BoardNode> GetBoardAsync(Guid boardId) =>
-        new GetBoardHandler(database).HandleAsync(boardId, CancellationToken.None);
+    private async Task<BoardNode> GetBoardAsync(Guid boardId, Guid? userId = null)
+    {
+        await using var db = database.CreateDbContext();
+        var reader = userId ?? await TestData.OwnerOfBoardAsync(db, boardId);
+        return await new GetBoardHandler(database, new ProjectMembershipService(database)).HandleAsync(boardId, reader, CancellationToken.None);
+    }
 }

@@ -4,6 +4,8 @@ Returns one board with its columns. This is what the board screen asks for when 
 
 **Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
 
+**Members only**: the user in the token must be a member of the board's project, with any role (`READER`, `WRITER` or `OWNER`). For anyone else the board doesn't seem to exist (`NOT_FOUND`). See [Project access](../README.md#project-access).
+
 [Back to the API index](../README.md)
 
 ## Arguments
@@ -56,7 +58,7 @@ query {
 
 | Case                                 | `extensions.code` | Message |
 | ------------------------------------ | ----------------- | ------- |
-| Board does not exist, or was deleted | `NOT_FOUND`       | Board '…' was not found. |
+| Board does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Board '…' was not found. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes

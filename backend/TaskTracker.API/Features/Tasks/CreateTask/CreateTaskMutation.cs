@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using HotChocolate.Authorization;
+using TaskTracker.API.Shared.Auth;
 
 namespace TaskTracker.API.Features.Tasks.CreateTask
 {
@@ -8,8 +10,9 @@ namespace TaskTracker.API.Features.Tasks.CreateTask
         [Authorize]
         public Task<TaskDto> CreateTaskAsync(
             CreateTaskInput input,
+            ClaimsPrincipal claimsPrincipal,
             [Service] CreateTaskHandler handler,
             CancellationToken cancellationToken)
-            => handler.HandleAsync(input, cancellationToken);
+            => handler.HandleAsync(input, claimsPrincipal.GetUserId(), cancellationToken);
     }
 }

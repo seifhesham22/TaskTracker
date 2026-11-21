@@ -4,6 +4,8 @@ Creates a task in a column of a board. The task's status is the category of that
 
 **Needs a token**: send `Authorization: Bearer <accessToken>` (see [Authentication](../README.md#authentication)).
 
+**Writers and the owner only**: the user in the token must be a `WRITER` or the `OWNER` of the project (see [Project access](../README.md#project-access)). A `READER` gets `AUTH_NOT_AUTHORIZED`. For anyone who isn't a member, the board doesn't seem to exist (`NOT_FOUND`).
+
 [Back to the API index](../README.md)
 
 ## Input
@@ -83,11 +85,12 @@ mutation {
 | Title is empty or only spaces                     | `BAD_USER_INPUT`  | Title cannot be empty or only spaces. |
 | Title longer than 200 characters                  | `BAD_USER_INPUT`  | Title cannot be longer than 200 characters. |
 | Assignee is not in the project                    | `BAD_USER_INPUT`  | User '…' is not a member of project TES, so they can't be assigned to this task. |
-| Board does not exist                              | `NOT_FOUND`       | Board '…' was not found. |
+| Board does not exist, was deleted, or the user isn't a member of its project | `NOT_FOUND` | Board '…' was not found. |
+| The user is a `READER` of the project             | `AUTH_NOT_AUTHORIZED` | Only writers and owners of the project can create tasks. |
 | Column is not on that board                       | `NOT_FOUND`       | Column '…' was not found on board '…'. |
 | Board has no columns (and no `columnId` was sent) | `BAD_USER_INPUT`  | This board has no columns, so the task can't get a status. |
-| Parent task does not exist, or was deleted        | `NOT_FOUND`       | Parent task '…' was not found. |
-| Parent task is in another project                 | `BAD_USER_INPUT`  | Parent task '…' is in another project. A subtask must be in the same project as its parent. |
+| Parent task does not exist, was deleted, or is in a project the user isn't a member of | `NOT_FOUND` | Parent task '…' was not found. |
+| Parent task is in another project the user is also a member of | `BAD_USER_INPUT` | Parent task '…' is in another project. A subtask must be in the same project as its parent. |
 | Due date before the start date                    | `BAD_USER_INPUT`  | The due date cannot be before the start date. |
 | Title missing completely                          | (none)            | Refused by the schema: `title` is a required field and cannot be null. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |

@@ -1,6 +1,6 @@
 # projects
 
-Returns the projects a user is a member of, sorted by name, each with the role that user has in it. Deleted projects never come back. A user who is in no project gets an empty list.
+Returns the projects of the logged-in user (the user in the token), sorted by name, each with the role the user has in it. Deleted projects never come back. A user who is in no project gets an empty list.
 
 This is what the sidebar asks for: every project with its boards, in one request.
 
@@ -12,7 +12,7 @@ This is what the sidebar asks for: every project with its boards, in one request
 
 | Argument | Type    | Required | Notes |
 | -------- | ------- | -------- | ----- |
-| `userId` | `UUID!` | yes      | The user whose projects you get. Temporary until login |
+| `userId` | `UUID`  | no       | Leave it out. Kept so older clients keep working: if it is sent, it must be the logged-in user's own id |
 
 ## Returns
 
@@ -22,7 +22,7 @@ A list of [`Project`](../types.md#project).
 
 ```graphql
 query {
-  projects(userId: "01a18766-479c-7ec2-be3f-3c3a00989ad6") {
+  projects {
     id
     key
     name
@@ -68,11 +68,10 @@ query {
 
 | Case                | `extensions.code` | Message |
 | ------------------- | ----------------- | ------- |
-| User does not exist | `NOT_FOUND`       | User '…' was not found. |
+| `userId` is someone else's id | `AUTH_NOT_AUTHORIZED` | You can only list your own projects. |
 | No token, or an expired or invalid token | `AUTH_NOT_AUTHENTICATED` | The current user is not authorized to access this resource. |
 
 ## Notes
 
-- Get a user id with `SELECT "UserId" FROM project_members;`.
 - `boards` and `projectMembers` are loaded with DataLoaders: one SQL query each for all the projects in the response, and only when the query asks for them.
 - Boards also have `columns` (see [`Board`](../types.md#board)), but the sidebar doesn't need them.

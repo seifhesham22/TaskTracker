@@ -32,8 +32,7 @@ namespace TaskTracker.API.Features.Projects.AddProjectMember
             if (project is null || await membership.GetRoleAsync(input.ProjectId, userId, ct) is not ProjectRole role)
                 throw new NotFoundException($"Project '{input.ProjectId}' was not found.");
 
-            if (!role.CanEdit())
-                throw new ForbiddenException("Only writers and owners of the project can add members.");
+            role.EnsureCanEdit("Only writers and owners of the project can add members.");
 
             var account = await users.FindByEmailAsync(email)
                 ?? throw new NotFoundException($"No account with the email '{email}' was found.");

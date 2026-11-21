@@ -13,7 +13,6 @@ namespace TaskTracker.API.Features.Tasks.AddTaskDependency
     public class AddTaskDependencyHandler(
         ApplicationDbContext db,
         ITaskLookupService tasks,
-        IProjectMembershipService membership,
         ITaskDependencyCycleGuard cycles)
     {
         public Task<TaskDependencyPayload> HandleAsync(AddTaskDependencyInput input, Guid userId, CancellationToken ct)
@@ -25,24 +24,15 @@ namespace TaskTracker.API.Features.Tasks.AddTaskDependency
 
         private async Task<TaskDependencyPayload> AddAsync(TaskDependency dependency, Guid userId, CancellationToken ct)
         {
-            var blocking = await tasks.GetAsync(dependency.BlockingTaskId, ct);
-            var blocked = await tasks.GetAsync(dependency.BlockedTaskId, ct);
-
-            var role = await membership.GetRoleAsync(blocking.ProjectId, userId, ct)
-                ?? throw new NotFoundException($"Task '{blocking.Id}' was not found.");
+            var (blocking, role) = await tasks.GetAsync(dependency.BlockingTaskId, userId, ct);
+            var (blocked, _) = await tasks.GetAsync(dependency.BlockedTaskId, userId, ct);
 
             if (blocked.ProjectId != blocking.ProjectId)
-            {
-                if (await membership.GetRoleAsync(blocked.ProjectId, userId, ct) is null)
-                    throw new NotFoundException($"Task '{blocked.Id}' was not found.");
-
                 throw new BadUserInputException(
                     $"{ReadableId(blocking)} and {ReadableId(blocked)} are in different projects. " +
                     "A task can only block a task of the same project.");
-            }
 
-            if (!role.CanEdit())
-                throw new ForbiddenException("Only writers and owners of the project can add dependencies.");
+            role.EnsureCanEdit("Only writers and owners of the project can add dependencies.");
 
             if (!await ExistsAsync(dependency, ct))
             {
