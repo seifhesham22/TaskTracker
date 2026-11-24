@@ -176,3 +176,14 @@ export interface GetBacklogInput {
   readonly page?: number;
   readonly pageSize?: number;
 }
+
+export interface CreateProjectInput {
+  readonly name: string;
+  readonly key?: string | null;
+  readonly description?: string | null;
+}
+
+export interface ProjectValidationErrors {
+  readonly name?: string;
+  readonly form?: string;
+}
