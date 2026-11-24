@@ -1128,16 +1128,20 @@ describe('Board & Task acceptance tests', () => {
       expect(screen.getByText('Plan the project launch')).toBeInTheDocument();
     });
 
-    it('reloads the task and verifies that saved changes remain', async () => {
+    it('saves all 5 editable fields via updateTask and verifies they survive reload', async () => {
       let taskData = { ...initialTask };
       vi.spyOn(api.board, 'getBoardWithTasks').mockImplementation(async () => ({
         board: boardWithTask.board,
         tasks: [taskData],
       }));
-      vi.spyOn(api.board, 'updateTask').mockImplementation(async (input) => {
+      const updateSpy = vi.spyOn(api.board, 'updateTask').mockImplementation(async (input) => {
         taskData = {
           ...taskData,
-          title: input.title || taskData.title,
+          title: input.title ?? taskData.title,
+          description: input.description !== undefined ? input.description : taskData.description,
+          priority: input.priority !== undefined ? input.priority : taskData.priority,
+          startDate: input.startDate !== undefined ? input.startDate : taskData.startDate,
+          dueDate: input.dueDate !== undefined ? input.dueDate : taskData.dueDate,
         };
         return taskData;
       });
@@ -1149,15 +1153,46 @@ describe('Board & Task acceptance tests', () => {
       fireEvent.click(editBtn);
 
       const titleInput = await screen.findByLabelText(/title \*/i);
-      fireEvent.change(titleInput, { target: { value: 'Persisted Edit Title' } });
+      const descInput = screen.getByLabelText(/description/i);
+      const prioritySelect = screen.getByLabelText(/priority/i);
+      const startInput = screen.getByLabelText(/start date/i);
+      const dueInput = screen.getByLabelText(/due date/i);
+
+      fireEvent.change(titleInput, { target: { value: 'Persisted Launch Title' } });
+      fireEvent.change(descInput, { target: { value: 'Persisted Launch Description' } });
+      fireEvent.change(prioritySelect, { target: { value: TaskPriority.Critical } });
+      fireEvent.change(startInput, { target: { value: '2026-11-18' } });
+      fireEvent.change(dueInput, { target: { value: '2026-11-25' } });
+
       fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
 
       await screen.findByTestId('task-updated-banner');
+      expect(updateSpy).toHaveBeenCalledWith({
+        taskId: 'task-orig-1',
+        title: 'Persisted Launch Title',
+        description: 'Persisted Launch Description',
+        priority: TaskPriority.Critical,
+        startDate: '2026-11-18T00:00:00.000Z',
+        dueDate: '2026-11-25T00:00:00.000Z',
+      });
+
       unmount();
 
       // Simulate full reload of board
       const reloadRender = renderAt(`/tasks?boardId=${editBoardId}`);
-      expect(await reloadRender.findByText('Persisted Edit Title')).toBeInTheDocument();
+      expect(await reloadRender.findByText('Persisted Launch Title')).toBeInTheDocument();
+      expect(reloadRender.getByText('CRITICAL')).toBeInTheDocument();
+
+      // Reopen task details after reload and verify all 5 fields persisted
+      const reloadedCard = await reloadRender.findByTestId('task-card-task-orig-1');
+      fireEvent.click(reloadedCard);
+
+      const detailsModal = await reloadRender.findByTestId('task-details-dialog');
+      expect(within(detailsModal).getByText('Persisted Launch Title')).toBeInTheDocument();
+      expect(within(detailsModal).getByText('Persisted Launch Description')).toBeInTheDocument();
+      expect(within(detailsModal).getByText(/Priority: Critical/i)).toBeInTheDocument();
+      expect(within(detailsModal).getByText(/Start date: Nov 18, 2026/i)).toBeInTheDocument();
+      expect(within(detailsModal).getByText(/Due date: Nov 25, 2026/i)).toBeInTheDocument();
     });
   });
 
