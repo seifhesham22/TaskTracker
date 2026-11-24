@@ -8,6 +8,7 @@ import { FetchHttpClient } from './HttpClient';
 import { AuthService } from './services/AuthService';
 import { BacklogService } from './services/BacklogService';
 import { BoardService } from './services/BoardService';
+import { ProjectMemberService } from './services/ProjectMemberService';
 import { ProjectService } from './services/ProjectService';
 import { SystemService } from './services/SystemService';
 
@@ -23,6 +24,7 @@ export const api = {
   backlog: new BacklogService(httpClient),
   auth: new AuthService(httpClient),
   project: new ProjectService(httpClient),
+  projectMember: new ProjectMemberService(httpClient),
 } as const;
 
 export type Api = typeof api;
@@ -34,6 +36,7 @@ export type { ApiStatus } from './services/SystemService';
 export { BoardService } from './services/BoardService';
 export { BacklogService } from './services/BacklogService';
 export { ProjectService } from './services/ProjectService';
+export { ProjectMemberService } from './services/ProjectMemberService';
 export { AuthService, AuthError } from './services/AuthService';
 export type {
   RegisterInput,
