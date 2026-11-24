@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardService } from './BoardService';
+import { BoardService, GRAPHQL_TASK_FIELDS, UPDATE_TASK_MUTATION } from './BoardService';
 import { ColumnCategory, type TaskItem, TaskPriority } from '../../domain/models';
 import type { HttpClient } from '../HttpClient';
 
@@ -366,7 +366,66 @@ describe('BoardService', () => {
   });
 
   describe('updateTask', () => {
-    it('updates task successfully and returns mapped TaskItem', async () => {
+    it('aligns response selection with backend Task schema contract and does NOT select createdAt', async () => {
+      // Contract check: verify UPDATE_TASK_MUTATION and GRAPHQL_TASK_FIELDS do NOT contain createdAt
+      expect(UPDATE_TASK_MUTATION).not.toContain('createdAt');
+      expect(GRAPHQL_TASK_FIELDS).not.toContain('createdAt');
+
+      // Verify that all fields in the agreed Task schema are included
+      const expectedFields = [
+        'id',
+        'readableId',
+        'number',
+        'boardId',
+        'title',
+        'description',
+        'status',
+        'columnId',
+        'position',
+        'priority',
+        'startDate',
+        'dueDate',
+        'parentTaskId',
+        'column',
+        'assignees',
+        'blocks',
+        'blockedBy',
+      ];
+      for (const field of expectedFields) {
+        expect(GRAPHQL_TASK_FIELDS).toContain(field);
+      }
+
+      const postMock = vi.fn().mockResolvedValue({
+        data: {
+          updateTask: {
+            id: 't-1',
+            readableId: 'TES-1',
+            number: 1,
+            boardId: 'b-1',
+            title: 'Updated title',
+            status: ColumnCategory.Backlog,
+            columnId: 'c-1',
+          },
+        },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await service.updateTask({ taskId: 't-1', title: 'Updated title' });
+
+      expect(postMock).toHaveBeenCalledTimes(1);
+      const sentQuery = postMock.mock.calls[0][1].query as string;
+      expect(sentQuery).not.toContain('createdAt');
+      expect(sentQuery).toContain('updateTask(input: $input)');
+    });
+
+    it('updates all 5 editable fields successfully and returns mapped TaskItem', async () => {
       const mockUpdated = {
         id: 't-1',
         readableId: 'TES-1',
@@ -380,7 +439,10 @@ describe('BoardService', () => {
         priority: TaskPriority.High,
         startDate: '2026-11-16T00:00:00Z',
         dueDate: '2026-11-20T00:00:00Z',
+        parentTaskId: null,
         assignees: [{ id: 'u-1', userName: 'Alice' }],
+        blocks: [{ id: 't-2', readableId: 'TES-2', title: 'Blocked task', status: ColumnCategory.ToDo }],
+        blockedBy: [],
       };
 
       const postMock = vi.fn().mockResolvedValue({
@@ -406,12 +468,17 @@ describe('BoardService', () => {
 
       expect(result.id).toBe('t-1');
       expect(result.title).toBe('Updated title');
+      expect(result.description).toBe('Updated desc');
       expect(result.priority).toBe(TaskPriority.High);
       expect(result.startDate).toBe('2026-11-16T00:00:00Z');
       expect(result.dueDate).toBe('2026-11-20T00:00:00Z');
+      expect(result.createdAt).toBeUndefined();
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks![0].readableId).toBe('TES-2');
       expect(postMock).toHaveBeenCalledWith(
         '/graphql',
         expect.objectContaining({
+          query: UPDATE_TASK_MUTATION,
           variables: {
             input: {
               taskId: 't-1',
@@ -424,6 +491,80 @@ describe('BoardService', () => {
           },
         })
       );
+    });
+
+    it('clears editable fields when sent as null according to API contract', async () => {
+      const mockUpdated = {
+        id: 't-1',
+        readableId: 'TES-1',
+        number: 1,
+        boardId: 'b-1',
+        title: 'Original title',
+        description: null,
+        priority: null,
+        startDate: null,
+        dueDate: null,
+        status: ColumnCategory.Backlog,
+        columnId: 'c-1',
+      };
+
+      const postMock = vi.fn().mockResolvedValue({
+        data: { updateTask: mockUpdated },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const result = await service.updateTask({
+        taskId: 't-1',
+        description: null,
+        priority: null,
+        startDate: null,
+        dueDate: null,
+      });
+
+      expect(result.description).toBeNull();
+      expect(result.priority).toBeNull();
+      expect(result.startDate).toBeNull();
+      expect(result.dueDate).toBeNull();
+      expect(postMock).toHaveBeenCalledWith(
+        '/graphql',
+        expect.objectContaining({
+          variables: {
+            input: {
+              taskId: 't-1',
+              description: null,
+              priority: null,
+              startDate: null,
+              dueDate: null,
+            },
+          },
+        })
+      );
+    });
+
+    it('throws ApiError when backend returns GraphQL schema error (e.g. unknown field)', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [{ message: "Cannot query field 'createdAt' on type 'Task'." }],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.updateTask({ taskId: 't-1', title: 'New' })).rejects.toMatchObject({
+        message: "Cannot query field 'createdAt' on type 'Task'.",
+        status: 400,
+      });
     });
 
     it('throws 404 ApiError when task is not found', async () => {
@@ -458,6 +599,30 @@ describe('BoardService', () => {
 
       const service = new BoardService(mockHttpClient);
       await expect(service.updateTask({ taskId: 't-1', title: '' })).rejects.toMatchObject({
+        status: 400,
+      });
+    });
+
+    it('throws 400 ApiError when user is not authorized to edit tasks', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'Only writers and owners of the project can edit tasks.',
+            extensions: { code: 'AUTH_NOT_AUTHORIZED' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.updateTask({ taskId: 't-1', title: 'Forbidden' })).rejects.toMatchObject({
+        message: 'Only writers and owners of the project can edit tasks.',
         status: 400,
       });
     });

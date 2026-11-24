@@ -16,6 +16,51 @@ export const DEFAULT_COLUMN_CATEGORIES: readonly { readonly category: ColumnCate
   { category: ColumnCategory.Done, name: 'Done', color: '#2A9D8F' },
 ] as const;
 
+export const GRAPHQL_TASK_FIELDS = `
+  id
+  readableId
+  number
+  boardId
+  title
+  description
+  status
+  columnId
+  position
+  priority
+  startDate
+  dueDate
+  parentTaskId
+  column {
+    id
+    name
+    category
+  }
+  assignees {
+    id
+    userName
+  }
+  blocks {
+    id
+    readableId
+    title
+    status
+  }
+  blockedBy {
+    id
+    readableId
+    title
+    status
+  }
+`;
+
+export const UPDATE_TASK_MUTATION = `
+  mutation UpdateTask($input: UpdateTaskInput!) {
+    updateTask(input: $input) {
+      ${GRAPHQL_TASK_FIELDS}
+    }
+  }
+`;
+
 export interface GraphQLErrorExtension {
   readonly code?: string;
   readonly incompleteSubtasks?: readonly IncompleteSubtaskDto[];
@@ -415,40 +460,7 @@ export class BoardService {
     const mutation = `
       mutation MoveTask($input: MoveTaskInput!) {
         moveTask(input: $input) {
-          id
-          readableId
-          number
-          boardId
-          title
-          description
-          status
-          columnId
-          position
-          priority
-          startDate
-          dueDate
-          parentTaskId
-          column {
-            id
-            name
-            category
-          }
-          assignees {
-            id
-            userName
-          }
-          blocks {
-            id
-            readableId
-            title
-            status
-          }
-          blockedBy {
-            id
-            readableId
-            title
-            status
-          }
+          ${GRAPHQL_TASK_FIELDS}
         }
       }
     `;
@@ -481,62 +493,13 @@ export class BoardService {
       throw new ApiError('Failed to move task.', 500, null);
     }
 
-    const t = result.data.moveTask;
-    return {
-      id: t.id,
-      readableId: t.readableId,
-      number: t.number,
-      boardId: t.boardId,
-      title: t.title,
-      description: t.description,
-      status: t.status,
-      columnId: t.columnId,
-      columnName: t.column?.name ?? t.columnName,
-      position: t.position,
-      priority: t.priority,
-      assignees: t.assignees,
-      assigneeIds: t.assignees ? t.assignees.map((a) => a.id) : (t.assigneeIds || []),
-      assigneeNames: t.assignees ? t.assignees.map((a) => a.userName || '') : [],
-      startDate: t.startDate,
-      dueDate: t.dueDate,
-      createdAt: t.createdAt,
-      parentTaskId: t.parentTaskId ?? null,
-    };
+    return this.mapRawTask(result.data.moveTask);
   }
 
   async updateTask(input: UpdateTaskInput): Promise<TaskItem> {
-    const mutation = `
-      mutation UpdateTask($input: UpdateTaskInput!) {
-        updateTask(input: $input) {
-          id
-          readableId
-          number
-          boardId
-          title
-          description
-          status
-          columnId
-          position
-          priority
-          startDate
-          dueDate
-          createdAt
-          column {
-            id
-            name
-            category
-          }
-          assignees {
-            id
-            userName
-          }
-        }
-      }
-    `;
-
     const result = await this.client.post<GraphQLResponse<{ updateTask: RawTask }>>(
       '/graphql',
-      { query: mutation, variables: { input } }
+      { query: UPDATE_TASK_MUTATION, variables: { input } }
     );
 
     if (result.errors && result.errors.length > 0) {
