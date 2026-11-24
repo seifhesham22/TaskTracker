@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import type { ProjectSummary } from '../api/services/AuthService';
+import type { CreateProjectInput } from '../domain/models';
 
 export function useProjects(userId?: string) {
   const [projects, setProjects] = useState<readonly ProjectSummary[]>([]);
@@ -31,6 +32,12 @@ export function useProjects(userId?: string) {
       setIsLoading(false);
     }
   }, [userId]);
+
+  const createProject = useCallback(async (input: CreateProjectInput): Promise<ProjectSummary> => {
+    const newProject = await api.project.createProject(input);
+    setProjects((prev) => [newProject, ...prev]);
+    return newProject;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -71,5 +78,5 @@ export function useProjects(userId?: string) {
     };
   }, [userId]);
 
-  return { projects, isLoading, error, reload: fetchProjects };
+  return { projects, isLoading, error, reload: fetchProjects, createProject };
 }
