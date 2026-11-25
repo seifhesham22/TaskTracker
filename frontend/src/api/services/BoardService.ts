@@ -2,6 +2,7 @@ import type { HttpClient } from '../HttpClient';
 import { ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../errors';
 import {
   type BoardDetails,
+  type CreateBoardInput,
   type CreateTaskInput,
   type MoveTaskInput,
   type TaskItem,
@@ -57,6 +58,22 @@ export const UPDATE_TASK_MUTATION = `
   mutation UpdateTask($input: UpdateTaskInput!) {
     updateTask(input: $input) {
       ${GRAPHQL_TASK_FIELDS}
+    }
+  }
+`;
+
+export const CREATE_BOARD_MUTATION = `
+  mutation CreateBoard($input: CreateBoardInput!) {
+    createBoard(input: $input) {
+      id
+      projectId
+      name
+      columns {
+        id
+        name
+        category
+        position
+      }
     }
   }
 `;
@@ -516,6 +533,65 @@ export class BoardService {
     }
 
     return this.mapRawTask(result.data.updateTask);
+  }
+
+  async createBoard(input: CreateBoardInput): Promise<BoardDetails> {
+    const payloadInput = {
+      projectId: input.projectId,
+      name: input.name.trim(),
+    };
+
+    const result = await this.client.post<GraphQLResponse<{ createBoard: RawBoard }>>(
+      '/graphql',
+      { query: CREATE_BOARD_MUTATION, variables: { input: payloadInput } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      const message = firstError.message || '';
+
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError('The current user is not authorized to access this resource.', 401, result.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHORIZED') {
+        throw new ApiError(message || 'Only the owner of the project can create boards.', 403, result.errors);
+      }
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(message || 'Project was not found.', 404, result.errors);
+      }
+      if (code === 'BAD_USER_INPUT' || message.toLowerCase().includes('already exists')) {
+        const errorMsg = message.toLowerCase().includes('already exists')
+          ? 'A board with this name already exists in this project.'
+          : message;
+        throw new ApiError(errorMsg, 400, result.errors);
+      }
+      throw new ApiError(
+        message || 'Couldn’t create the board. Your name is kept. Try again.',
+        500,
+        result.errors
+      );
+    }
+
+    if (!result.data?.createBoard) {
+      throw new ApiError('Couldn’t create the board. Your name is kept. Try again.', 500, null);
+    }
+
+    const b = result.data.createBoard;
+    return {
+      id: b.id,
+      projectId: b.projectId,
+      projectName: b.projectName ?? null,
+      name: b.name,
+      columns: (b.columns || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        position: c.position || '',
+        color: c.color ?? null,
+      })),
+      members: b.members || [],
+    };
   }
 
   private mapRawTask(t: RawTask): TaskItem {

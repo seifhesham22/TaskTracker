@@ -105,13 +105,22 @@ export function ProjectsPage() {
                   <div className="project-boards-section">
                     <div className="project-section-header">
                       <h3 className="project-boards-title">Boards & Backlog</h3>
-                      <Link
-                        to={`/projects/${project.id}/backlog`}
-                        className="project-backlog-link"
-                        data-testid={`project-backlog-link-${project.id}`}
-                      >
-                        Backlog →
-                      </Link>
+                      <div className="project-section-links">
+                        <Link
+                          to={`/projects/${project.id}/boards`}
+                          className="project-boards-link"
+                          data-testid={`project-boards-link-${project.id}`}
+                        >
+                          Boards →
+                        </Link>
+                        <Link
+                          to={`/projects/${project.id}/backlog`}
+                          className="project-backlog-link"
+                          data-testid={`project-backlog-link-${project.id}`}
+                        >
+                          Backlog →
+                        </Link>
+                      </div>
                     </div>
                     {project.boards.length === 0 ? (
                       <p className="project-card-desc">No boards available in this project.</p>

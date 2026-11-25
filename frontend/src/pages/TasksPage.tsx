@@ -32,6 +32,15 @@ export function TasksPage() {
     handleSearchTasks,
   } = useBoard(boardId);
 
+  const isCreated = searchParams.get('created') === 'true';
+  const queryProjectName = searchParams.get('projectName');
+  const targetProjectName = queryProjectName || board?.projectName || 'project';
+  const createdBanner = isCreated
+    ? `✓ Board created in ${targetProjectName}.`
+    : null;
+  const backToBoardsUrl =
+    searchParams.get('projectId') || (board ? `/projects/${board.projectId}/boards` : null);
+
   return (
     <div className="tasks-page">
       <BoardView
@@ -40,6 +49,8 @@ export function TasksPage() {
         isLoading={isLoading}
         error={error}
         isNotFound={isNotFound}
+        createdBanner={createdBanner}
+        backToBoardsUrl={backToBoardsUrl}
         isCreatingTask={isCreatingTask}
         createTaskError={createTaskError}
         savingTaskIds={savingTaskIds}

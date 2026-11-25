@@ -187,3 +187,14 @@ export interface ProjectValidationErrors {
   readonly name?: string;
   readonly form?: string;
 }
+
+export interface CreateBoardInput {
+  readonly projectId: string;
+  readonly name: string;
+}
+
+export interface BoardValidationErrors {
+  readonly name?: string;
+  readonly form?: string;
+}
+

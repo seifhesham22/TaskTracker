@@ -87,25 +87,29 @@ export function BoardColumn({
       </div>
 
       <div className="column-cards" role="list">
-        {tasks.map((task) => {
-          const subtaskCount = allTasks
-            ? allTasks.filter((t) => t.parentTaskId === task.id).length
-            : 0;
+        {tasks.length === 0 ? (
+          <p className="column-empty-text">No tasks yet</p>
+        ) : (
+          tasks.map((task) => {
+            const subtaskCount = allTasks
+              ? allTasks.filter((t) => t.parentTaskId === task.id).length
+              : 0;
 
-          return (
-            <div key={task.id} role="listitem">
-              <TaskCard
-                task={task}
-                members={members}
-                isSaving={savingTaskIds?.has(task.id)}
-                subtaskCount={subtaskCount}
-                onSelect={onSelect}
-                onSelectTask={onSelectTask}
-                onEditTask={onEditTask}
-              />
-            </div>
-          );
-        })}
+            return (
+              <div key={task.id} role="listitem">
+                <TaskCard
+                  task={task}
+                  members={members}
+                  isSaving={savingTaskIds?.has(task.id)}
+                  subtaskCount={subtaskCount}
+                  onSelect={onSelect}
+                  onSelectTask={onSelectTask}
+                  onEditTask={onEditTask}
+                />
+              </div>
+            );
+          })
+        )}
       </div>
 
       {onAddTask && (
