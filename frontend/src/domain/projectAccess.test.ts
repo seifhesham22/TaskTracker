@@ -50,6 +50,16 @@ describe('ProjectAccessClassifier', () => {
     expect(classifier.classifyError(graphQlNotFound)).toBe('unavailable');
   });
 
+  it('classifies 404 / NOT_FOUND when user was previously permitted as revoked (State 04)', () => {
+    const notFoundError = new ApiError('Board was not found', 404, null);
+    expect(classifier.classifyError(notFoundError, true)).toBe('revoked');
+
+    const graphQlNotFound = new ApiError('Not found', 400, [
+      { message: 'Project not found', extensions: { code: 'NOT_FOUND' } },
+    ]);
+    expect(classifier.classifyError(graphQlNotFound, true)).toBe('revoked');
+  });
+
   it('classifies network / fetch failures as connection_error (State 06)', () => {
     const fetchError = new TypeError('Failed to fetch');
     expect(classifier.classifyError(fetchError)).toBe('connection_error');

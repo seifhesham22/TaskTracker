@@ -31,7 +31,7 @@ export class ProjectAccessClassifier implements IProjectAccessClassifier {
     }
 
     if (this.isNotFound(error)) {
-      return 'unavailable';
+      return wasPermitted ? 'revoked' : 'unavailable';
     }
 
     return 'connection_error';

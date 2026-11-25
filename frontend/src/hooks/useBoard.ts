@@ -49,7 +49,11 @@ export function useBoard(boardId: string): UseBoardState {
 
   const checkActionRevocation = useCallback((err: unknown): boolean => {
     const classified = defaultProjectAccessClassifier.classifyError(err, true);
-    if (classified === 'revoked' || classified === 'session_expired') {
+    if (
+      classified === 'revoked' ||
+      classified === 'unavailable' ||
+      classified === 'session_expired'
+    ) {
       setAccessState(classified);
       setBoard(null);
       setTasks([]);
@@ -285,7 +289,10 @@ export function useBoard(boardId: string): UseBoardState {
         if (backlogResults.length > 0) {
           return backlogResults;
         }
-      } catch {
+      } catch (err: unknown) {
+        if (checkActionRevocation(err)) {
+          return [];
+        }
         // Fallback to in-memory tasks
       }
     }

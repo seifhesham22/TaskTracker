@@ -188,6 +188,54 @@ describe('[US-5] Frontend - Restrict project data to members (T1WOR-143)', () =>
     expect(await screen.findByText('Your projects')).toBeInTheDocument();
   });
 
+  it('State 04: clears cached board and tasks and displays safe access state when task creation returns NOT_FOUND after membership removal', async () => {
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue({
+      board: permittedBoard,
+      tasks: permittedTasks,
+    });
+
+    vi.spyOn(api.board, 'createTask').mockRejectedValue(
+      new ApiError('Resource not found', 404, [
+        { message: 'Not found', extensions: { code: 'NOT_FOUND' } },
+      ])
+    );
+
+    renderApp(`/boards/${boardId}`);
+
+    // Verify initial permitted state displays cached board and tasks
+    expect(await screen.findByText('Sprint board')).toBeInTheDocument();
+    expect(screen.getByText('Audited Financial Statement')).toBeInTheDocument();
+
+    // User attempts to create a task after membership was revoked in another session
+    const newTaskBtn = screen.getByRole('button', { name: /new task/i });
+    fireEvent.click(newTaskBtn);
+
+    const titleInput = screen.getByLabelText(/title/i);
+    fireEvent.change(titleInput, { target: { value: 'New Task After Revocation' } });
+
+    const submitBtn = screen.getByRole('button', { name: 'Create task' });
+    fireEvent.click(submitBtn);
+
+    // Verify safe access state is displayed immediately
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your project access has changed' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('You no longer have access to this project.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Return to your projects. If you need access, contact a project Owner.')
+    ).toBeInTheDocument();
+
+    // Verify sensitive cached board and tasks are wiped out from DOM
+    expect(screen.queryByText('Audited Financial Statement')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sprint board')).not.toBeInTheDocument();
+
+    // Navigating back safely returns to projects
+    const backBtn = screen.getByRole('button', { name: 'Back to projects' });
+    fireEvent.click(backBtn);
+
+    expect(await screen.findByText('Your projects')).toBeInTheDocument();
+  });
+
   it('State 05: displays "Your session has expired" when request fails with 401 and offers "Log in"', async () => {
     vi.spyOn(api.board, 'getBoardWithTasks').mockRejectedValue(
       new ApiError('Session expired', 401, [

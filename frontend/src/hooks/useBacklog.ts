@@ -49,6 +49,7 @@ export function useBacklog({
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedRef = useRef<boolean>(false);
 
   // Debounce search input
   const setSearch = useCallback(
@@ -116,13 +117,16 @@ export function useBacklog({
         });
 
         if (!isCancelled) {
+          hasLoadedRef.current = true;
           setData(result);
           setAccessState('permitted');
         }
       } catch (err: unknown) {
         if (!isCancelled) {
-          const classified = defaultProjectAccessClassifier.classifyError(err, false);
+          const wasPermitted = hasLoadedRef.current;
+          const classified = defaultProjectAccessClassifier.classifyError(err, wasPermitted);
           if (classified === 'unavailable' || classified === 'revoked' || classified === 'session_expired') {
+            hasLoadedRef.current = false;
             setAccessState(classified);
             setData(null);
           }
