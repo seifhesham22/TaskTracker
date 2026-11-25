@@ -603,7 +603,7 @@ describe('BoardService', () => {
       });
     });
 
-    it('throws 400 ApiError when user is not authorized to edit tasks', async () => {
+    it('throws 403 ApiError when user is not authorized to edit tasks', async () => {
       const postMock = vi.fn().mockResolvedValue({
         errors: [
           {
@@ -623,7 +623,7 @@ describe('BoardService', () => {
       const service = new BoardService(mockHttpClient);
       await expect(service.updateTask({ taskId: 't-1', title: 'Forbidden' })).rejects.toMatchObject({
         message: 'Only writers and owners of the project can edit tasks.',
-        status: 400,
+        status: 403,
       });
     });
   });

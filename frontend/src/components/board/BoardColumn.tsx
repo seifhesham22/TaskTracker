@@ -33,7 +33,9 @@ export function BoardColumn({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
     if (!isDragOver) {
       setIsDragOver(true);
     }
@@ -49,7 +51,7 @@ export function BoardColumn({
     e.preventDefault();
     setIsDragOver(false);
     const taskId =
-      e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain');
+      e.dataTransfer?.getData('application/x-task-id') || e.dataTransfer?.getData('text/plain');
     if (taskId && onDropTask) {
       onDropTask(taskId, column.id);
     }

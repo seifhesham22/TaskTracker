@@ -163,6 +163,33 @@ export class BoardService {
     this.client = client;
   }
 
+  public static createApiErrorFromGraphQl(
+    errors: readonly { readonly message: string; readonly extensions?: GraphQLErrorExtension }[]
+  ): ApiError {
+    const firstError = errors[0];
+    const code = firstError?.extensions?.code;
+    const msg = firstError?.message || 'GraphQL request failed';
+    const lower = msg.toLowerCase();
+
+    if (code === 'NOT_FOUND' || lower.includes('not found')) {
+      return new ApiError(msg, 404, errors);
+    }
+    if (
+      code === 'AUTH_NOT_AUTHORIZED' ||
+      code === 'FORBIDDEN' ||
+      lower.includes('forbidden') ||
+      lower.includes('not authorized') ||
+      lower.includes('do not have access') ||
+      lower.includes('not a member')
+    ) {
+      return new ApiError(msg, 403, errors);
+    }
+    if (code === 'AUTH_NOT_AUTHENTICATED' || lower.includes('unauthenticated')) {
+      return new ApiError(msg, 401, errors);
+    }
+    return new ApiError(msg, 400, errors);
+  }
+
   async getBoardWithTasks(boardId: string): Promise<{ board: BoardDetails; tasks: TaskItem[] }> {
     const query = `
       query GetBoardWithTasks($boardId: UUID!) {
@@ -223,12 +250,7 @@ export class BoardService {
       );
 
       if (result.errors && result.errors.length > 0) {
-        const firstError = result.errors[0];
-        const code = firstError.extensions?.code;
-        if (code === 'NOT_FOUND' || firstError.message.toLowerCase().includes('not found')) {
-          throw new ApiError(firstError.message, 404, result.errors);
-        }
-        throw new ApiError(firstError.message, 400, result.errors);
+        throw BoardService.createApiErrorFromGraphQl(result.errors);
       }
 
       if (result.data?.board) {
@@ -310,12 +332,7 @@ export class BoardService {
       );
 
       if (result.errors && result.errors.length > 0) {
-        const firstError = result.errors[0];
-        const code = firstError.extensions?.code;
-        if (code === 'NOT_FOUND') {
-          throw new ApiError(firstError.message, 404, result.errors);
-        }
-        throw new ApiError(firstError.message, 400, result.errors);
+        throw BoardService.createApiErrorFromGraphQl(result.errors);
       }
 
       const items = result.data?.backlog?.items || [];
@@ -400,15 +417,7 @@ export class BoardService {
     >('/graphql', { query: mutation, variables: { input } });
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      if (code === 'AUTH_NOT_AUTHORIZED') {
-        throw new ApiError(firstError.message, 403, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.addTaskDependency) {
@@ -449,12 +458,7 @@ export class BoardService {
     );
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.createTask) {
@@ -499,11 +503,7 @@ export class BoardService {
           result.errors
         );
       }
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.moveTask) {
@@ -520,12 +520,7 @@ export class BoardService {
     );
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.updateTask) {

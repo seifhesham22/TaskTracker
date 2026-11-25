@@ -5,6 +5,7 @@ import type {
   ColumnCategory,
   TaskPriority,
 } from '../domain/models';
+import { defaultProjectAccessClassifier, type ProjectAccessState } from '../domain/projectAccess';
 
 export interface UseBacklogOptions {
   readonly projectId?: string | null;
@@ -16,6 +17,7 @@ export interface UseBacklogReturn {
   readonly data: BacklogPageData | null;
   readonly isLoading: boolean;
   readonly error: string | null;
+  readonly accessState: ProjectAccessState;
   readonly search: string;
   readonly statusFilter: ColumnCategory | null;
   readonly priorityFilter: TaskPriority | 'NONE' | null;
@@ -43,9 +45,11 @@ export function useBacklog({
   const [data, setData] = useState<BacklogPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accessState, setAccessState] = useState<ProjectAccessState>('permitted');
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedRef = useRef<boolean>(false);
 
   // Debounce search input
   const setSearch = useCallback(
@@ -113,10 +117,19 @@ export function useBacklog({
         });
 
         if (!isCancelled) {
+          hasLoadedRef.current = true;
           setData(result);
+          setAccessState('permitted');
         }
       } catch (err: unknown) {
         if (!isCancelled) {
+          const wasPermitted = hasLoadedRef.current;
+          const classified = defaultProjectAccessClassifier.classifyError(err, wasPermitted);
+          if (classified === 'unavailable' || classified === 'revoked' || classified === 'session_expired') {
+            hasLoadedRef.current = false;
+            setAccessState(classified);
+            setData(null);
+          }
           const message =
             err instanceof Error && err.message
               ? err.message
@@ -141,6 +154,7 @@ export function useBacklog({
     data: projectId ? data : null,
     isLoading: projectId ? isLoading : false,
     error: projectId ? error : null,
+    accessState,
     search,
     statusFilter,
     priorityFilter,
