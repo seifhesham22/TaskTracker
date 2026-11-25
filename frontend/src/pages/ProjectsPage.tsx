@@ -92,17 +92,26 @@ export function ProjectsPage() {
 
                   <p className="project-role-text">{formatRoleText(project.role)}</p>
 
-                  <Link
-                    to={primaryTarget}
-                    className="project-open-btn"
-                    data-testid={`open-project-btn-${project.id}`}
-                    onClick={() => {
-                      const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
-                      setActiveProject(project.id, firstBoardId, project.name);
-                    }}
-                  >
-                    Open project
-                  </Link>
+                  <div className="project-card-actions">
+                    <Link
+                      to={primaryTarget}
+                      className="project-open-btn"
+                      data-testid={`open-project-btn-${project.id}`}
+                      onClick={() => {
+                        const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                        setActiveProject(project.id, firstBoardId, project.name);
+                      }}
+                    >
+                      Open project
+                    </Link>
+                    <Link
+                      to={`/projects/${project.id}/members`}
+                      className="project-members-link"
+                      data-testid={`project-members-link-${project.id}`}
+                    >
+                      Members →
+                    </Link>
+                  </div>
 
                   {project.description && (
                     <p className="project-card-desc">{project.description}</p>
@@ -111,17 +120,30 @@ export function ProjectsPage() {
                   <div className="project-boards-section">
                     <div className="project-section-header">
                       <h3 className="project-boards-title">Boards & Backlog</h3>
-                      <Link
-                        to={`/projects/${project.id}/backlog`}
-                        className="project-backlog-link"
-                        data-testid={`project-backlog-link-${project.id}`}
-                        onClick={() => {
-                          const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
-                          setActiveProject(project.id, firstBoardId, project.name);
-                        }}
-                      >
-                        Backlog →
-                      </Link>
+                      <div className="project-section-links">
+                        <Link
+                          to={`/projects/${project.id}/boards`}
+                          className="project-boards-link"
+                          data-testid={`project-boards-link-${project.id}`}
+                          onClick={() => {
+                            const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                            setActiveProject(project.id, firstBoardId, project.name);
+                          }}
+                        >
+                          Boards →
+                        </Link>
+                        <Link
+                          to={`/projects/${project.id}/backlog`}
+                          className="project-backlog-link"
+                          data-testid={`project-backlog-link-${project.id}`}
+                          onClick={() => {
+                            const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                            setActiveProject(project.id, firstBoardId, project.name);
+                          }}
+                        >
+                          Backlog →
+                        </Link>
+                      </div>
                     </div>
                     {project.boards.length === 0 ? (
                       <p className="project-card-desc">No boards available in this project.</p>

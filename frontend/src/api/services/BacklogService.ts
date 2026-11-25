@@ -131,7 +131,10 @@ export class BacklogService {
       if (code === 'NOT_FOUND') {
         throw new ApiError(firstError.message, 404, response.errors);
       }
-      if (code === 'AUTH_NOT_AUTHENTICATED' || code === 'AUTH_NOT_AUTHORIZED') {
+      if (code === 'AUTH_NOT_AUTHORIZED' || code === 'FORBIDDEN') {
+        throw new ApiError(firstError.message, 403, response.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
         throw new ApiError(firstError.message, 401, response.errors);
       }
       throw new ApiError(firstError.message, 400, response.errors);
@@ -164,10 +167,10 @@ export class BacklogService {
       status: raw.status,
       column: raw.column
         ? {
-            id: raw.column.id,
-            name: raw.column.name,
-            category: raw.column.category,
-          }
+          id: raw.column.id,
+          name: raw.column.name,
+          category: raw.column.category,
+        }
         : null,
       priority: raw.priority ?? null,
       assignees: raw.assignees ? raw.assignees.map((a) => ({ id: a.id, userName: a.userName })) : [],

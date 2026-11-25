@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/useAuth';
 import { useActiveProject } from '../context/activeProjectContextDef';
 import { useProjects } from '../hooks/useProjects';
@@ -8,9 +8,11 @@ import { BacklogFilterBar } from '../components/backlog/BacklogFilterBar';
 import { BacklogItemCard } from '../components/backlog/BacklogItemCard';
 import { BacklogPagination } from '../components/backlog/BacklogPagination';
 import { BacklogSkeleton } from '../components/backlog/BacklogSkeleton';
+import { ProjectAccessView } from '../components/access/ProjectAccessView';
 import './ProjectBacklogPage.css';
 
 export function ProjectBacklogPage() {
+  const navigate = useNavigate();
   const params = useParams<{ projectId?: string }>();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
@@ -45,6 +47,7 @@ export function ProjectBacklogPage() {
     data,
     isLoading,
     error,
+    accessState,
     search,
     statusFilter,
     priorityFilter,
@@ -56,6 +59,17 @@ export function ProjectBacklogPage() {
   } = useBacklog({
     projectId: activeProjectId,
   });
+
+  if (accessState && accessState !== 'permitted') {
+    return (
+      <ProjectAccessView
+        accessState={accessState}
+        onRetry={reload}
+        onBackToProjects={() => navigate('/projects')}
+        onLogin={() => navigate('/login')}
+      />
+    );
+  }
 
   const projectName = activeProject?.name || 'Test Project';
   const projectKey = (activeProject?.name || activeProject?.key || 'TEST PROJECT').toUpperCase();

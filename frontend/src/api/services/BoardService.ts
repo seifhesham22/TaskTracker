@@ -3,6 +3,7 @@ import { ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from 
 import {
   type AssignTaskInput,
   type BoardDetails,
+  type CreateBoardInput,
   type CreateTaskInput,
   type MoveTaskInput,
   type TaskItem,
@@ -75,6 +76,22 @@ export const UNASSIGN_TASK_MUTATION = `
   mutation UnassignTask($input: UnassignTaskInput!) {
     unassignTask(input: $input) {
       ${GRAPHQL_TASK_FIELDS}
+    }
+  }
+`;
+
+export const CREATE_BOARD_MUTATION = `
+  mutation CreateBoard($input: CreateBoardInput!) {
+    createBoard(input: $input) {
+      id
+      projectId
+      name
+      columns {
+        id
+        name
+        category
+        position
+      }
     }
   }
 `;
@@ -164,6 +181,33 @@ export class BoardService {
     this.client = client;
   }
 
+  public static createApiErrorFromGraphQl(
+    errors: readonly { readonly message: string; readonly extensions?: GraphQLErrorExtension }[]
+  ): ApiError {
+    const firstError = errors[0];
+    const code = firstError?.extensions?.code;
+    const msg = firstError?.message || 'GraphQL request failed';
+    const lower = msg.toLowerCase();
+
+    if (code === 'NOT_FOUND' || lower.includes('not found')) {
+      return new ApiError(msg, 404, errors);
+    }
+    if (
+      code === 'AUTH_NOT_AUTHORIZED' ||
+      code === 'FORBIDDEN' ||
+      lower.includes('forbidden') ||
+      lower.includes('not authorized') ||
+      lower.includes('do not have access') ||
+      lower.includes('not a member')
+    ) {
+      return new ApiError(msg, 403, errors);
+    }
+    if (code === 'AUTH_NOT_AUTHENTICATED' || lower.includes('unauthenticated')) {
+      return new ApiError(msg, 401, errors);
+    }
+    return new ApiError(msg, 400, errors);
+  }
+
   async getBoardWithTasks(boardId: string): Promise<{ board: BoardDetails; tasks: TaskItem[] }> {
     const query = `
       query GetBoardWithTasks($boardId: UUID!) {
@@ -224,12 +268,7 @@ export class BoardService {
       );
 
       if (result.errors && result.errors.length > 0) {
-        const firstError = result.errors[0];
-        const code = firstError.extensions?.code;
-        if (code === 'NOT_FOUND' || firstError.message.toLowerCase().includes('not found')) {
-          throw new ApiError(firstError.message, 404, result.errors);
-        }
-        throw new ApiError(firstError.message, 400, result.errors);
+        throw BoardService.createApiErrorFromGraphQl(result.errors);
       }
 
       if (result.data?.board) {
@@ -311,12 +350,7 @@ export class BoardService {
       );
 
       if (result.errors && result.errors.length > 0) {
-        const firstError = result.errors[0];
-        const code = firstError.extensions?.code;
-        if (code === 'NOT_FOUND') {
-          throw new ApiError(firstError.message, 404, result.errors);
-        }
-        throw new ApiError(firstError.message, 400, result.errors);
+        throw BoardService.createApiErrorFromGraphQl(result.errors);
       }
 
       const items = result.data?.backlog?.items || [];
@@ -401,15 +435,7 @@ export class BoardService {
     >('/graphql', { query: mutation, variables: { input } });
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      if (code === 'AUTH_NOT_AUTHORIZED') {
-        throw new ApiError(firstError.message, 403, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.addTaskDependency) {
@@ -450,12 +476,7 @@ export class BoardService {
     );
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.createTask) {
@@ -500,11 +521,7 @@ export class BoardService {
           result.errors
         );
       }
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.moveTask) {
@@ -521,12 +538,7 @@ export class BoardService {
     );
 
     if (result.errors && result.errors.length > 0) {
-      const firstError = result.errors[0];
-      const code = firstError.extensions?.code;
-      if (code === 'NOT_FOUND') {
-        throw new ApiError(firstError.message, 404, result.errors);
-      }
-      throw new ApiError(firstError.message, 400, result.errors);
+      throw BoardService.createApiErrorFromGraphQl(result.errors);
     }
 
     if (!result.data?.updateTask) {
@@ -590,6 +602,65 @@ export class BoardService {
     }
 
     return this.mapRawTask(result.data.unassignTask);
+  }
+
+  async createBoard(input: CreateBoardInput): Promise<BoardDetails> {
+    const payloadInput = {
+      projectId: input.projectId,
+      name: input.name.trim(),
+    };
+
+    const result = await this.client.post<GraphQLResponse<{ createBoard: RawBoard }>>(
+      '/graphql',
+      { query: CREATE_BOARD_MUTATION, variables: { input: payloadInput } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      const message = firstError.message || '';
+
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError('The current user is not authorized to access this resource.', 401, result.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHORIZED') {
+        throw new ApiError(message || 'Only the owner of the project can create boards.', 403, result.errors);
+      }
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(message || 'Project was not found.', 404, result.errors);
+      }
+      if (code === 'BAD_USER_INPUT' || message.toLowerCase().includes('already exists')) {
+        const errorMsg = message.toLowerCase().includes('already exists')
+          ? 'A board with this name already exists in this project.'
+          : message;
+        throw new ApiError(errorMsg, 400, result.errors);
+      }
+      throw new ApiError(
+        message || 'Couldn’t create the board. Your name is kept. Try again.',
+        500,
+        result.errors
+      );
+    }
+
+    if (!result.data?.createBoard) {
+      throw new ApiError('Couldn’t create the board. Your name is kept. Try again.', 500, null);
+    }
+
+    const b = result.data.createBoard;
+    return {
+      id: b.id,
+      projectId: b.projectId,
+      projectName: b.projectName ?? null,
+      name: b.name,
+      columns: (b.columns || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        position: c.position || '',
+        color: c.color ?? null,
+      })),
+      members: b.members || [],
+    };
   }
 
   private mapRawTask(t: RawTask): TaskItem {

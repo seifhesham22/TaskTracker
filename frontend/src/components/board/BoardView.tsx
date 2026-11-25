@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import {
   ColumnCategory,
   type BoardDetails,
@@ -6,6 +7,8 @@ import {
   type TaskItem,
   type UpdateTaskInput,
 } from '../../domain/models';
+import type { ProjectAccessState } from '../../domain/projectAccess';
+import { ProjectAccessView } from '../access/ProjectAccessView';
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
@@ -25,11 +28,16 @@ export interface BoardViewProps {
   readonly isLoading: boolean;
   readonly error: string | null;
   readonly isNotFound: boolean;
+  readonly accessState?: ProjectAccessState;
+  readonly onBackToProjects?: () => void;
+  readonly onLogin?: () => void;
   readonly isCreatingTask: boolean;
   readonly createTaskError?: string | null;
   readonly savingTaskIds?: ReadonlySet<string>;
   readonly moveError?: string | null;
   readonly incompleteSubtasksError?: BlockedIncompleteSubtasksInfo | null;
+  readonly createdBanner?: string | null;
+  readonly backToBoardsUrl?: string | null;
   readonly onClearMoveError?: () => void;
   readonly onClearIncompleteSubtasksError?: () => void;
   readonly onReload?: () => void;
@@ -49,11 +57,16 @@ export function BoardView({
   isLoading,
   error,
   isNotFound,
+  accessState,
+  onBackToProjects,
+  onLogin,
   isCreatingTask,
   createTaskError,
   savingTaskIds,
   moveError,
   incompleteSubtasksError,
+  createdBanner,
+  backToBoardsUrl,
   onClearMoveError,
   onClearIncompleteSubtasksError,
   onReload,
@@ -137,6 +150,17 @@ export function BoardView({
     window.addEventListener('resize', updateScrollState);
     return () => window.removeEventListener('resize', updateScrollState);
   }, [columnsWithTasks, updateScrollState]);
+
+  if (accessState && accessState !== 'permitted') {
+    return (
+      <ProjectAccessView
+        accessState={accessState}
+        onRetry={onReload}
+        onBackToProjects={onBackToProjects}
+        onLogin={onLogin}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -234,6 +258,16 @@ export function BoardView({
         }}
       />
 
+      {createdBanner && (
+        <div
+          className="board-alert board-alert--created"
+          role="status"
+          data-testid="board-created-banner"
+        >
+          <span>{createdBanner}</span>
+        </div>
+      )}
+
       {moveError && (
         <div className="board-alert board-alert--error" role="alert" data-testid="board-move-error">
           <img src="/assets/871e4.svg" alt="" width="16" height="16" />
@@ -280,6 +314,18 @@ export function BoardView({
         </div>
         {canScrollRight && <div className="board-columns-fade" aria-hidden="true" />}
       </div>
+
+      {backToBoardsUrl && (
+        <div className="board-back-actions">
+          <Link
+            to={backToBoardsUrl}
+            className="board-back-btn"
+            data-testid="back-to-boards-btn"
+          >
+            Back to boards
+          </Link>
+        </div>
+      )}
 
       {board && (
         <CreateTaskForm

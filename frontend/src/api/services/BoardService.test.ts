@@ -609,7 +609,7 @@ describe('BoardService', () => {
       });
     });
 
-    it('throws 400 ApiError when user is not authorized to edit tasks', async () => {
+    it('throws 403 ApiError when user is not authorized to edit tasks', async () => {
       const postMock = vi.fn().mockResolvedValue({
         errors: [
           {
@@ -629,7 +629,7 @@ describe('BoardService', () => {
       const service = new BoardService(mockHttpClient);
       await expect(service.updateTask({ taskId: 't-1', title: 'Forbidden' })).rejects.toMatchObject({
         message: 'Only writers and owners of the project can edit tasks.',
-        status: 400,
+        status: 403,
       });
     });
   });
@@ -936,6 +936,125 @@ describe('BoardService', () => {
       const service = new BoardService(mockHttpClient);
       await expect(service.unassignTask({ taskId: 't-999', userId: 'u-2' })).rejects.toMatchObject({
         status: 404,
+      });
+    });
+  });
+
+  describe('createBoard', () => {
+    it('creates a board successfully and returns BoardDetails', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        data: {
+          createBoard: {
+            id: 'b-new-1',
+            projectId: 'proj-1',
+            name: 'Sprint 3',
+            columns: [
+              { id: 'c-1', name: 'Backlog', category: ColumnCategory.Backlog, position: 'V' },
+              { id: 'c-2', name: 'To do', category: ColumnCategory.ToDo, position: 'l' },
+              { id: 'c-3', name: 'In progress', category: ColumnCategory.InProgress, position: 't' },
+              { id: 'c-4', name: 'Done', category: ColumnCategory.Done, position: 'x' },
+            ],
+          },
+        },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const board = await service.createBoard({ projectId: 'proj-1', name: 'Sprint 3' });
+
+      expect(board.id).toBe('b-new-1');
+      expect(board.name).toBe('Sprint 3');
+      expect(board.columns).toHaveLength(4);
+      expect(postMock).toHaveBeenCalledWith(
+        '/graphql',
+        expect.objectContaining({
+          variables: {
+            input: { projectId: 'proj-1', name: 'Sprint 3' },
+          },
+        })
+      );
+    });
+
+    it('throws 400 ApiError when board name is a duplicate', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "A board named 'Sprint 2' already exists in this project.",
+            extensions: { code: 'BAD_USER_INPUT' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.createBoard({ projectId: 'proj-1', name: 'Sprint 2' })
+      ).rejects.toMatchObject({
+        message: 'A board with this name already exists in this project.',
+        status: 400,
+      });
+    });
+
+    it('throws 403 ApiError when user is not owner', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'Only the owner of the project can create boards.',
+            extensions: { code: 'AUTH_NOT_AUTHORIZED' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.createBoard({ projectId: 'proj-1', name: 'Sprint 3' })
+      ).rejects.toMatchObject({
+        message: 'Only the owner of the project can create boards.',
+        status: 403,
+      });
+    });
+
+    it('throws 401 ApiError when unauthenticated', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'The current user is not authorized to access this resource.',
+            extensions: { code: 'AUTH_NOT_AUTHENTICATED' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(
+        service.createBoard({ projectId: 'proj-1', name: 'Sprint 3' })
+      ).rejects.toMatchObject({
+        status: 401,
       });
     });
   });

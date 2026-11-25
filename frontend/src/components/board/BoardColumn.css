@@ -83,6 +83,17 @@
   padding-right: 2px;
 }
 
+.column-empty-text {
+  font-family: 'Geist', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 25px;
+  color: #636363;
+  margin: 8px 0;
+  padding-left: 4px;
+}
+
 .add-task {
   display: flex;
   height: 32px;

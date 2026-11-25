@@ -33,7 +33,9 @@ export function BoardColumn({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
     if (!isDragOver) {
       setIsDragOver(true);
     }
@@ -49,7 +51,7 @@ export function BoardColumn({
     e.preventDefault();
     setIsDragOver(false);
     const taskId =
-      e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain');
+      e.dataTransfer?.getData('application/x-task-id') || e.dataTransfer?.getData('text/plain');
     if (taskId && onDropTask) {
       onDropTask(taskId, column.id);
     }
@@ -87,25 +89,29 @@ export function BoardColumn({
       </div>
 
       <div className="column-cards" role="list">
-        {tasks.map((task) => {
-          const subtaskCount = allTasks
-            ? allTasks.filter((t) => t.parentTaskId === task.id).length
-            : 0;
+        {tasks.length === 0 ? (
+          <p className="column-empty-text">No tasks yet</p>
+        ) : (
+          tasks.map((task) => {
+            const subtaskCount = allTasks
+              ? allTasks.filter((t) => t.parentTaskId === task.id).length
+              : 0;
 
-          return (
-            <div key={task.id} role="listitem">
-              <TaskCard
-                task={task}
-                members={members}
-                isSaving={savingTaskIds?.has(task.id)}
-                subtaskCount={subtaskCount}
-                onSelect={onSelect}
-                onSelectTask={onSelectTask}
-                onEditTask={onEditTask}
-              />
-            </div>
-          );
-        })}
+            return (
+              <div key={task.id} role="listitem">
+                <TaskCard
+                  task={task}
+                  members={members}
+                  isSaving={savingTaskIds?.has(task.id)}
+                  subtaskCount={subtaskCount}
+                  onSelect={onSelect}
+                  onSelectTask={onSelectTask}
+                  onEditTask={onEditTask}
+                />
+              </div>
+            );
+          })
+        )}
       </div>
 
       {onAddTask && (
