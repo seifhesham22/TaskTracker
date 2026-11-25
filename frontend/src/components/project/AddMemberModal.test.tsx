@@ -29,10 +29,44 @@ describe('AddMemberModal', () => {
     expect(screen.getByText(/Website redesign · Existing accounts only/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/find an account \*/i)).toBeInTheDocument();
     expect(screen.getByText('Writer')).toBeInTheDocument();
-    expect(screen.getByText('Owner')).toBeInTheDocument();
     expect(screen.getByText('Reader')).toBeInTheDocument();
+    expect(screen.queryByText('Owner')).toBeNull();
     expect(screen.getByTestId('add-member-submit-btn')).toBeDisabled(); // empty input
     expect(screen.getByTestId('add-member-cancel-btn')).toBeEnabled();
+  });
+
+  it('allows selecting Reader role and submitting (Writer is default)', async () => {
+    const mockSubmit = vi.fn().mockResolvedValue({
+      projectId: 'proj-1',
+      userId: 'u-3',
+      userName: 'ReaderUser',
+      role: ProjectRole.Reader,
+      joinedAt: '2026-11-24T12:00:00Z',
+    });
+
+    render(
+      <AddMemberModal
+        isOpen={true}
+        projectName="Website redesign"
+        existingMembers={existingMembers}
+        onClose={vi.fn()}
+        onSubmit={mockSubmit}
+      />
+    );
+
+    const input = screen.getByTestId('add-member-email-input');
+    fireEvent.change(input, { target: { value: 'reader@example.com' } });
+
+    const readerRadio = screen.getByDisplayValue(ProjectRole.Reader);
+    fireEvent.click(readerRadio);
+
+    const submitBtn = screen.getByTestId('add-member-submit-btn');
+    fireEvent.click(submitBtn);
+
+    expect(mockSubmit).toHaveBeenCalledWith({
+      email: 'reader@example.com',
+      role: ProjectRole.Reader,
+    });
   });
 
   it('does not render when isOpen is false', () => {

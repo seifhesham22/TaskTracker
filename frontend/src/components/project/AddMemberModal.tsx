@@ -48,11 +48,6 @@ const ROLE_OPTIONS = [
     description: 'Can create and edit tasks, boards, and everyday work.',
   },
   {
-    role: ProjectRole.Owner,
-    label: 'Owner',
-    description: 'Full control over project settings, members, and boards.',
-  },
-  {
     role: ProjectRole.Reader,
     label: 'Reader',
     description: 'Read-only access to view boards and tasks.',

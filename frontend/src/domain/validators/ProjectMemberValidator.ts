@@ -26,6 +26,15 @@ export class ProjectMemberValidator
       };
     }
 
+    if (input.role === ProjectRole.Owner) {
+      return {
+        isValid: false,
+        errors: {
+          role: 'New members can only be added as Writer or Reader.',
+        },
+      };
+    }
+
     return {
       isValid: true,
       errors,

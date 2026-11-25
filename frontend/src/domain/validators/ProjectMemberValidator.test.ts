@@ -32,13 +32,31 @@ describe('ProjectMemberValidator', () => {
     expect(result.errors.role).toBe('Choose a valid project role.');
   });
 
-  it('accepts valid input with role', () => {
+  it('rejects adding an Owner as new member (one Owner per project rule)', () => {
     const result = projectMemberValidator.validate({
       projectId: 'proj-1',
       email: 'user@example.com',
       role: ProjectRole.Owner,
     });
-    expect(result.isValid).toBe(true);
-    expect(result.errors).toEqual({});
+    expect(result.isValid).toBe(false);
+    expect(result.errors.role).toBe('New members can only be added as Writer or Reader.');
+  });
+
+  it('accepts valid input with Writer or Reader role', () => {
+    const writerResult = projectMemberValidator.validate({
+      projectId: 'proj-1',
+      email: 'writer@example.com',
+      role: ProjectRole.Writer,
+    });
+    expect(writerResult.isValid).toBe(true);
+    expect(writerResult.errors).toEqual({});
+
+    const readerResult = projectMemberValidator.validate({
+      projectId: 'proj-1',
+      email: 'reader@example.com',
+      role: ProjectRole.Reader,
+    });
+    expect(readerResult.isValid).toBe(true);
+    expect(readerResult.errors).toEqual({});
   });
 });

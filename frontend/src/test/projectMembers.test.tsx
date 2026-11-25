@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { api } from '../api';
@@ -122,7 +122,11 @@ describe('[US-4] Frontend - Manage project members acceptance tests', () => {
     fireEvent.click(screen.getByTestId('add-member-open-btn'));
 
     // Modal opens (State 02)
-    expect(screen.getByRole('dialog', { name: /add a member/i })).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', { name: /add a member/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('Writer')).toBeInTheDocument();
+    expect(within(dialog).getByText('Reader')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Owner')).toBeNull();
 
     const emailInput = screen.getByTestId('add-member-email-input');
     fireEvent.change(emailInput, { target: { value: 'mina@example.com' } });
