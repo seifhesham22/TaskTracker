@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/useAuth';
+import { useActiveProject } from '../context/activeProjectContextDef';
 import { useProjects } from '../hooks/useProjects';
 import { CreateProjectModal } from '../components/project/CreateProjectModal';
 import './ProjectsPage.css';
@@ -8,6 +9,7 @@ import './ProjectsPage.css';
 export function ProjectsPage() {
   const { user } = useAuth();
   const { projects, isLoading, error, reload, createProject } = useProjects(user?.id);
+  const { setActiveProject } = useActiveProject();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createdBanner, setCreatedBanner] = useState<string | null>(null);
 
@@ -94,6 +96,10 @@ export function ProjectsPage() {
                     to={primaryTarget}
                     className="project-open-btn"
                     data-testid={`open-project-btn-${project.id}`}
+                    onClick={() => {
+                      const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                      setActiveProject(project.id, firstBoardId, project.name);
+                    }}
                   >
                     Open project
                   </Link>
@@ -109,6 +115,10 @@ export function ProjectsPage() {
                         to={`/projects/${project.id}/backlog`}
                         className="project-backlog-link"
                         data-testid={`project-backlog-link-${project.id}`}
+                        onClick={() => {
+                          const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                          setActiveProject(project.id, firstBoardId, project.name);
+                        }}
                       >
                         Backlog →
                       </Link>
@@ -119,7 +129,13 @@ export function ProjectsPage() {
                       <ul className="project-boards-list">
                         {project.boards.map((board) => (
                           <li key={board.id}>
-                            <Link to={`/boards/${board.id}`} className="project-board-link">
+                            <Link
+                              to={`/boards/${board.id}`}
+                              className="project-board-link"
+                              onClick={() => {
+                                setActiveProject(project.id, board.id, project.name);
+                              }}
+                            >
                               {board.name} →
                             </Link>
                           </li>

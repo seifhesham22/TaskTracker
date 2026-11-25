@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/useAuth';
+import { useActiveProject } from '../context/activeProjectContextDef';
 import { useProjects } from '../hooks/useProjects';
 import { useBacklog } from '../hooks/useBacklog';
 import { BacklogFilterBar } from '../components/backlog/BacklogFilterBar';
@@ -13,16 +14,32 @@ export function ProjectBacklogPage() {
   const params = useParams<{ projectId?: string }>();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { activeProjectId: contextProjectId, activeBoardId, setActiveProject } = useActiveProject();
   const { projects } = useProjects(user?.id);
 
   const activeProjectId = useMemo(() => {
-    return params.projectId || searchParams.get('projectId') || projects[0]?.id || null;
-  }, [params.projectId, searchParams, projects]);
+    return (
+      params.projectId ||
+      searchParams.get('projectId') ||
+      contextProjectId ||
+      projects[0]?.id ||
+      null
+    );
+  }, [params.projectId, searchParams, contextProjectId, projects]);
 
   const activeProject = useMemo(() => {
     if (!activeProjectId) return null;
     return projects.find((p) => p.id === activeProjectId) || null;
   }, [activeProjectId, projects]);
+
+  useEffect(() => {
+    if (activeProjectId) {
+      const boardId = activeProject?.boards && activeProject.boards.length > 0
+        ? activeProject.boards[0].id
+        : activeBoardId || null;
+      setActiveProject(activeProjectId, boardId, activeProject?.name || null);
+    }
+  }, [activeProjectId, activeProject, activeBoardId, setActiveProject]);
 
   const {
     data,

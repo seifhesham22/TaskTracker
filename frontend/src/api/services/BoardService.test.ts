@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardService, GRAPHQL_TASK_FIELDS, UPDATE_TASK_MUTATION } from './BoardService';
+import {
+  ASSIGN_TASK_MUTATION,
+  BoardService,
+  GRAPHQL_TASK_FIELDS,
+  UNASSIGN_TASK_MUTATION,
+  UPDATE_TASK_MUTATION,
+} from './BoardService';
 import { ColumnCategory, type TaskItem, TaskPriority } from '../../domain/models';
 import type { HttpClient } from '../HttpClient';
 
@@ -787,6 +793,150 @@ describe('BoardService', () => {
       const results = await service.searchTasks('proj-1', 'Approve');
       expect(results).toHaveLength(1);
       expect(results[0].readableId).toBe('TES-18');
+    });
+  });
+
+  describe('assignTask', () => {
+    it('successfully assigns a project member to a task', async () => {
+      const mockRawTask = {
+        id: 't-1',
+        readableId: 'TES-1',
+        number: 1,
+        boardId: 'b-1',
+        title: 'Task 1',
+        status: ColumnCategory.ToDo,
+        columnId: 'c-1',
+        assignees: [{ id: 'u-2', userName: 'writer@local.test' }],
+      };
+
+      const postMock = vi.fn().mockResolvedValue({
+        data: { assignTask: mockRawTask },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const result = await service.assignTask({ taskId: 't-1', userId: 'u-2' });
+
+      expect(result.id).toBe('t-1');
+      expect(result.assigneeIds).toEqual(['u-2']);
+      expect(result.assigneeNames).toEqual(['writer@local.test']);
+      expect(postMock).toHaveBeenCalledWith('/graphql', {
+        query: ASSIGN_TASK_MUTATION,
+        variables: { input: { taskId: 't-1', userId: 'u-2' } },
+      });
+    });
+
+    it('rejects with 403 when user is not authorized to assign tasks', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'Only writers and owners of the project can assign tasks.',
+            extensions: { code: 'AUTH_NOT_AUTHORIZED' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.assignTask({ taskId: 't-1', userId: 'u-2' })).rejects.toMatchObject({
+        status: 403,
+        message: 'Only writers and owners of the project can assign tasks.',
+      });
+    });
+
+    it('rejects with 400 when user is not a project member', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "User 'outsider' is not a member of project TES, so they can't be assigned to this task.",
+            extensions: { code: 'BAD_USER_INPUT' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.assignTask({ taskId: 't-1', userId: 'outsider' })).rejects.toMatchObject({
+        status: 400,
+      });
+    });
+  });
+
+  describe('unassignTask', () => {
+    it('successfully unassigns a member from a task', async () => {
+      const mockRawTask = {
+        id: 't-1',
+        readableId: 'TES-1',
+        number: 1,
+        boardId: 'b-1',
+        title: 'Task 1',
+        status: ColumnCategory.ToDo,
+        columnId: 'c-1',
+        assignees: [],
+      };
+
+      const postMock = vi.fn().mockResolvedValue({
+        data: { unassignTask: mockRawTask },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      const result = await service.unassignTask({ taskId: 't-1', userId: 'u-2' });
+
+      expect(result.id).toBe('t-1');
+      expect(result.assigneeIds).toEqual([]);
+      expect(result.assigneeNames).toEqual([]);
+      expect(postMock).toHaveBeenCalledWith('/graphql', {
+        query: UNASSIGN_TASK_MUTATION,
+        variables: { input: { taskId: 't-1', userId: 'u-2' } },
+      });
+    });
+
+    it('rejects with 404 when task is not found', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "Task 't-999' was not found.",
+            extensions: { code: 'NOT_FOUND' },
+          },
+        ],
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await expect(service.unassignTask({ taskId: 't-999', userId: 'u-2' })).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 });

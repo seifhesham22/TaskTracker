@@ -15,6 +15,7 @@ import {
 } from './ParentTaskDetailsModal';
 import { CreateSubtaskModal } from './CreateSubtaskModal';
 import { EditTaskModal } from './EditTaskModal';
+import { TaskAssigneeModal } from './TaskAssigneeModal';
 import { TaskDependenciesModal } from './TaskDependenciesModal';
 import './BoardView.css';
 
@@ -38,6 +39,8 @@ export interface BoardViewProps {
   readonly onUpdateTask?: (input: UpdateTaskInput) => Promise<TaskItem>;
   readonly onAddDependency?: (blockingTaskId: string, blockedTaskId: string) => Promise<boolean>;
   readonly onSearchTasks?: (query: string) => Promise<TaskItem[]>;
+  readonly onAssignTask?: (taskId: string, userId: string) => Promise<boolean>;
+  readonly onUnassignTask?: (taskId: string, userId: string) => Promise<boolean>;
 }
 
 export function BoardView({
@@ -60,6 +63,8 @@ export function BoardView({
   onUpdateTask,
   onAddDependency,
   onSearchTasks,
+  onAssignTask,
+  onUnassignTask,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
@@ -77,6 +82,10 @@ export function BoardView({
   const [selectedTaskForDependencies, setSelectedTaskForDependencies] = useState<TaskItem | null>(null);
   const [isDependenciesModalOpen, setIsDependenciesModalOpen] = useState(false);
 
+  // Task assignee modal state
+  const [selectedTaskForAssignee, setSelectedTaskForAssignee] = useState<TaskItem | null>(null);
+  const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
+
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -90,6 +99,11 @@ export function BoardView({
     if (!selectedTaskForDependencies) return null;
     return tasks.find((t) => t.id === selectedTaskForDependencies.id) ?? selectedTaskForDependencies;
   }, [selectedTaskForDependencies, tasks]);
+
+  const activeAssigneeTask = useMemo(() => {
+    if (!selectedTaskForAssignee) return null;
+    return tasks.find((t) => t.id === selectedTaskForAssignee.id) ?? selectedTaskForAssignee;
+  }, [selectedTaskForAssignee, tasks]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -326,9 +340,16 @@ export function BoardView({
             setIsDependenciesModalOpen(true);
           }
         }}
+        onChangeAssignee={() => {
+          if (activeTask) {
+            setSelectedTaskForAssignee(activeTask);
+            setIsAssigneeModalOpen(true);
+          }
+        }}
         onClearBlockedError={onClearIncompleteSubtasksError}
         columns={board?.columns}
         members={board?.members}
+        userRole={board?.userRole}
       />
 
       <TaskDependenciesModal
@@ -360,6 +381,7 @@ export function BoardView({
           task={selectedTaskForEdit}
           projectName={board?.projectName || board?.name}
           isOpen={isEditModalOpen}
+          userRole={board?.userRole}
           onClose={() => {
             setIsEditModalOpen(false);
             setSelectedTaskForEdit(null);
@@ -374,8 +396,33 @@ export function BoardView({
             setJustUpdatedTaskId(updatedTask.id);
             setIsEditModalOpen(false);
           }}
+          onChangeAssignee={(taskToAssign) => {
+            setSelectedTaskForAssignee(taskToAssign);
+            setIsAssigneeModalOpen(true);
+          }}
         />
       )}
+
+      <TaskAssigneeModal
+        task={activeAssigneeTask}
+        members={board?.members}
+        projectName={board?.projectName || board?.name}
+        userRole={board?.userRole}
+        isOpen={isAssigneeModalOpen}
+        initialPickerMode={true}
+        onClose={() => {
+          setIsAssigneeModalOpen(false);
+          setSelectedTaskForAssignee(null);
+        }}
+        onAssign={async (taskId, userId) => {
+          if (!onAssignTask) return false;
+          return await onAssignTask(taskId, userId);
+        }}
+        onUnassign={async (taskId, userId) => {
+          if (!onUnassignTask) return false;
+          return await onUnassignTask(taskId, userId);
+        }}
+      />
     </div>
   );
 }

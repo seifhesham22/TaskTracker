@@ -72,6 +72,22 @@ export interface ProjectMemberModel {
   readonly userId: string;
   readonly userName: string;
   readonly email?: string;
+  readonly role?: string;
+}
+
+export interface AssignTaskInput {
+  readonly taskId: string;
+  readonly userId: string;
+}
+
+export interface UnassignTaskInput {
+  readonly taskId: string;
+  readonly userId: string;
+}
+
+export interface AssigneeValidationErrors {
+  readonly userId?: string;
+  readonly general?: string;
 }
 
 export interface BoardDetails {
@@ -81,6 +97,7 @@ export interface BoardDetails {
   readonly name: string;
   readonly columns: readonly BoardColumnModel[];
   readonly members?: readonly ProjectMemberModel[];
+  readonly userRole?: string;
 }
 
 export interface CreateTaskInput {

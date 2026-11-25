@@ -1,5 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../auth/useAuth';
+import { ActiveProjectProvider } from '../context/ActiveProjectContext';
+import { useActiveProject } from '../context/activeProjectContextDef';
 import './AppLayout.css';
 
 function getInitials(email?: string | null): string {
@@ -13,9 +15,10 @@ function getInitials(email?: string | null): string {
   return prefix.slice(0, 2).toUpperCase();
 }
 
-export function AppLayout() {
+function AppLayoutContent() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { activeProjectId, activeBoardId } = useActiveProject();
 
   const handleLogout = async () => {
     await logout();
@@ -23,6 +26,17 @@ export function AppLayout() {
   };
 
   const initials = getInitials(user?.email);
+
+  // Dynamic contextual routes: point to the project/board currently on screen
+  const tasksUrl = activeBoardId
+    ? `/boards/${activeBoardId}`
+    : activeProjectId
+      ? `/tasks?projectId=${activeProjectId}`
+      : '/tasks';
+
+  const backlogUrl = activeProjectId
+    ? `/projects/${activeProjectId}/backlog`
+    : '/backlog';
 
   return (
     <div className="app-layout">
@@ -35,13 +49,23 @@ export function AppLayout() {
         </Link>
 
         <nav className="app-nav" aria-label="Primary navigation">
-          <Link to="/projects" className="app-nav-link">
+          <Link to="/projects" className="app-nav-link" id="nav-projects-link">
             Projects
           </Link>
-          <Link to="/tasks" className="app-nav-link">
+          <Link
+            to={tasksUrl}
+            className="app-nav-link"
+            id="nav-tasks-link"
+            data-testid="nav-tasks-link"
+          >
             Tasks
           </Link>
-          <Link to="/backlog" className="app-nav-link">
+          <Link
+            to={backlogUrl}
+            className="app-nav-link"
+            id="nav-backlog-link"
+            data-testid="nav-backlog-link"
+          >
             Backlog
           </Link>
         </nav>
@@ -65,5 +89,13 @@ export function AppLayout() {
         <Outlet />
       </main>
     </div>
+  );
+}
+
+export function AppLayout() {
+  return (
+    <ActiveProjectProvider>
+      <AppLayoutContent />
+    </ActiveProjectProvider>
   );
 }
