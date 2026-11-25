@@ -73,9 +73,7 @@ export const BOARD_WITH_TASKS_QUERY = `
   }
 `;
 
-export const PROJECTS_QUERY = `
-  query Projects($userId: UUID!) {
-    projects(userId: $userId) {
+export const PROJECT_FIELDS = `
       id
       name
       description
@@ -88,6 +86,12 @@ export const PROJECTS_QUERY = `
         userId
         userName
       }
+`;
+
+export const PROJECTS_QUERY = `
+  query Projects($userId: UUID!) {
+    projects(userId: $userId) {
+      ${PROJECT_FIELDS}
     }
   }
 `;
@@ -192,7 +196,13 @@ export function toBoardSummaries(projects: ProjectNode[]): BoardSummary[] {
 
 export function toProjectSummary(project: ProjectNode): ProjectSummary {
   const description = project.description?.trim();
-  return { id: project.id, name: project.name, description: description || null, boardCount: project.boards.length };
+  return {
+    id: project.id,
+    name: project.name,
+    description: description || null,
+    role: project.role ?? null,
+    boardCount: project.boards.length,
+  };
 }
 
 export function boardWithTasksRequest(boardId: string) {
