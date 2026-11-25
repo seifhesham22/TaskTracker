@@ -6,6 +6,8 @@ import {
   type TaskItem,
   type UpdateTaskInput,
 } from '../../domain/models';
+import type { ProjectAccessState } from '../../domain/projectAccess';
+import { ProjectAccessView } from '../access/ProjectAccessView';
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
 import { CreateTaskForm } from './CreateTaskForm';
@@ -24,6 +26,9 @@ export interface BoardViewProps {
   readonly isLoading: boolean;
   readonly error: string | null;
   readonly isNotFound: boolean;
+  readonly accessState?: ProjectAccessState;
+  readonly onBackToProjects?: () => void;
+  readonly onLogin?: () => void;
   readonly isCreatingTask: boolean;
   readonly createTaskError?: string | null;
   readonly savingTaskIds?: ReadonlySet<string>;
@@ -46,6 +51,9 @@ export function BoardView({
   isLoading,
   error,
   isNotFound,
+  accessState,
+  onBackToProjects,
+  onLogin,
   isCreatingTask,
   createTaskError,
   savingTaskIds,
@@ -123,6 +131,17 @@ export function BoardView({
     window.addEventListener('resize', updateScrollState);
     return () => window.removeEventListener('resize', updateScrollState);
   }, [columnsWithTasks, updateScrollState]);
+
+  if (accessState && accessState !== 'permitted') {
+    return (
+      <ProjectAccessView
+        accessState={accessState}
+        onRetry={onReload}
+        onBackToProjects={onBackToProjects}
+        onLogin={onLogin}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

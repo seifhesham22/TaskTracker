@@ -1,4 +1,5 @@
-import { useParams, useSearchParams } from 'react-router';
+import { useCallback } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { BoardView } from '../components/board/BoardView';
 import { useBoard } from '../hooks/useBoard';
 import './pages.css';
@@ -6,6 +7,7 @@ import './pages.css';
 const DEFAULT_SEED_BOARD_ID = '01a1aad8-c24a-73f9-a095-069769796312';
 
 export function TasksPage() {
+  const navigate = useNavigate();
   const { boardId: paramBoardId } = useParams<{ boardId?: string }>();
   const [searchParams] = useSearchParams();
   const boardId = paramBoardId || searchParams.get('boardId') || DEFAULT_SEED_BOARD_ID;
@@ -16,6 +18,7 @@ export function TasksPage() {
     isLoading,
     error,
     isNotFound,
+    accessState,
     isCreatingTask,
     createTaskError,
     savingTaskIds,
@@ -32,6 +35,14 @@ export function TasksPage() {
     handleSearchTasks,
   } = useBoard(boardId);
 
+  const handleBackToProjects = useCallback(() => {
+    navigate('/projects');
+  }, [navigate]);
+
+  const handleLogin = useCallback(() => {
+    navigate('/login');
+  }, [navigate]);
+
   return (
     <div className="tasks-page">
       <BoardView
@@ -40,6 +51,9 @@ export function TasksPage() {
         isLoading={isLoading}
         error={error}
         isNotFound={isNotFound}
+        accessState={accessState}
+        onBackToProjects={handleBackToProjects}
+        onLogin={handleLogin}
         isCreatingTask={isCreatingTask}
         createTaskError={createTaskError}
         savingTaskIds={savingTaskIds}

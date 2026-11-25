@@ -1,0 +1,253 @@
+/* T1WOR-143 · Project access and safe navigation */
+
+.project-access-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #EDEDED;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0A0A0A;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-access-header {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E5E5;
+  width: 100%;
+}
+
+.project-access-brand {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  color: #0A0A0A;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-access-breadcrumb {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #636363;
+}
+
+.project-access-content {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 24px;
+  flex: 1;
+}
+
+.project-access-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 16px;
+  width: 100%;
+  max-width: 600px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.project-access-title {
+  width: 100%;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 35px;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+.project-access-subtitle {
+  width: 100%;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #636363;
+  margin: 0;
+}
+
+/* Status message for State 01 */
+.project-access-status-box {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 4px;
+  width: 100%;
+  background: #F5F5F5;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+}
+
+.project-access-status-line {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+.project-access-status-detail {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #636363;
+  margin: 0;
+}
+
+/* Error message for State 06 */
+.project-access-error-box {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 4px;
+  width: 100%;
+  background: #FFF5F5;
+  border: 1px solid #F1B8BC;
+  border-radius: 8px;
+}
+
+.project-access-error-line {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #C10007;
+  margin: 0;
+}
+
+/* Guidance text for State 03, 04, 05 */
+.project-access-guidance {
+  width: 100%;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 23px;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+/* Action button controls */
+.project-access-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.project-access-btn-primary {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  height: 48px;
+  background: #171717;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.project-access-btn-primary:hover {
+  background: #262626;
+}
+
+.project-access-btn-primary:focus-visible {
+  outline: 2px solid #0A0A0A;
+  outline-offset: 2px;
+}
+
+.project-access-btn-secondary {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  height: 48px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.project-access-btn-secondary:hover {
+  background: #F5F5F5;
+}
+
+.project-access-btn-secondary:focus-visible {
+  outline: 2px solid #0A0A0A;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .project-access-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .project-access-content {
+    padding: 24px 16px;
+  }
+
+  .project-access-card {
+    padding: 16px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+
+  .project-access-title {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .project-access-guidance {
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
