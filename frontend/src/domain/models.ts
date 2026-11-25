@@ -242,3 +242,13 @@ export interface AddProjectMemberValidationErrors {
   readonly role?: string;
   readonly form?: string;
 }
+
+export interface RankTaskInput {
+  readonly taskId: string;
+  readonly afterTaskId?: string | null;
+}
+
+export interface RankTaskResult {
+  readonly id: string;
+  readonly readableId: string;
+}

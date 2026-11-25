@@ -152,4 +152,111 @@ describe('BacklogService', () => {
       service.getBacklog({ projectId: 'proj-1' })
     ).rejects.toThrow(ApiError);
   });
+
+  describe('rankTask', () => {
+    it('sends RankTask mutation with input and returns id and readableId', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        data: {
+          rankTask: {
+            id: 'task-1',
+            readableId: 'TES-31',
+          },
+        },
+      });
+
+      const client: HttpClient = { get: vi.fn(), post: mockPost, put: vi.fn(), delete: vi.fn() };
+      const service = new BacklogService(client);
+
+      const result = await service.rankTask({
+        taskId: 'task-1',
+        afterTaskId: 'task-2',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith('/graphql', {
+        query: expect.stringContaining('mutation RankTask'),
+        variables: {
+          input: {
+            taskId: 'task-1',
+            afterTaskId: 'task-2',
+          },
+        },
+      });
+
+      expect(result).toEqual({
+        id: 'task-1',
+        readableId: 'TES-31',
+      });
+    });
+
+    it('handles AUTH_NOT_AUTHORIZED with 403 ApiError', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: 'Only writers and owners of the project can change the backlog order.',
+            extensions: { code: 'AUTH_NOT_AUTHORIZED' },
+          },
+        ],
+      });
+
+      const client: HttpClient = { get: vi.fn(), post: mockPost, put: vi.fn(), delete: vi.fn() };
+      const service = new BacklogService(client);
+
+      await expect(
+        service.rankTask({ taskId: 'task-1', afterTaskId: null })
+      ).rejects.toThrow('Only writers and owners');
+    });
+
+    it('handles BAD_USER_INPUT error', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        errors: [
+          {
+            message: "A task can't be placed after itself.",
+            extensions: { code: 'BAD_USER_INPUT' },
+          },
+        ],
+      });
+
+      const client: HttpClient = { get: vi.fn(), post: mockPost, put: vi.fn(), delete: vi.fn() };
+      const service = new BacklogService(client);
+
+      await expect(
+        service.rankTask({ taskId: 'task-1', afterTaskId: 'task-1' })
+      ).rejects.toThrow("A task can't be placed after itself.");
+    });
+  });
+
+  describe('updateTaskPriority', () => {
+    it('sends UpdateTaskPriority mutation and returns updated priority', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        data: {
+          updateTask: {
+            id: 'task-1',
+            readableId: 'TES-31',
+            priority: TaskPriority.Critical,
+          },
+        },
+      });
+
+      const client: HttpClient = { get: vi.fn(), post: mockPost, put: vi.fn(), delete: vi.fn() };
+      const service = new BacklogService(client);
+
+      const result = await service.updateTaskPriority('task-1', TaskPriority.Critical);
+
+      expect(mockPost).toHaveBeenCalledWith('/graphql', {
+        query: expect.stringContaining('mutation UpdateTaskPriority'),
+        variables: {
+          input: {
+            taskId: 'task-1',
+            priority: TaskPriority.Critical,
+          },
+        },
+      });
+
+      expect(result).toEqual({
+        id: 'task-1',
+        readableId: 'TES-31',
+        priority: TaskPriority.Critical,
+      });
+    });
+  });
 });
