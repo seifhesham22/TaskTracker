@@ -221,6 +221,28 @@
   margin: 0 0 12px 0;
 }
 
+.project-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.project-members-link {
+  font-family: 'Geist', var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground, #636363);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.project-members-link:hover {
+  color: var(--foreground, #0a0a0a);
+  text-decoration: underline;
+}
+
 .project-open-btn {
   box-sizing: border-box;
   display: flex;

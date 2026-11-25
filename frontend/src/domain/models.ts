@@ -187,3 +187,31 @@ export interface ProjectValidationErrors {
   readonly name?: string;
   readonly form?: string;
 }
+
+export const ProjectRole = {
+  Owner: 'OWNER',
+  Writer: 'WRITER',
+  Reader: 'READER',
+} as const;
+
+export type ProjectRole = (typeof ProjectRole)[keyof typeof ProjectRole];
+
+export interface ProjectMember {
+  readonly projectId: string;
+  readonly userId: string;
+  readonly userName: string;
+  readonly role: ProjectRole;
+  readonly joinedAt: string;
+}
+
+export interface AddProjectMemberInput {
+  readonly projectId: string;
+  readonly email: string;
+  readonly role?: ProjectRole;
+}
+
+export interface AddProjectMemberValidationErrors {
+  readonly email?: string;
+  readonly role?: string;
+  readonly form?: string;
+}
