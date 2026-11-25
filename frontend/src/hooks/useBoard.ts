@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../api';
+import { api, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../api';
 import type { BoardDetails, CreateTaskInput, TaskItem, UpdateTaskInput } from '../domain/models';
+import { defaultProjectAccessClassifier, type ProjectAccessState } from '../domain/projectAccess';
 
 export interface IncompleteSubtaskFailure {
   readonly taskId: string;
@@ -14,6 +15,7 @@ export interface UseBoardState {
   readonly isLoading: boolean;
   readonly error: string | null;
   readonly isNotFound: boolean;
+  readonly accessState: ProjectAccessState;
   readonly isCreatingTask: boolean;
   readonly createTaskError: string | null;
   readonly savingTaskIds: ReadonlySet<string>;
@@ -36,6 +38,7 @@ export function useBoard(boardId: string): UseBoardState {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
+  const [accessState, setAccessState] = useState<ProjectAccessState>('checking');
 
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [createTaskError, setCreateTaskError] = useState<string | null>(null);
@@ -44,8 +47,20 @@ export function useBoard(boardId: string): UseBoardState {
   const [moveError, setMoveError] = useState<string | null>(null);
   const [incompleteSubtasksError, setIncompleteSubtasksError] = useState<IncompleteSubtaskFailure | null>(null);
 
+  const checkActionRevocation = useCallback((err: unknown): boolean => {
+    const classified = defaultProjectAccessClassifier.classifyError(err, true);
+    if (classified === 'revoked' || classified === 'session_expired') {
+      setAccessState(classified);
+      setBoard(null);
+      setTasks([]);
+      return true;
+    }
+    return false;
+  }, []);
+
   const fetchBoardData = useCallback(async () => {
     setIsLoading(true);
+    setAccessState('checking');
     setError(null);
     setIsNotFound(false);
 
@@ -53,8 +68,13 @@ export function useBoard(boardId: string): UseBoardState {
       const data = await api.board.getBoardWithTasks(boardId);
       setBoard(data.board);
       setTasks(data.tasks);
+      setAccessState('permitted');
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 404) {
+      const classified = defaultProjectAccessClassifier.classifyError(err, false);
+      setAccessState(classified);
+      setBoard(null);
+      setTasks([]);
+      if (classified === 'unavailable') {
         setIsNotFound(true);
         setError(`Board '${boardId}' was not found.`);
       } else {
@@ -75,11 +95,16 @@ export function useBoard(boardId: string): UseBoardState {
         if (!ignore) {
           setBoard(data.board);
           setTasks(data.tasks);
+          setAccessState('permitted');
           setIsLoading(false);
         }
       } catch (err: unknown) {
         if (!ignore) {
-          if (err instanceof ApiError && err.status === 404) {
+          const classified = defaultProjectAccessClassifier.classifyError(err, false);
+          setAccessState(classified);
+          setBoard(null);
+          setTasks([]);
+          if (classified === 'unavailable') {
             setIsNotFound(true);
             setError(`Board '${boardId}' was not found.`);
           } else {
@@ -108,6 +133,9 @@ export function useBoard(boardId: string): UseBoardState {
       setTasks((prevTasks) => [...prevTasks, newTask]);
       return true;
     } catch (err: unknown) {
+      if (checkActionRevocation(err)) {
+        return false;
+      }
       const msg = err instanceof Error ? err.message : 'Server refused task creation.';
       setCreateTaskError(msg);
       return false;
@@ -155,6 +183,9 @@ export function useBoard(boardId: string): UseBoardState {
       );
       return true;
     } catch (err: unknown) {
+      if (checkActionRevocation(err)) {
+        return false;
+      }
       // If the change is refused (network error or validation guard), the card stays where it was.
       setTasks(previousTasks);
       if (err instanceof IncompleteSubtasksApiError) {
@@ -183,50 +214,67 @@ export function useBoard(boardId: string): UseBoardState {
       const newSubtask = await api.board.createSubtask(parentTask, title);
       setTasks((prevTasks) => [...prevTasks, newSubtask]);
       return true;
-    } catch {
+    } catch (err: unknown) {
+      if (checkActionRevocation(err)) {
+        return false;
+      }
       return false;
     }
   };
 
   const handleUpdateTask = async (input: UpdateTaskInput): Promise<TaskItem> => {
-    const updated = await api.board.updateTask(input);
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === updated.id
-          ? { ...t, ...updated, parentTaskId: updated.parentTaskId ?? t.parentTaskId }
-          : t
-      )
-    );
-    return updated;
+    try {
+      const updated = await api.board.updateTask(input);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === updated.id
+            ? { ...t, ...updated, parentTaskId: updated.parentTaskId ?? t.parentTaskId }
+            : t
+        )
+      );
+      return updated;
+    } catch (err: unknown) {
+      if (checkActionRevocation(err)) {
+        throw err;
+      }
+      throw err;
+    }
   };
 
   const handleAddDependency = async (
     blockingTaskId: string,
     blockedTaskId: string
   ): Promise<boolean> => {
-    const result = await api.board.addTaskDependency({ blockingTaskId, blockedTaskId });
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === result.blockingTask.id) {
-          return {
-            ...t,
-            ...result.blockingTask,
-            blocks: result.blockingTask.blocks ?? t.blocks,
-            blockedBy: result.blockingTask.blockedBy ?? t.blockedBy,
-          };
-        }
-        if (t.id === result.blockedTask.id) {
-          return {
-            ...t,
-            ...result.blockedTask,
-            blocks: result.blockedTask.blocks ?? t.blocks,
-            blockedBy: result.blockedTask.blockedBy ?? t.blockedBy,
-          };
-        }
-        return t;
-      })
-    );
-    return true;
+    try {
+      const result = await api.board.addTaskDependency({ blockingTaskId, blockedTaskId });
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id === result.blockingTask.id) {
+            return {
+              ...t,
+              ...result.blockingTask,
+              blocks: result.blockingTask.blocks ?? t.blocks,
+              blockedBy: result.blockingTask.blockedBy ?? t.blockedBy,
+            };
+          }
+          if (t.id === result.blockedTask.id) {
+            return {
+              ...t,
+              ...result.blockedTask,
+              blocks: result.blockedTask.blocks ?? t.blocks,
+              blockedBy: result.blockedTask.blockedBy ?? t.blockedBy,
+            };
+          }
+          return t;
+        })
+      );
+      return true;
+    } catch (err: unknown) {
+      if (checkActionRevocation(err)) {
+        return false;
+      }
+      throw err;
+    }
   };
 
   const handleSearchTasks = async (query: string): Promise<TaskItem[]> => {
@@ -267,6 +315,7 @@ export function useBoard(boardId: string): UseBoardState {
     isLoading,
     error,
     isNotFound,
+    accessState,
     isCreatingTask,
     createTaskError,
     savingTaskIds,
