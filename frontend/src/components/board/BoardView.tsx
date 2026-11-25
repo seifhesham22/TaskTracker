@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import {
   ColumnCategory,
   type BoardDetails,
@@ -34,6 +35,8 @@ export interface BoardViewProps {
   readonly savingTaskIds?: ReadonlySet<string>;
   readonly moveError?: string | null;
   readonly incompleteSubtasksError?: BlockedIncompleteSubtasksInfo | null;
+  readonly createdBanner?: string | null;
+  readonly backToBoardsUrl?: string | null;
   readonly onClearMoveError?: () => void;
   readonly onClearIncompleteSubtasksError?: () => void;
   readonly onReload?: () => void;
@@ -59,6 +62,8 @@ export function BoardView({
   savingTaskIds,
   moveError,
   incompleteSubtasksError,
+  createdBanner,
+  backToBoardsUrl,
   onClearMoveError,
   onClearIncompleteSubtasksError,
   onReload,
@@ -239,6 +244,16 @@ export function BoardView({
         }}
       />
 
+      {createdBanner && (
+        <div
+          className="board-alert board-alert--created"
+          role="status"
+          data-testid="board-created-banner"
+        >
+          <span>{createdBanner}</span>
+        </div>
+      )}
+
       {moveError && (
         <div className="board-alert board-alert--error" role="alert" data-testid="board-move-error">
           <img src="/assets/871e4.svg" alt="" width="16" height="16" />
@@ -285,6 +300,18 @@ export function BoardView({
         </div>
         {canScrollRight && <div className="board-columns-fade" aria-hidden="true" />}
       </div>
+
+      {backToBoardsUrl && (
+        <div className="board-back-actions">
+          <Link
+            to={backToBoardsUrl}
+            className="board-back-btn"
+            data-testid="back-to-boards-btn"
+          >
+            Back to boards
+          </Link>
+        </div>
+      )}
 
       {board && (
         <CreateTaskForm

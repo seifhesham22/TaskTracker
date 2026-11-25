@@ -35,6 +35,15 @@ export function TasksPage() {
     handleSearchTasks,
   } = useBoard(boardId);
 
+  const isCreated = searchParams.get('created') === 'true';
+  const queryProjectName = searchParams.get('projectName');
+  const targetProjectName = queryProjectName || board?.projectName || 'project';
+  const createdBanner = isCreated
+    ? `✓ Board created in ${targetProjectName}.`
+    : null;
+  const backToBoardsUrl =
+    searchParams.get('projectId') || (board ? `/projects/${board.projectId}/boards` : null);
+
   const handleBackToProjects = useCallback(() => {
     navigate('/projects');
   }, [navigate]);
@@ -54,6 +63,8 @@ export function TasksPage() {
         accessState={accessState}
         onBackToProjects={handleBackToProjects}
         onLogin={handleLogin}
+        createdBanner={createdBanner}
+        backToBoardsUrl={backToBoardsUrl}
         isCreatingTask={isCreatingTask}
         createTaskError={createTaskError}
         savingTaskIds={savingTaskIds}

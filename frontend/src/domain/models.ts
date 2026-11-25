@@ -188,6 +188,16 @@ export interface ProjectValidationErrors {
   readonly form?: string;
 }
 
+export interface CreateBoardInput {
+  readonly projectId: string;
+  readonly name: string;
+}
+
+export interface BoardValidationErrors {
+  readonly name?: string;
+  readonly form?: string;
+}
+
 export const ProjectRole = {
   Owner: 'OWNER',
   Writer: 'WRITER',
