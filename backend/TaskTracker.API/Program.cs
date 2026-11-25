@@ -135,6 +135,7 @@ builder.Services
     .AddMutationType()
     .AddAuthorization()
     .AddFiltering()
+    .ModifyCostOptions(o => o.Filtering.VariableMultiplier = 1)
     .AddType<GetTasksQuery>()
     .AddType<GetBacklogQuery>()
     .AddType<GetProjectsQuery>()
