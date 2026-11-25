@@ -34,6 +34,8 @@ export interface ParentTaskDetailsModalProps {
   readonly onAddSubtask?: () => void;
   readonly onEdit?: () => void;
   readonly onManageDependencies?: () => void;
+  readonly onChangeAssignee?: () => void;
+  readonly userRole?: string | null;
   readonly onClearBlockedError?: () => void;
 }
 
@@ -55,6 +57,8 @@ export function ParentTaskDetailsModal({
   onAddSubtask,
   onEdit,
   onManageDependencies,
+  onChangeAssignee,
+  userRole,
   onClearBlockedError,
 }: ParentTaskDetailsModalProps) {
   const headingId = useId();
@@ -348,11 +352,19 @@ export function ParentTaskDetailsModal({
                     <span>Due date: {formatDisplayDate(task.dueDate)}</span>
                   </div>
                 )}
-                {assigneeNames && (
-                  <div className="task-details-row">
-                    <span>Assignee: {assigneeNames}</span>
-                  </div>
-                )}
+                <div className="task-details-row">
+                  <span data-testid="task-details-assignee-name">Assignee: {assigneeNames || 'Unassigned'}</span>
+                  {onChangeAssignee && userRole?.toUpperCase() !== 'READER' && (
+                    <button
+                      type="button"
+                      className="button button-outline task-details-btn-assignee"
+                      onClick={onChangeAssignee}
+                      data-testid="task-details-change-assignee-btn"
+                    >
+                      Change assignee
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -548,6 +560,16 @@ export function ParentTaskDetailsModal({
                       Manage dependencies
                     </button>
                   )}
+                  {onChangeAssignee && userRole?.toUpperCase() !== 'READER' && (
+                    <button
+                      type="button"
+                      className="button button-outline task-details-btn-assignee"
+                      onClick={onChangeAssignee}
+                      data-testid="manage-assignee-button"
+                    >
+                      Change assignee
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="button button-outline"
@@ -587,6 +609,16 @@ export function ParentTaskDetailsModal({
                       data-testid="manage-dependencies-button"
                     >
                       Manage dependencies
+                    </button>
+                  )}
+                  {onChangeAssignee && userRole?.toUpperCase() !== 'READER' && (
+                    <button
+                      type="button"
+                      className="button button-outline task-details-btn-assignee"
+                      onClick={onChangeAssignee}
+                      data-testid="manage-assignee-button"
+                    >
+                      Change assignee
                     </button>
                   )}
                   <button

@@ -17,6 +17,7 @@ export const CREATE_PROJECT_MUTATION = `
         name
       }
       projectMembers {
+        userId
         userName
         role
       }
@@ -37,6 +38,7 @@ export const GET_PROJECTS_QUERY = `
         name
       }
       projectMembers {
+        userId
         userName
         role
       }

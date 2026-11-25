@@ -28,8 +28,49 @@ export interface UseBoardState {
   readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
   readonly handleMoveTask: (taskId: string, targetColumnId: string) => Promise<boolean>;
   readonly handleUpdateTask: (input: UpdateTaskInput) => Promise<TaskItem>;
+  readonly handleAssignTask: (taskId: string, userId: string) => Promise<boolean>;
+  readonly handleUnassignTask: (taskId: string, userId: string) => Promise<boolean>;
   readonly handleAddDependency: (blockingTaskId: string, blockedTaskId: string) => Promise<boolean>;
   readonly handleSearchTasks: (query: string) => Promise<TaskItem[]>;
+}
+
+async function loadBoardWithMembers(boardId: string): Promise<{
+  board: BoardDetails;
+  tasks: TaskItem[];
+}> {
+  const data = await api.board.getBoardWithTasks(boardId);
+  let members = data.board.members && data.board.members.length > 0 ? [...data.board.members] : [];
+  let userRole: string | undefined = data.board.userRole;
+  let projectName = data.board.projectName;
+
+  try {
+    const me = await api.auth.me();
+    const projects = me ? await api.auth.getProjects(me.id) : [];
+    const currentProject = projects.find((p) => p.id === data.board.projectId);
+    if (currentProject) {
+      userRole = currentProject.role || userRole;
+      if (!projectName) projectName = currentProject.name;
+      if (currentProject.projectMembers && currentProject.projectMembers.length > 0) {
+        members = currentProject.projectMembers.map((m) => ({
+          userId: m.userId || m.userName,
+          userName: m.userName,
+          role: m.role,
+        }));
+      }
+    }
+  } catch {
+    // continue with existing board data
+  }
+
+  return {
+    board: {
+      ...data.board,
+      projectName,
+      members,
+      userRole,
+    },
+    tasks: data.tasks,
+  };
 }
 
 export function useBoard(boardId: string): UseBoardState {
@@ -69,9 +110,9 @@ export function useBoard(boardId: string): UseBoardState {
     setIsNotFound(false);
 
     try {
-      const data = await api.board.getBoardWithTasks(boardId);
-      setBoard(data.board);
-      setTasks(data.tasks);
+      const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
+      setBoard(loadedBoard);
+      setTasks(loadedTasks);
       setAccessState('permitted');
     } catch (err: unknown) {
       const classified = defaultProjectAccessClassifier.classifyError(err, false);
@@ -95,10 +136,10 @@ export function useBoard(boardId: string): UseBoardState {
 
     const run = async () => {
       try {
-        const data = await api.board.getBoardWithTasks(boardId);
+        const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
         if (!ignore) {
-          setBoard(data.board);
-          setTasks(data.tasks);
+          setBoard(loadedBoard);
+          setTasks(loadedTasks);
           setAccessState('permitted');
           setIsLoading(false);
         }
@@ -281,6 +322,22 @@ export function useBoard(boardId: string): UseBoardState {
     }
   };
 
+  const handleAssignTask = async (taskId: string, userId: string): Promise<boolean> => {
+    const updated = await api.board.assignTask({ taskId, userId });
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
+    );
+    return true;
+  };
+
+  const handleUnassignTask = async (taskId: string, userId: string): Promise<boolean> => {
+    const updated = await api.board.unassignTask({ taskId, userId });
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
+    );
+    return true;
+  };
+
   const handleSearchTasks = async (query: string): Promise<TaskItem[]> => {
     const trimmed = query.trim().toLowerCase();
     if (board?.projectId) {
@@ -335,6 +392,8 @@ export function useBoard(boardId: string): UseBoardState {
     handleCreateSubtask,
     handleMoveTask,
     handleUpdateTask,
+    handleAssignTask,
+    handleUnassignTask,
     handleAddDependency,
     handleSearchTasks,
   };

@@ -1,7 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { useAuth } from '../auth/useAuth';
 import { BoardView } from '../components/board/BoardView';
+import { useActiveProject } from '../context/activeProjectContextDef';
 import { useBoard } from '../hooks/useBoard';
+import { useProjects } from '../hooks/useProjects';
 import './pages.css';
 
 const DEFAULT_SEED_BOARD_ID = '01a1aad8-c24a-73f9-a095-069769796312';
@@ -10,7 +13,39 @@ export function TasksPage() {
   const navigate = useNavigate();
   const { boardId: paramBoardId } = useParams<{ boardId?: string }>();
   const [searchParams] = useSearchParams();
-  const boardId = paramBoardId || searchParams.get('boardId') || DEFAULT_SEED_BOARD_ID;
+  const { user } = useAuth();
+  const { activeBoardId, activeProjectId, setActiveProject } = useActiveProject();
+  const { projects } = useProjects(user?.id);
+
+  // Dynamically resolve the effective board:
+  // 1. Explicit path parameter /boards/:boardId
+  // 2. Query param ?boardId=...
+  // 3. Query param ?projectId=... -> first board of that project
+  // 4. Active board cached from the project on screen
+  // 5. Active project cached -> first board of that project
+  // 6. User's first project's first board
+  // 7. Test fallback seed board
+  const effectiveBoardId = useMemo(() => {
+    if (paramBoardId) return paramBoardId;
+    const qBoardId = searchParams.get('boardId');
+    if (qBoardId) return qBoardId;
+
+    const qProjectId = searchParams.get('projectId') || activeProjectId;
+    if (qProjectId && projects.length > 0) {
+      const targetProj = projects.find((p) => p.id === qProjectId);
+      if (targetProj && targetProj.boards && targetProj.boards.length > 0) {
+        return targetProj.boards[0].id;
+      }
+    }
+
+    if (activeBoardId) return activeBoardId;
+
+    if (projects.length > 0 && projects[0].boards && projects[0].boards.length > 0) {
+      return projects[0].boards[0].id;
+    }
+
+    return DEFAULT_SEED_BOARD_ID;
+  }, [paramBoardId, searchParams, activeProjectId, activeBoardId, projects]);
 
   const {
     board,
@@ -33,7 +68,16 @@ export function TasksPage() {
     handleUpdateTask,
     handleAddDependency,
     handleSearchTasks,
-  } = useBoard(boardId);
+    handleAssignTask,
+    handleUnassignTask,
+  } = useBoard(effectiveBoardId);
+
+  // Sync active project and board with context as soon as board data loads
+  useEffect(() => {
+    if (board?.projectId && board?.id) {
+      setActiveProject(board.projectId, board.id, board.projectName || board.name);
+    }
+  }, [board, setActiveProject]);
 
   const isCreated = searchParams.get('created') === 'true';
   const queryProjectName = searchParams.get('projectName');
@@ -79,6 +123,8 @@ export function TasksPage() {
         onUpdateTask={handleUpdateTask}
         onAddDependency={handleAddDependency}
         onSearchTasks={handleSearchTasks}
+        onAssignTask={handleAssignTask}
+        onUnassignTask={handleUnassignTask}
       />
     </div>
   );

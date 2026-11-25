@@ -33,6 +33,7 @@ export interface ProjectBoardSummary {
 }
 
 export interface ProjectMemberSummary {
+  readonly userId?: string;
   readonly userName: string;
   readonly role: string;
 }
@@ -210,6 +211,7 @@ export class AuthService {
             name
           }
           projectMembers {
+            userId
             userName
             role
           }

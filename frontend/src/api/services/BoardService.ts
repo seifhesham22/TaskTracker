@@ -1,11 +1,13 @@
 import type { HttpClient } from '../HttpClient';
 import { ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../errors';
 import {
+  type AssignTaskInput,
   type BoardDetails,
   type CreateBoardInput,
   type CreateTaskInput,
   type MoveTaskInput,
   type TaskItem,
+  type UnassignTaskInput,
   type UpdateTaskInput,
   ColumnCategory,
 } from '../../domain/models';
@@ -57,6 +59,22 @@ export const GRAPHQL_TASK_FIELDS = `
 export const UPDATE_TASK_MUTATION = `
   mutation UpdateTask($input: UpdateTaskInput!) {
     updateTask(input: $input) {
+      ${GRAPHQL_TASK_FIELDS}
+    }
+  }
+`;
+
+export const ASSIGN_TASK_MUTATION = `
+  mutation AssignTask($input: AssignTaskInput!) {
+    assignTask(input: $input) {
+      ${GRAPHQL_TASK_FIELDS}
+    }
+  }
+`;
+
+export const UNASSIGN_TASK_MUTATION = `
+  mutation UnassignTask($input: UnassignTaskInput!) {
+    unassignTask(input: $input) {
       ${GRAPHQL_TASK_FIELDS}
     }
   }
@@ -528,6 +546,62 @@ export class BoardService {
     }
 
     return this.mapRawTask(result.data.updateTask);
+  }
+
+  async assignTask(input: AssignTaskInput): Promise<TaskItem> {
+    const result = await this.client.post<GraphQLResponse<{ assignTask: RawTask }>>(
+      '/graphql',
+      { query: ASSIGN_TASK_MUTATION, variables: { input } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'AUTH_NOT_AUTHORIZED') {
+        throw new ApiError(firstError.message, 403, result.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError(firstError.message, 401, result.errors);
+      }
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, result.errors);
+      }
+      throw new ApiError(firstError.message, 400, result.errors);
+    }
+
+    if (!result.data?.assignTask) {
+      throw new ApiError('Failed to assign task.', 500, null);
+    }
+
+    return this.mapRawTask(result.data.assignTask);
+  }
+
+  async unassignTask(input: UnassignTaskInput): Promise<TaskItem> {
+    const result = await this.client.post<GraphQLResponse<{ unassignTask: RawTask }>>(
+      '/graphql',
+      { query: UNASSIGN_TASK_MUTATION, variables: { input } }
+    );
+
+    if (result.errors && result.errors.length > 0) {
+      const firstError = result.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'AUTH_NOT_AUTHORIZED') {
+        throw new ApiError(firstError.message, 403, result.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError(firstError.message, 401, result.errors);
+      }
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, result.errors);
+      }
+      throw new ApiError(firstError.message, 400, result.errors);
+    }
+
+    if (!result.data?.unassignTask) {
+      throw new ApiError('Failed to unassign task.', 500, null);
+    }
+
+    return this.mapRawTask(result.data.unassignTask);
   }
 
   async createBoard(input: CreateBoardInput): Promise<BoardDetails> {

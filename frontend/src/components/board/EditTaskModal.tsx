@@ -10,9 +10,11 @@ export interface EditTaskModalProps {
   readonly projectName?: string | null;
   readonly isOpen: boolean;
   readonly isLoading?: boolean;
+  readonly userRole?: string | null;
   readonly onClose: () => void;
   readonly onSubmit: (input: UpdateTaskInput) => Promise<TaskItem | boolean>;
   readonly onSuccess?: (updatedTask: TaskItem) => void;
+  readonly onChangeAssignee?: (task: TaskItem) => void;
 }
 
 export function EditTaskModal({
@@ -20,9 +22,11 @@ export function EditTaskModal({
   projectName,
   isOpen,
   isLoading = false,
+  userRole,
   onClose,
   onSubmit,
   onSuccess,
+  onChangeAssignee,
 }: EditTaskModalProps) {
   if (!isOpen || !task) {
     return null;
@@ -34,9 +38,11 @@ export function EditTaskModal({
       task={task}
       projectName={projectName}
       isLoading={isLoading}
+      userRole={userRole}
       onClose={onClose}
       onSubmit={onSubmit}
       onSuccess={onSuccess}
+      onChangeAssignee={onChangeAssignee}
     />
   );
 }
@@ -45,18 +51,22 @@ interface EditTaskFormContentProps {
   readonly task: TaskItem;
   readonly projectName?: string | null;
   readonly isLoading: boolean;
+  readonly userRole?: string | null;
   readonly onClose: () => void;
   readonly onSubmit: (input: UpdateTaskInput) => Promise<TaskItem | boolean>;
   readonly onSuccess?: (updatedTask: TaskItem) => void;
+  readonly onChangeAssignee?: (task: TaskItem) => void;
 }
 
 function EditTaskFormContent({
   task,
   projectName,
   isLoading,
+  userRole,
   onClose,
   onSubmit,
   onSuccess,
+  onChangeAssignee,
 }: EditTaskFormContentProps) {
   const [title, setTitle] = useState(task.title || '');
   const [description, setDescription] = useState(task.description || '');
@@ -272,6 +282,27 @@ function EditTaskFormContent({
                   <option value={TaskPriority.High}>High</option>
                   <option value={TaskPriority.Critical}>Critical</option>
                 </select>
+              </div>
+
+              <div className="edit-task-field">
+                <label className="edit-task-label">Assignee</label>
+                <div className="edit-task-assignee-row">
+                  <span className="edit-task-assignee-name" data-testid="edit-task-assignee-name">
+                    {task.assignees && task.assignees.length > 0
+                      ? task.assignees.map((a) => a.userName || a.id).join(', ')
+                      : 'Unassigned'}
+                  </span>
+                  {onChangeAssignee && userRole?.toUpperCase() !== 'READER' && (
+                    <button
+                      type="button"
+                      className="edit-task-change-assignee-btn"
+                      onClick={() => onChangeAssignee(task)}
+                      data-testid="edit-task-change-assignee-btn"
+                    >
+                      Change assignee
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="edit-task-dates-row">
