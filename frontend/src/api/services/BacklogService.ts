@@ -50,7 +50,8 @@ export class BacklogService {
 
   public buildFilter(
     status?: ColumnCategory | null,
-    priority?: TaskPriority | 'NONE' | null
+    priority?: TaskPriority | 'NONE' | null,
+    assigneeId?: string | 'UNASSIGNED' | null
   ): BacklogFilterInput | undefined {
     const filter: Record<string, unknown> = {};
 
@@ -62,6 +63,12 @@ export class BacklogService {
       filter.priority = { eq: null };
     } else if (priority) {
       filter.priority = { eq: priority };
+    }
+
+    if (assigneeId === 'UNASSIGNED') {
+      filter.assignees = { any: false };
+    } else if (assigneeId) {
+      filter.assignees = { some: { userId: { eq: assigneeId } } };
     }
 
     if (Object.keys(filter).length === 0) {

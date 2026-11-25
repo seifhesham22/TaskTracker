@@ -5,11 +5,14 @@ import {
   type BoardDetails,
   type CreateBoardInput,
   type CreateTaskInput,
+  type GetBoardTasksOptions,
   type MoveTaskInput,
+  type TaskFilterInput,
   type TaskItem,
   type UnassignTaskInput,
   type UpdateTaskInput,
   ColumnCategory,
+  TaskPriority,
 } from '../../domain/models';
 
 export const DEFAULT_COLUMN_CATEGORIES: readonly { readonly category: ColumnCategory; readonly name: string; readonly color: string }[] = [
@@ -208,9 +211,42 @@ export class BoardService {
     return new ApiError(msg, 400, errors);
   }
 
-  async getBoardWithTasks(boardId: string): Promise<{ board: BoardDetails; tasks: TaskItem[] }> {
+  public buildTaskFilter(
+    status?: ColumnCategory | null,
+    priority?: TaskPriority | 'NONE' | null,
+    assigneeId?: string | 'UNASSIGNED' | null
+  ): TaskFilterInput | undefined {
+    const filter: Record<string, unknown> = {};
+
+    if (status) {
+      filter.status = { eq: status };
+    }
+
+    if (priority === 'NONE') {
+      filter.priority = { eq: null };
+    } else if (priority) {
+      filter.priority = { eq: priority };
+    }
+
+    if (assigneeId === 'UNASSIGNED') {
+      filter.assignees = { any: false };
+    } else if (assigneeId) {
+      filter.assignees = { some: { userId: { eq: assigneeId } } };
+    }
+
+    if (Object.keys(filter).length === 0) {
+      return undefined;
+    }
+
+    return filter as TaskFilterInput;
+  }
+
+  async getBoardWithTasks(
+    boardId: string,
+    options?: GetBoardTasksOptions
+  ): Promise<{ board: BoardDetails; tasks: TaskItem[] }> {
     const query = `
-      query GetBoardWithTasks($boardId: UUID!) {
+      query GetBoardWithTasks($boardId: UUID!, $search: String, $where: TaskFilterInput) {
         board(id: $boardId) {
           id
           projectId
@@ -222,7 +258,7 @@ export class BoardService {
             position
           }
         }
-        tasks(boardId: $boardId) {
+        tasks(boardId: $boardId, search: $search, where: $where) {
           id
           readableId
           number
@@ -262,9 +298,17 @@ export class BoardService {
     `;
 
     try {
+      const variables: Record<string, unknown> = { boardId };
+      if (options?.search !== undefined && options?.search !== null) {
+        variables.search = options.search;
+      }
+      if (options?.where !== undefined && options?.where !== null) {
+        variables.where = options.where;
+      }
+
       const result = await this.client.post<GraphQLResponse<{ board?: RawBoard | null; tasks?: RawTask[] }>>(
         '/graphql',
-        { query, variables: { boardId } }
+        { query, variables }
       );
 
       if (result.errors && result.errors.length > 0) {

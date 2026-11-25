@@ -1,0 +1,172 @@
+.assignee-select-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+}
+
+.assignee-select-modal-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 14px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+}
+
+.assignee-select-modal-heading {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #0a0a0a;
+}
+
+.assignee-select-modal-subheading {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 25px;
+  color: #636363;
+}
+
+.assignee-select-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.assignee-select-label {
+  font-family: 'Geist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 18px;
+  color: #0a0a0a;
+}
+
+.assignee-select-search-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.assignee-select-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-family: 'Geist', sans-serif;
+  font-size: 16px;
+  line-height: 22px;
+  color: #0a0a0a;
+  background: transparent;
+}
+
+.assignee-select-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.assignee-option-row {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.assignee-option-row:hover {
+  background: #fbfbfb;
+}
+
+.assignee-option-row--selected {
+  background: #f5f5f5;
+  border-color: #171717;
+}
+
+.assignee-option-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: #ededed;
+  font-family: 'Geist', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  color: #0a0a0a;
+  flex-shrink: 0;
+}
+
+.assignee-option-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.assignee-option-name {
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 18px;
+  color: #0a0a0a;
+}
+
+.assignee-option-desc {
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+}
+
+.assignee-option-radio {
+  font-size: 18px;
+  color: #0a0a0a;
+  flex-shrink: 0;
+}
+
+.assignee-select-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}

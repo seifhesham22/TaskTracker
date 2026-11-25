@@ -1,0 +1,123 @@
+.filter-tasks-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1040;
+  padding: 16px;
+}
+
+.filter-tasks-modal-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 14px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+}
+
+.filter-tasks-modal-heading {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #0a0a0a;
+}
+
+.filter-tasks-modal-subheading {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 25px;
+  color: #636363;
+}
+
+.filter-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.filter-label {
+  font-family: 'Geist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 18px;
+  color: #0a0a0a;
+}
+
+.filter-select-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.filter-select {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-family: 'Geist', sans-serif;
+  font-size: 16px;
+  line-height: 22px;
+  color: #0a0a0a;
+  background: transparent;
+  cursor: pointer;
+}
+
+.filter-assignee-trigger {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: 'Geist', sans-serif;
+  font-size: 16px;
+  line-height: 22px;
+  color: #0a0a0a;
+  text-align: left;
+}
+
+.filter-assignee-trigger:hover {
+  background: #fbfbfb;
+}
+
+.filter-dropdown-icon {
+  font-size: 16px;
+  color: #636363;
+}
+
+.filter-tasks-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
