@@ -353,7 +353,7 @@ export function ParentTaskDetailsModal({
                   </div>
                 )}
                 <div className="task-details-row">
-                  <span>Assignee: {assigneeNames || 'Unassigned'}</span>
+                  <span data-testid="task-details-assignee-name">Assignee: {assigneeNames || 'Unassigned'}</span>
                   {onChangeAssignee && userRole?.toUpperCase() !== 'READER' && (
                     <button
                       type="button"

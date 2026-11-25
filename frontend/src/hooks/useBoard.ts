@@ -32,6 +32,45 @@ export interface UseBoardState {
   readonly handleSearchTasks: (query: string) => Promise<TaskItem[]>;
 }
 
+async function loadBoardWithMembers(boardId: string): Promise<{
+  board: BoardDetails;
+  tasks: TaskItem[];
+}> {
+  const data = await api.board.getBoardWithTasks(boardId);
+  let members = data.board.members && data.board.members.length > 0 ? [...data.board.members] : [];
+  let userRole: string | undefined = data.board.userRole;
+  let projectName = data.board.projectName;
+
+  try {
+    const me = await api.auth.me();
+    const projects = me ? await api.auth.getProjects(me.id) : [];
+    const currentProject = projects.find((p) => p.id === data.board.projectId);
+    if (currentProject) {
+      userRole = currentProject.role || userRole;
+      if (!projectName) projectName = currentProject.name;
+      if (currentProject.projectMembers && currentProject.projectMembers.length > 0) {
+        members = currentProject.projectMembers.map((m) => ({
+          userId: m.userId || m.userName,
+          userName: m.userName,
+          role: m.role,
+        }));
+      }
+    }
+  } catch {
+    // continue with existing board data
+  }
+
+  return {
+    board: {
+      ...data.board,
+      projectName,
+      members,
+      userRole,
+    },
+    tasks: data.tasks,
+  };
+}
+
 export function useBoard(boardId: string): UseBoardState {
   const [board, setBoard] = useState<BoardDetails | null>(null);
   const [tasks, setTasks] = useState<readonly TaskItem[]>([]);
@@ -52,35 +91,9 @@ export function useBoard(boardId: string): UseBoardState {
     setIsNotFound(false);
 
     try {
-      const data = await api.board.getBoardWithTasks(boardId);
-      let members = data.board.members;
-      let userRole: string | undefined = undefined;
-      let projectName = data.board.projectName;
-      try {
-        const me = await api.auth.me();
-        const projects = me ? await api.auth.getProjects(me.id) : [];
-        const currentProject = projects.find((p) => p.id === data.board.projectId);
-        if (currentProject) {
-          userRole = currentProject.role;
-          if (!projectName) projectName = currentProject.name;
-          if ((!members || members.length === 0) && currentProject.projectMembers) {
-            members = currentProject.projectMembers.map((m) => ({
-              userId: m.userName,
-              userName: m.userName,
-              role: m.role,
-            }));
-          }
-        }
-      } catch {
-        // continue with existing board data
-      }
-      setBoard({
-        ...data.board,
-        projectName,
-        members: members || [],
-        userRole,
-      });
-      setTasks(data.tasks);
+      const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
+      setBoard(loadedBoard);
+      setTasks(loadedTasks);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 404) {
         setIsNotFound(true);
@@ -99,10 +112,10 @@ export function useBoard(boardId: string): UseBoardState {
 
     const run = async () => {
       try {
-        const data = await api.board.getBoardWithTasks(boardId);
+        const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
         if (!ignore) {
-          setBoard(data.board);
-          setTasks(data.tasks);
+          setBoard(loadedBoard);
+          setTasks(loadedTasks);
           setIsLoading(false);
         }
       } catch (err: unknown) {

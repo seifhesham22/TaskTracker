@@ -213,4 +213,120 @@ describe('US-12 Assign or unassign task members acceptance tests', () => {
     // TaskAssigneeModal is displayed
     expect(await screen.findByTestId('task-assignee-modal')).toBeInTheDocument();
   });
+
+  it('loads project members and role on initial fresh load, assigns member using actual userId, and persists assignment across reload', async () => {
+    // Fresh board data returned from getBoardWithTasks has no members or userRole on board object
+    const unassignedBoard = {
+      board: {
+        id: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+        projectId: 'p-secret-1',
+        projectName: 'Secret Ops',
+        name: 'Sprint board',
+        columns: [
+          { id: 'c-todo', name: 'To do', category: ColumnCategory.ToDo, position: '1' },
+        ],
+        members: [],
+      },
+      tasks: [
+        {
+          id: 't-1',
+          readableId: 'SEC-1',
+          number: 1,
+          boardId: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+          title: 'Deploy microservice',
+          status: ColumnCategory.ToDo,
+          columnId: 'c-todo',
+          columnName: 'To do',
+          priority: TaskPriority.High,
+          assignees: [],
+          assigneeIds: [],
+        } as TaskItem,
+      ],
+    };
+
+    const reloadedBoardWithBobAssigned = {
+      ...unassignedBoard,
+      tasks: [
+        {
+          ...unassignedBoard.tasks[0],
+          assignees: [{ id: 'u-bob-uuid', userName: 'bob@example.com' }],
+          assigneeIds: ['u-bob-uuid'],
+        } as TaskItem,
+      ],
+    };
+
+    vi.spyOn(api.board, 'getBoardWithTasks')
+      .mockResolvedValueOnce(unassignedBoard)
+      .mockResolvedValueOnce(reloadedBoardWithBobAssigned);
+
+    // Current authenticated user
+    vi.spyOn(api.auth, 'me').mockResolvedValue({ id: 'u-owner-uuid', email: 'owner@example.com' });
+
+    // Project has 3 members with distinct userId (UUID) vs userName (email)
+    vi.spyOn(api.auth, 'getProjects').mockResolvedValue([
+      {
+        id: 'p-secret-1',
+        key: 'SEC',
+        name: 'Secret Ops',
+        role: 'OWNER',
+        boards: [{ id: '01a18766-48b5-7fb8-a04c-13e1bf648def', name: 'Sprint board' }],
+        projectMembers: [
+          { userId: 'u-alice-uuid', userName: 'alice@example.com', role: 'OWNER' },
+          { userId: 'u-bob-uuid', userName: 'bob@example.com', role: 'WRITER' },
+          { userId: 'u-carol-uuid', userName: 'carol@example.com', role: 'READER' },
+        ],
+      },
+    ]);
+
+    const assignSpy = vi.spyOn(api.board, 'assignTask').mockResolvedValue(
+      reloadedBoardWithBobAssigned.tasks[0]
+    );
+
+    // Initial fresh board load (fresh navigation)
+    const { unmount } = renderAt('/boards/01a18766-48b5-7fb8-a04c-13e1bf648def');
+
+    // Open task details
+    const taskCard = await screen.findByTestId('task-card-t-1');
+    fireEvent.click(taskCard);
+
+    // Click "Change assignee"
+    const changeAssigneeBtn = await screen.findByTestId('task-details-change-assignee-btn');
+    fireEvent.click(changeAssigneeBtn);
+
+    // Verify all 3 project members are loaded on fresh initial load, not only Unassigned
+    expect(await screen.findByTestId('assignee-option-u-alice-uuid')).toHaveTextContent('alice@example.com');
+    expect(screen.getByTestId('assignee-option-u-bob-uuid')).toHaveTextContent('bob@example.com');
+    expect(screen.getByTestId('assignee-option-u-carol-uuid')).toHaveTextContent('carol@example.com');
+
+    // Select Bob using his option radio
+    const bobRadio = screen.getByTestId('assignee-option-u-bob-uuid');
+    fireEvent.click(bobRadio);
+
+    // Save changes
+    const saveBtn = screen.getByTestId('save-assignee-btn');
+    fireEvent.click(saveBtn);
+
+    // Verify assignTask was called with Bob's actual userId ('u-bob-uuid'), NOT his userName ('bob@example.com')
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledWith({
+        taskId: 't-1',
+        userId: 'u-bob-uuid',
+      });
+    });
+
+    // Verify assignee updated banner
+    expect(await screen.findByTestId('assignee-updated-banner')).toHaveTextContent(/assignee updated/i);
+
+    // Simulate page reload/refresh
+    unmount();
+    renderAt('/boards/01a18766-48b5-7fb8-a04c-13e1bf648def');
+
+    // Verify persisted assignment after reload
+    const refreshedCard = await screen.findByTestId('task-card-t-1');
+    expect(refreshedCard).toHaveTextContent('BO');
+
+    fireEvent.click(refreshedCard);
+    expect(await screen.findByTestId('parent-task-details-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('task-details-assignee-name')).toHaveTextContent('bob@example.com');
+  });
 });
