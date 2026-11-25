@@ -143,6 +143,19 @@ export function ProjectsPage() {
                         >
                           Backlog →
                         </Link>
+                        {project.role?.toUpperCase() === 'OWNER' && (
+                          <Link
+                            to={`/projects/${project.id}/workload`}
+                            className="project-workload-link"
+                            data-testid={`project-workload-link-${project.id}`}
+                            onClick={() => {
+                              const firstBoardId = project.boards && project.boards.length > 0 ? project.boards[0].id : null;
+                              setActiveProject(project.id, firstBoardId, project.name);
+                            }}
+                          >
+                            Workload →
+                          </Link>
+                        )}
                       </div>
                     </div>
                     {project.boards.length === 0 ? (

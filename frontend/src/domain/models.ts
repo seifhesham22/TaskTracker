@@ -242,3 +242,32 @@ export interface AddProjectMemberValidationErrors {
   readonly role?: string;
   readonly form?: string;
 }
+
+export interface WorkloadTaskItem {
+  readonly id: string;
+  readonly readableId: string;
+  readonly number: number;
+  readonly boardId: string;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly status: ColumnCategory;
+  readonly columnId?: string;
+  readonly columnName?: string;
+  readonly priority?: TaskPriority | null;
+}
+
+export interface MemberWorkloadItem {
+  readonly userId: string;
+  readonly userName: string;
+  readonly role: ProjectRole;
+  readonly openTaskCount: number;
+  readonly openTasks: readonly WorkloadTaskItem[];
+}
+
+export interface ProjectWorkloadData {
+  readonly averageOpenTasks: number;
+  readonly members: readonly MemberWorkloadItem[];
+  readonly unassigned: readonly WorkloadTaskItem[];
+  readonly totalOpenTasks: number;
+}
+

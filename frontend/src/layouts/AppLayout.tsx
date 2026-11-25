@@ -38,6 +38,10 @@ function AppLayoutContent() {
     ? `/projects/${activeProjectId}/backlog`
     : '/backlog';
 
+  const workloadUrl = activeProjectId
+    ? `/projects/${activeProjectId}/workload`
+    : '/workload';
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -67,6 +71,14 @@ function AppLayoutContent() {
             data-testid="nav-backlog-link"
           >
             Backlog
+          </Link>
+          <Link
+            to={workloadUrl}
+            className="app-nav-link"
+            id="nav-workload-link"
+            data-testid="nav-workload-link"
+          >
+            Workload
           </Link>
         </nav>
 
