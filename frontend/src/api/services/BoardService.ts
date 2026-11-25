@@ -1,5 +1,11 @@
 import type { HttpClient } from '../HttpClient';
-import { ApiError, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../errors';
+import {
+  ApiError,
+  BlockedTaskStartApiError,
+  IncompleteSubtasksApiError,
+  type IncompleteSubtaskDto,
+  type TaskBlockerDto,
+} from '../errors';
 import {
   type AssignTaskInput,
   type BoardDetails,
@@ -99,6 +105,7 @@ export const CREATE_BOARD_MUTATION = `
 export interface GraphQLErrorExtension {
   readonly code?: string;
   readonly incompleteSubtasks?: readonly IncompleteSubtaskDto[];
+  readonly blockers?: readonly TaskBlockerDto[];
   readonly [key: string]: unknown;
 }
 
@@ -511,6 +518,16 @@ export class BoardService {
 
     if (result.errors && result.errors.length > 0) {
       const firstError = result.errors[0];
+      const blockers = firstError.extensions?.blockers as
+        | readonly TaskBlockerDto[]
+        | undefined;
+      if (blockers && Array.isArray(blockers)) {
+        throw new BlockedTaskStartApiError(
+          firstError.message,
+          blockers,
+          result.errors
+        );
+      }
       const incompleteSubtasks = firstError.extensions?.incompleteSubtasks as
         | readonly IncompleteSubtaskDto[]
         | undefined;
