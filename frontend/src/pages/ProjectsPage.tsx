@@ -90,13 +90,22 @@ export function ProjectsPage() {
 
                   <p className="project-role-text">{formatRoleText(project.role)}</p>
 
-                  <Link
-                    to={primaryTarget}
-                    className="project-open-btn"
-                    data-testid={`open-project-btn-${project.id}`}
-                  >
-                    Open project
-                  </Link>
+                  <div className="project-card-actions">
+                    <Link
+                      to={primaryTarget}
+                      className="project-open-btn"
+                      data-testid={`open-project-btn-${project.id}`}
+                    >
+                      Open project
+                    </Link>
+                    <Link
+                      to={`/projects/${project.id}/members`}
+                      className="project-members-link"
+                      data-testid={`project-members-link-${project.id}`}
+                    >
+                      Members →
+                    </Link>
+                  </div>
 
                   {project.description && (
                     <p className="project-card-desc">{project.description}</p>
