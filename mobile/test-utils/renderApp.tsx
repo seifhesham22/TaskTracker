@@ -12,6 +12,7 @@ import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
 import CreateSubtaskScreen from '../src/app/tasks/[taskId]/subtask';
 import TaskDependenciesScreen from '../src/app/tasks/[taskId]/dependencies';
 import ProjectBacklogScreen from '../src/app/projects/[projectId]/backlog';
+import CreateProjectScreen from '../src/app/projects/new';
 import type { Session } from '../src/auth/session';
 import { SESSION_KEY } from '../src/auth/sessionStorage';
 import { ACCESS_TOKEN, FAR_FUTURE, USER_ID } from './fakeBackend';
@@ -65,6 +66,7 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'tasks/[taskId]/edit': EditTaskScreen,
       'tasks/[taskId]/subtask': CreateSubtaskScreen,
       'tasks/[taskId]/dependencies': TaskDependenciesScreen,
+      'projects/new': CreateProjectScreen,
       'projects/[projectId]/backlog': ProjectBacklogScreen,
       '+not-found': NotFoundScreen,
       ...routes,

@@ -32,6 +32,8 @@ export interface BacklogResult {
 
 export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
+  /** Rejects with the backend's error; `toCreateProjectFailure` turns it into messages. */
+  createProject(name: string): Promise<ProjectSummary>;
   listBoards(): Promise<BoardSummary[]>;
   getBoard(boardId: string): Promise<BoardData>;
   createTask(input: CreateTaskInput): Promise<Task>;

@@ -24,6 +24,52 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
     private const string ValidPassword = "Valid@Pass123";
 
+    private const int CostLimit = 1000;
+
+    private const string WebBoardQuery = """
+        query GetBoardWithTasks($boardId: UUID!, $search: String, $where: TaskFilterInput) {
+          board(id: $boardId) {
+            id projectId name
+            columns { id name category position }
+          }
+          tasks(boardId: $boardId, search: $search, where: $where) {
+            id readableId number boardId title description status columnId position priority startDate dueDate parentTaskId
+            column { id name category }
+            assignees { id userName }
+            blocks { id readableId title status }
+            blockedBy { id readableId title status }
+          }
+        }
+        """;
+
+    private const string WebBacklogQuery = """
+        query Backlog($projectId: UUID!, $search: String, $where: BacklogFilterInput, $page: Int!, $pageSize: Int!) {
+          backlog(projectId: $projectId, search: $search, where: $where, page: $page, pageSize: $pageSize) {
+            items {
+              id readableId number boardId title description priority status
+              column { id name category }
+              assignees { id userName }
+              blocks { readableId }
+              blockedBy { readableId }
+              position parentTaskId
+            }
+            totalCount page pageSize totalPages hasNextPage hasPreviousPage
+          }
+        }
+        """;
+
+    private const string MobileBacklogQuery = """
+        query ProjectBacklog($projectId: UUID!, $search: String, $where: BacklogFilterInput, $page: Int!, $pageSize: Int!) {
+          backlog(projectId: $projectId, search: $search, where: $where, page: $page, pageSize: $pageSize) {
+            items {
+              id readableId title status priority storyPoints boardId
+              column { name }
+            }
+            totalCount page pageSize totalPages hasNextPage
+          }
+        }
+        """;
+
     private readonly WebApplicationFactory<Program> _factory = TestApp.Create(database.ConnectionString);
 
     private string? _token;
@@ -812,24 +858,15 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
         Assert.Equal(expected.Split('|'), BacklogTitles(json));
     }
 
-    [Fact]
-    public async Task Backlog_takes_the_filter_as_a_variable_within_the_cost_limit()
+    [Theory]
+    [InlineData(WebBacklogQuery)]
+    [InlineData(MobileBacklogQuery)]
+    public async Task Backlog_takes_the_filter_as_a_variable_within_the_cost_limit(string query)
     {
         var project = await GivenBacklogAsync();
 
         var json = await SendGraphQLAsync(
-            """
-            query Backlog($projectId: UUID!, $search: String, $where: BacklogFilterInput, $page: Int!, $pageSize: Int!) {
-              backlog(projectId: $projectId, search: $search, where: $where, page: $page, pageSize: $pageSize) {
-                items {
-                  id readableId title description priority status startDate dueDate parentTaskId boardId columnId position
-                  column { id name category }
-                  assignees { id userName }
-                }
-                totalCount page pageSize totalPages hasNextPage hasPreviousPage
-              }
-            }
-            """,
+            query,
             TokenFor(project.MemberId),
             new
             {
@@ -840,6 +877,7 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
                 pageSize = 20
             });
 
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
         Assert.Equal(new[] { "Login page", "Login tests" }, BacklogTitles(json));
     }
 
@@ -1658,22 +1696,12 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
     }
 
     [Fact]
-    public async Task Tasks_take_the_filter_as_a_variable_within_the_cost_limit()
+    public async Task Board_and_its_tasks_take_the_filter_as_a_variable_within_the_cost_limit()
     {
         var (project, writerId, _) = await GivenBoardToFilterAsync();
 
         var json = await SendGraphQLAsync(
-            """
-            query Board($boardId: UUID!, $search: String, $where: TaskFilterInput) {
-              tasks(boardId: $boardId, search: $search, where: $where) {
-                id readableId title description priority status startDate dueDate parentTaskId boardId columnId position
-                column { id name category }
-                assignees { id userName }
-                blocks { readableId }
-                blockedBy { readableId }
-              }
-            }
-            """,
+            WebBoardQuery,
             TokenFor(project.MemberId),
             new
             {
@@ -1683,8 +1711,41 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
             });
 
         Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        var data = json.GetProperty("data");
+        Assert.Equal(project.BoardId.ToString(), data.GetProperty("board").GetProperty("id").GetString());
         Assert.Equal(new[] { "Login API", "Login page" },
+            data.GetProperty("tasks").EnumerateArray().Select(t => t.GetProperty("title").GetString()));
+    }
+
+    [Fact]
+    public async Task Board_and_its_tasks_load_when_the_filter_variable_is_not_sent()
+    {
+        var (project, _, _) = await GivenBoardToFilterAsync();
+
+        var json = await SendGraphQLAsync(WebBoardQuery, TokenFor(project.MemberId), new { boardId = project.BoardId });
+
+        Assert.False(json.TryGetProperty("errors", out var errors), errors.ToString());
+        Assert.Equal(new[] { "Login API", "Login page", "Login tests", "Signup API" },
             json.GetProperty("data").GetProperty("tasks").EnumerateArray().Select(t => t.GetProperty("title").GetString()));
+    }
+
+    [Theory]
+    [InlineData(WebBoardQuery)]
+    [InlineData(WebBacklogQuery)]
+    [InlineData(MobileBacklogQuery)]
+    public async Task Queries_with_a_filter_variable_use_less_than_half_of_the_cost_limit(string query)
+    {
+        var cost = await FieldCostAsync(query, new { boardId = Guid.NewGuid(), projectId = Guid.NewGuid(), page = 1, pageSize = 20 });
+
+        Assert.InRange(cost, 1, CostLimit / 2);
+    }
+
+    [Fact]
+    public async Task Queries_over_the_cost_limit_are_still_refused()
+    {
+        var query = $"query {{ {string.Concat(Enumerable.Range(0, 101).Select(i => $"b{i}: board(id: \"{Guid.NewGuid()}\") {{ id }} "))} }}";
+
+        Assert.Equal("HC0047", ErrorCode(await PostGraphQLAsync(query)));
     }
 
     [Fact]
@@ -1956,6 +2017,17 @@ public class GraphQLApiTests(PostgresFixture database) : IDisposable
 
         var response = await client.PostAsJsonAsync("/graphql", new { query, variables });
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private async Task<double> FieldCostAsync(string query, object variables)
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+        client.DefaultRequestHeaders.Add("GraphQL-Cost", "validate");
+
+        var response = await client.PostAsJsonAsync("/graphql", new { query, variables });
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return json.GetProperty("extensions").GetProperty("operationCost").GetProperty("fieldCost").GetDouble();
     }
 
     private async Task<TestProject> GivenBacklogAsync()

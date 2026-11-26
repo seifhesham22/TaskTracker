@@ -39,6 +39,7 @@ mobile/
     │   ├── boards/
     │   │   ├── index.tsx      # Board list (/boards)
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
+    │   ├── projects/new.tsx   # Create a project (/projects/new)
     │   ├── projects/[projectId]/
     │   │   └── backlog.tsx    # Project backlog (/projects/:projectId/backlog)
     │   ├── tasks/[taskId]/
@@ -271,6 +272,7 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Task dependencies (list) | `blockedBy` and `blocks` on each task of `tasks(boardId)` |
 | Task dependencies (find a task) | `backlog(projectId, search, pageSize)` |
 | Task dependencies (add) | `addTaskDependency(input: { blockingTaskId, blockedTaskId })` |
+| Create a project | `createProject(input: { name })` |
 | Project backlog | `backlog(projectId, search, where, page, pageSize)` |
 | Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
@@ -369,6 +371,14 @@ The app recognises a cycle only by that whole sentence (`toCycleInfo` in `src/do
 - States from the design: **Loading backlog…** with grey rows (never the empty state first), **No backlog items yet** with **Back to project**, and **Couldn’t load the backlog** with **Try again**. With a search or filter and no match: **No matching backlog items** with **Clear search and filters**.
 
 The design shows no search, filter or paging controls; they follow the app's existing inputs and buttons. The `storyPoints` field was added to the backend's `Task` type for this screen (`TaskItem.StoryPoints` existed but wasn't exposed). No operation sets story points yet, so every item shows “Not estimated” until one does.
+
+## Creating a Project (US-3)
+
+**Create project** under **Your projects** opens **Create a project**, which asks only for the name. It sends `createProject(input: { name })` with the trimmed name; the backend takes the owner from the token, makes the key, and saves the project, the Owner membership and a first board together. Back on the list, which is read from the backend each time it comes into view, **✓ Project created. You are the Owner.** shows with the new project.
+
+- An empty or blank name shows “Enter a project name.” and sends nothing. Any other rule is the backend's (at most 100 characters): its message shows under the name.
+- While creating, the form, **Cancel** and Android's Back are locked, and only one request is sent.
+- With no answer or a server error: “Couldn’t create the project. Your name is kept. Try again.” The project may have been saved all the same, so trying the same name again first reads the list. If a project of that name that the user owns has appeared since the first attempt, it counts as created and nothing is sent. If the list can't be read, nothing is sent.
 
 ## Manual test against the real backend
 
