@@ -15,6 +15,7 @@ import { backlogRequest } from '../api/backlog';
 import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
 import { backlogVariables, type BacklogQuery } from '../domain/backlog';
 import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
+import { createBoardRequest } from '../api/createBoard';
 import { createProjectRequest } from '../api/projects';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { looksLikeKey } from '../domain/dependencies';
@@ -116,6 +117,11 @@ export function createBackendBoardRepository(): BoardRepository {
         role: project.role ?? null,
         boards: project.boards.map((b) => ({ id: b.id, name: b.name, columnCount: b.columns?.length ?? 0 })),
       };
+    },
+
+    async createBoard(projectId: string, name: string) {
+      const board = await createBoardRequest(projectId, name);
+      return { id: board.id, projectId: board.projectId, name: board.name };
     },
 
     async createProject(name: string) {

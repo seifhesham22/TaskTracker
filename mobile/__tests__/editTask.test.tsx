@@ -5,7 +5,7 @@ import { UPDATE_TASK_MUTATION } from '../src/api/tasks';
 import BoardScreen from '../src/app/boards/[boardId]';
 import { setSession } from '../src/auth/session';
 import { TITLE_REQUIRED, TITLE_TOO_LONG } from '../src/domain/createTaskErrors';
-import { DUE_BEFORE_START, INVALID_DATE, SAVE_FAILED, TASK_GONE, validateEditTask } from '../src/domain/editTask';
+import { DUE_BEFORE_START, INVALID_DATE, SAVE_FAILED, validateEditTask } from '../src/domain/editTask';
 import {
   ACCESS_TOKEN,
   API_URL,
@@ -281,13 +281,16 @@ describe('Edit task screen', () => {
     expect(screen.getByTestId('save-button')).toBeEnabled();
   });
 
-  it('says the task is gone when the backend no longer finds it', async () => {
-    await openEditForm({ body: gqlError('NOT_FOUND', `Task '${TASK_ID}' was not found.`) });
+  it('checks again when the backend no longer finds the task, and shows it is gone', async () => {
+    // NOT_FOUND, then the same read as on resume: the board is there, the task isn't.
+    await openEditForm({ body: gqlError('NOT_FOUND', `Task '${TASK_ID}' was not found.`) }, boardResponse([]), projectsResponse());
 
     await fireEvent.changeText(screen.getByTestId('title-input'), 'Prepare the project launch');
     await fireEvent.press(screen.getByTestId('save-button'));
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent(TASK_GONE);
+    expect(await screen.findByTestId('access-unavailable')).toBeOnTheScreen();
+    expect(screen.queryByTestId('title-input')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/Plan the project launch|Prepare the project launch/)).not.toBeOnTheScreen();
   });
 });
 

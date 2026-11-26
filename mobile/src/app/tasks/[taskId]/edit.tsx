@@ -24,7 +24,7 @@ const NO_PRIORITY = '__none__';
 export default function EditTaskScreen() {
   const { taskId, boardId } = useLocalSearchParams<{ taskId: string; boardId: string }>();
   const router = useRouter();
-  const { state, retry } = useTaskDetails(boardId, taskId);
+  const { state, retry, recheck } = useTaskDetails(boardId, taskId);
 
   const leave = () => {
     if (router.canGoBack()) router.back();
@@ -37,6 +37,8 @@ export default function EditTaskScreen() {
         key={state.details.task.id}
         details={state.details}
         onLeave={leave}
+        // A refused save is checked as on resume; a refusal replaces this form with the access screen.
+        recheckAccess={recheck}
         onSaved={() =>
           // Back to Task details, which reads the task again from the backend.
           router.dismissTo({ pathname: '/tasks/[taskId]', params: { taskId, boardId, updated: '1' } })
@@ -55,14 +57,16 @@ function EditTaskForm({
   details,
   onLeave,
   onSaved,
+  recheckAccess,
 }: {
   details: TaskDetails;
   onLeave: () => void;
   onSaved: () => void;
+  recheckAccess: () => Promise<'kept' | 'lost' | 'unverified'>;
 }) {
   const repository = useBoardRepository();
   const { task, projectName } = details;
-  const form = useEditTaskForm({ task, updateTask: repository.updateTask, onSaved });
+  const form = useEditTaskForm({ task, updateTask: repository.updateTask, onSaved, recheckAccess });
   const [prioritySheet, setPrioritySheet] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [focused, setFocused] = useState<'title' | 'description' | null>(null);
@@ -204,7 +208,7 @@ function EditTaskForm({
           testID="cancel-button"
         />
         <Button
-          label={saving ? 'Saving…' : 'Save changes'}
+          label={form.checkingAccess ? 'Checking access…' : saving ? 'Saving…' : 'Save changes'}
           size="lg"
           style={styles.action}
           loading={saving}

@@ -47,6 +47,11 @@ export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
   /** One of the user's projects with its boards. Rejects with BoardLoadError ('notFound' for a non-member). */
   getProject(projectId: string): Promise<ProjectDetails>;
+  /**
+   * US-7: a new board in the project, with the backend's default columns. Rejects with the
+   * backend's error (`toCreateBoardFailure`).
+   */
+  createBoard(projectId: string, name: string): Promise<{ id: string; projectId: string; name: string }>;
   /** Rejects with the backend's error; `toCreateProjectFailure` turns it into messages. */
   createProject(name: string): Promise<ProjectSummary>;
   /** The project's members. Rejects with BoardLoadError ('notFound' if the user isn't one of them). */

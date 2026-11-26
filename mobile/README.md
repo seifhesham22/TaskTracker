@@ -419,6 +419,8 @@ Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, 
 - on pull-to-refresh (project, board, task details, members, backlog);
 - every 30 seconds while a project, board, task details, members or backlog screen is left open and the app is in the foreground: one `projects` request. It stops when the screen is left or the app goes to the background. Forms don't do it, so nobody's typing is replaced.
 
+**A refused save:** if **Edit task** gets `NOT_FOUND` for the task (how the backend refuses someone who is no longer a member, and a deleted task), the form locks (“Checking access…”) and the task is read at once, as when the app resumes. Refused: the editor makes way for **Your project access has changed**, and everything below clears. Still there: the typed changes stay, with “We couldn't save your changes.” No answer: the task is hidden behind **Couldn't connect**. Validation errors, a role refusal (`AUTH_NOT_AUTHORIZED`, shown with the backend's reason) and a lost connection keep the editor as it is.
+
 **When access is lost** (`src/data/projectAccess.ts`): every open screen of that project clears at once, not only the one that found out, and the project leaves the project list. Screens of other projects keep their data, and the session goes on. **Back to projects** closes the project's screens and reads the list again. Only project IDs are kept in memory, and nothing is kept between sessions.
 
 **Backlog title:** the backlog first asks the backend for the project (`projects`), then shows its name. A name carried by the link is never shown.
@@ -426,6 +428,22 @@ Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, 
 **Session expired:** **Your session has expired** comes first, then the login form. After logging in again, the app goes back to the screen the user was on, only if it is one of its own project, board or task screens, and that screen checks access again.
 
 **Open project** opens the project's own screen, with its boards. The old link, `/boards?projectId=…`, leads there too.
+
+## Creating a Board (US-7)
+
+**Open project** shows **Project boards**: the project's boards (“Board · project”) with **Open board**, and the user's role (“Website redesign · Owner”), both from the backend's `projects` query.
+
+- **Owner only:** the project's Owner sees **Create board**; Writers and Readers see “Only an Owner can create boards.” and still open the boards. A direct link to the form shows the same note to them. The backend refuses anyone else too (`AUTH_NOT_AUTHORIZED`).
+- **Create a board** (`/projects/[projectId]/boards/new`): **Board name** for the project it was opened from, which can't be changed there. An empty or spaces-only name says “Enter a board name.”, and one over 100 characters is refused too, both without a request.
+- **Backend:** `createBoard(input: { projectId, name })` (CreateBoardHandler). It trims the name, refuses one already used in the same project in any case (“A board with this name already exists in this project.” at the field, the name kept), and creates the board's columns itself: the app defines none. Another project may use the same name.
+- **While saving:** **Creating…**, the form and Android's Back locked, one request.
+- **Created:** the board opens by the ID the backend returned, with “Board created in …” and the backend's columns (Backlog, To do, In progress, Done). Back leads to the project's boards, read again, with the new one.
+- **Failed:** “Couldn't create the board. Your name is kept. Try again.” If there was no usable answer, **Create board** first reads the project's boards and opens a board of that name that wasn't there before, instead of creating it twice. Lost access shows the access screen; a role taken away shows the Owner-only note.
+
+| Screen | Backend |
+|---|---|
+| Project boards | `projects(userId)` → the project's `role` and `boards` |
+| Create a board | `createBoard(input: { projectId, name })` → `id`, then `board(id)` and `tasks(boardId)` |
 
 ## Manual test against the real backend
 

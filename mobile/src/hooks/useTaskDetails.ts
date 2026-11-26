@@ -86,6 +86,42 @@ export function useTaskDetails(boardId: string | undefined, taskId: string | und
   }, []);
   useProjectAccessWatch(state.status === 'ready' ? state.details.projectId : null, markLost, poll);
 
+  /**
+   * After the backend refused a change to the task (NOT_FOUND: not a member any more, or the task
+   * is gone), the same read as when the app resumes, decided at once:
+   * - `kept`: the task is still there for the user; the screen stays.
+   * - `lost`: refused; the task is replaced by the access screen, and every other open screen of
+   *   the project clears (reported even if this screen has gone meanwhile).
+   * - `unverified`: no usable answer; the task is hidden, as access can't be confirmed.
+   * Any read started earlier can't bring the task back afterwards.
+   */
+  const recheck = useCallback(async (): Promise<'kept' | 'lost' | 'unverified'> => {
+    const request = ++latest.current;
+    if (!boardId || !taskId) return 'lost';
+    try {
+      const details = await repository.getTask(boardId, taskId);
+      if (request === latest.current) {
+        reportAccessConfirmed(details.projectId);
+        shownProject.current = details.projectId;
+        setState({ status: 'ready', details, refreshing: false });
+      }
+      return 'kept';
+    } catch (error) {
+      const loadError =
+        error instanceof BoardLoadError
+          ? error
+          : new BoardLoadError('server', error instanceof Error ? error.message : 'Something went wrong.');
+      if (loadError.kind === 'notFound') {
+        const lostProject = loadError.subject === 'project' ? shownProject.current : null;
+        if (request === latest.current) setState({ status: 'error', error: loadError, revoked: !!lostProject });
+        if (lostProject) reportAccessLost(lostProject);
+        return 'lost';
+      }
+      if (request === latest.current) setState({ status: 'error', error: loadError, revoked: false });
+      return 'unverified';
+    }
+  }, [repository, boardId, taskId]);
+
   const retry = useCallback(() => {
     setState({ status: 'loading' });
     load();
@@ -100,5 +136,5 @@ export function useTaskDetails(boardId: string | undefined, taskId: string | und
   /** Reads the task again without showing the loading state. */
   const reload = load;
 
-  return { state, retry, refresh, reload };
+  return { state, retry, refresh, reload, recheck };
 }

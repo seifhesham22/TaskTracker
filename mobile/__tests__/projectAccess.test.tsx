@@ -96,11 +96,11 @@ describe('A member opens their project', () => {
     await fireEvent.press(screen.getByTestId(`open-${PROJECT_ID}`));
 
     await waitFor(() => expect(router).toHavePathname(projectUrl));
-    expect(await screen.findByRole('header', { name: 'Website redesign' })).toBeOnTheScreen();
-    expect(screen.getByText('Member access · permitted content')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Project boards' })).toBeOnTheScreen();
+    expect(screen.getByTestId('project-subtitle')).toHaveTextContent('Website redesign · Writer');
     const card = screen.getByTestId(`board-${BOARD_ID}`);
     expect(within(card).getByText('Sprint board')).toBeOnTheScreen();
-    expect(within(card).getByText('3 columns · Your permitted tasks')).toBeOnTheScreen();
+    expect(within(card).getByText('Board · Website redesign')).toBeOnTheScreen();
     // Only this project's boards.
     expect(screen.queryByText('Launch board')).not.toBeOnTheScreen();
 

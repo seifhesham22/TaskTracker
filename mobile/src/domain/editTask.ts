@@ -91,6 +91,8 @@ export function toEditTaskErrors(error: unknown): EditTaskErrors {
       else if (code === 'BAD_USER_INPUT' && DATES_OUT_OF_ORDER.test(message)) errors.dueDate ??= DUE_BEFORE_START;
       else if (code === 'NOT_FOUND' && TASK_NOT_FOUND.test(message)) errors.form ??= TASK_GONE;
       else if (code === 'BAD_USER_INPUT' && message) errors.form ??= message;
+      // Still a member, but the role doesn't allow it: the backend's reason, not a generic failure.
+      else if (code === 'AUTH_NOT_AUTHORIZED' && message) errors.form ??= message;
       else errors.form ??= SAVE_FAILED;
     }
     return errors;
