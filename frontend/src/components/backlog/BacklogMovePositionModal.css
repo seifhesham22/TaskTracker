@@ -1,0 +1,68 @@
+.backlog-move-position-dialog {
+  max-width: 440px;
+}
+
+.backlog-move-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.backlog-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.backlog-field-label {
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #171717;
+}
+
+.backlog-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1px solid #D4D4D4;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  color: #0A0A0A;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.backlog-input:focus {
+  border-color: #0A0A0A;
+  box-shadow: 0 0 0 1px #0A0A0A;
+}
+
+.backlog-input-error {
+  border-color: #DC2626;
+}
+
+.backlog-input-error:focus {
+  border-color: #DC2626;
+  box-shadow: 0 0 0 1px #DC2626;
+}
+
+.backlog-error-text {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  color: #DC2626;
+}
+
+.backlog-preview-text {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  color: #525252;
+}

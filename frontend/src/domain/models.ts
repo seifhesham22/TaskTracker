@@ -178,12 +178,58 @@ export interface BacklogFilterInput {
     readonly eq?: TaskPriority | null;
     readonly in?: readonly (TaskPriority | null)[];
   };
+  readonly assignees?: {
+    readonly some?: {
+      readonly userId?: {
+        readonly eq?: string;
+      };
+    };
+    readonly any?: boolean;
+  };
   readonly boardId?: {
     readonly eq?: string;
   };
   readonly parentTaskId?: {
     readonly eq?: string | null;
   };
+}
+
+export interface TaskFilterInput {
+  readonly status?: {
+    readonly eq?: ColumnCategory;
+    readonly in?: readonly ColumnCategory[];
+  };
+  readonly priority?: {
+    readonly eq?: TaskPriority | null;
+    readonly in?: readonly (TaskPriority | null)[];
+  };
+  readonly assignees?: {
+    readonly some?: {
+      readonly userId?: {
+        readonly eq?: string;
+      };
+    };
+    readonly any?: boolean;
+  };
+  readonly boardId?: {
+    readonly eq?: string;
+  };
+  readonly parentTaskId?: {
+    readonly eq?: string | null;
+  };
+}
+
+export interface GetBoardTasksOptions {
+  readonly search?: string | null;
+  readonly where?: TaskFilterInput | null;
+}
+
+export interface BoardFilterCriteria {
+  readonly search: string;
+  readonly status: ColumnCategory | null;
+  readonly priority: TaskPriority | 'NONE' | null;
+  readonly assigneeId: string | 'UNASSIGNED' | null;
+  readonly assigneeName?: string | null;
 }
 
 export interface GetBacklogInput {
@@ -241,4 +287,53 @@ export interface AddProjectMemberValidationErrors {
   readonly email?: string;
   readonly role?: string;
   readonly form?: string;
+}
+
+export interface WorkloadTaskItem {
+  readonly id: string;
+  readonly readableId: string;
+  readonly number: number;
+  readonly boardId: string;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly status: ColumnCategory;
+  readonly columnId?: string;
+  readonly priority?: TaskPriority | null;
+}
+
+export interface MemberWorkloadItem {
+  readonly userId: string;
+  readonly userName: string;
+  readonly role: ProjectRole;
+  readonly openTaskCount: number;
+  readonly openTasks: readonly WorkloadTaskItem[];
+}
+
+export interface ProjectWorkloadData {
+  readonly averageOpenTasks: number;
+  readonly members: readonly MemberWorkloadItem[];
+  readonly unassigned: readonly WorkloadTaskItem[];
+  readonly totalOpenTasks: number;
+}
+
+export interface RankTaskInput {
+  readonly taskId: string;
+  readonly afterTaskId?: string | null;
+}
+
+export interface RankTaskResult {
+  readonly id: string;
+  readonly readableId: string;
+}
+
+export interface BlockedTaskStartFailure {
+  readonly taskId: string;
+  readonly taskTitle: string;
+  readonly readableId: string;
+  readonly projectName?: string;
+  readonly currentStatus: ColumnCategory;
+  readonly currentColumnName: string;
+  readonly targetColumnId: string;
+  readonly blockers: readonly TaskDependencyRef[];
+  readonly message: string;
 }

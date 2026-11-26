@@ -93,7 +93,7 @@ describe('[US-23] Project Backlog Acceptance Tests', () => {
     expect(screen.getByText('Test Project / Project backlog')).toBeInTheDocument();
     expect(screen.getByText('TEST PROJECT')).toBeInTheDocument();
     expect(screen.getByText('Upcoming work, in one ordered list.')).toBeInTheDocument();
-    expect(screen.getByText('4 items · Ordered by backlog position')).toBeInTheDocument();
+    expect(await screen.findByText('4 items · Ordered by backlog position')).toBeInTheDocument();
 
     // Verify ordering matches backend response with position numbers
     const itemsList = screen.getByTestId('backlog-items-list');

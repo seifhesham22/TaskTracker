@@ -1,0 +1,479 @@
+/* Project Workload Page Styles (US-29 / T1WOR-168) */
+
+.workload-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #EDEDED;
+  padding: 40px 16px 64px;
+  box-sizing: border-box;
+}
+
+.workload-card-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 600px;
+  background: #FFFFFF;
+  box-shadow: 0px 12px 32px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #E5E5E5;
+  border-radius: 16px;
+  padding: 24px;
+  gap: 14px;
+}
+
+/* Header Area */
+.workload-header-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 4px;
+}
+
+.workload-breadcrumb {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 18px;
+  color: #636363;
+  margin: 0;
+}
+
+.workload-card-title {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+.workload-card-subtitle {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 25px;
+  color: #636363;
+  margin: 0;
+}
+
+.workload-card-caption {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+  margin: 0;
+}
+
+/* Comparison list */
+.workload-comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.workload-members-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.workload-member-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 12px;
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workload-member-card:hover {
+  border-color: #B5B5B5;
+}
+
+.workload-member-card:focus-visible {
+  outline: none;
+  border-color: #0A0A0A;
+  box-shadow: 0 0 0 2px #0A0A0A;
+}
+
+.workload-member-top-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.workload-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #F5F5F5;
+  border-radius: 18px;
+  font-family: 'Geist', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  color: #0A0A0A;
+  flex-shrink: 0;
+}
+
+.workload-member-name {
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 18px;
+  color: #0A0A0A;
+  flex: 1;
+}
+
+.workload-member-count {
+  font-family: 'Geist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 18px;
+  color: #0A0A0A;
+}
+
+.workload-bar-track {
+  width: 100%;
+  height: 8px;
+  background: #F5F5F5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.workload-bar-fill {
+  height: 8px;
+  background: #171717;
+  border-radius: 8px;
+  transition: width 0.3s ease;
+}
+
+/* Unassigned card */
+.workload-unassigned-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.workload-unassigned-card:hover {
+  border-color: #B5B5B5;
+}
+
+.workload-unassigned-card:focus-visible {
+  outline: none;
+  border-color: #0A0A0A;
+  box-shadow: 0 0 0 2px #0A0A0A;
+}
+
+.workload-unassigned-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.workload-unassigned-title {
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+.workload-unassigned-subtitle {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+}
+
+/* Buttons */
+.workload-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.workload-btn-primary {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 16px;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  background: #171717;
+  border: 1px solid #171717;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #FAFAFA;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.workload-btn-primary:hover:not(:disabled) {
+  background: #2D2D2D;
+}
+
+.workload-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workload-btn-secondary {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 16px;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #171717;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.workload-btn-secondary:hover {
+  background: #F5F5F5;
+  border-color: #D4D4D4;
+}
+
+/* Drill-down View */
+.workload-drilldown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.workload-drilldown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.workload-drilldown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.workload-task-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 4px;
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+}
+
+.workload-task-title {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+.workload-task-meta {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+}
+
+.workload-showing-box {
+  box-sizing: border-box;
+  padding: 12px;
+  width: 100%;
+  background: #F5F5F5;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+/* State 04: Loading Skeleton */
+.workload-skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.workload-loading-box {
+  box-sizing: border-box;
+  padding: 12px;
+  width: 100%;
+  background: #F5F5F5;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+.workload-skeleton-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.workload-skeleton-card {
+  width: 100%;
+  height: 76px;
+  background: #EDEDED;
+  border-radius: 8px;
+  animation: pulse-workload 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-workload {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* State 05: No open work */
+.workload-zero-box {
+  box-sizing: border-box;
+  padding: 12px;
+  width: 100%;
+  background: #F5F5F5;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+.workload-zero-members {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.workload-zero-member-row {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+}
+
+.workload-zero-member-name {
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A0A0A;
+}
+
+.workload-zero-member-tasks {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
+  color: #636363;
+}
+
+/* State 06: Request failed */
+.workload-error-box {
+  box-sizing: border-box;
+  padding: 12px;
+  width: 100%;
+  background: #FFF5F5;
+  border: 1px solid #F1B8BC;
+  border-radius: 8px;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #A60009;
+}
+
+/* State 07: Access restricted */
+.workload-restricted-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.workload-restricted-text {
+  margin: 0;
+  font-family: 'Geist', sans-serif;
+  font-size: 16px;
+  line-height: 25px;
+  color: #636363;
+}

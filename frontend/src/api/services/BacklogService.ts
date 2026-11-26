@@ -7,8 +7,29 @@ import type {
   BacklogPageData,
   ColumnCategory,
   GetBacklogInput,
+  RankTaskInput,
+  RankTaskResult,
   TaskPriority,
 } from '../../domain/models';
+
+export const RANK_TASK_MUTATION = `
+  mutation RankTask($input: RankTaskInput!) {
+    rankTask(input: $input) {
+      id
+      readableId
+    }
+  }
+`;
+
+export const UPDATE_TASK_PRIORITY_MUTATION = `
+  mutation UpdateTaskPriority($input: UpdateTaskInput!) {
+    updateTask(input: $input) {
+      id
+      readableId
+      priority
+    }
+  }
+`;
 
 interface RawBacklogItem {
   readonly id: string;
@@ -50,7 +71,8 @@ export class BacklogService {
 
   public buildFilter(
     status?: ColumnCategory | null,
-    priority?: TaskPriority | 'NONE' | null
+    priority?: TaskPriority | 'NONE' | null,
+    assigneeId?: string | 'UNASSIGNED' | null
   ): BacklogFilterInput | undefined {
     const filter: Record<string, unknown> = {};
 
@@ -62,6 +84,12 @@ export class BacklogService {
       filter.priority = { eq: null };
     } else if (priority) {
       filter.priority = { eq: priority };
+    }
+
+    if (assigneeId === 'UNASSIGNED') {
+      filter.assignees = { any: false };
+    } else if (assigneeId) {
+      filter.assignees = { some: { userId: { eq: assigneeId } } };
     }
 
     if (Object.keys(filter).length === 0) {
@@ -179,5 +207,71 @@ export class BacklogService {
       position: raw.position,
       parentTaskId: raw.parentTaskId ?? null,
     };
+  }
+
+  public async rankTask(input: RankTaskInput): Promise<RankTaskResult> {
+    const response = await this.client.post<GraphQLResponse<{ rankTask: RankTaskResult }>>(
+      '/graphql',
+      { query: RANK_TASK_MUTATION, variables: { input } }
+    );
+
+    if (response.errors && response.errors.length > 0) {
+      const firstError = response.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, response.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHORIZED' || code === 'FORBIDDEN') {
+        throw new ApiError(firstError.message, 403, response.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError(firstError.message, 401, response.errors);
+      }
+      if (code === 'BAD_USER_INPUT') {
+        throw new ApiError(firstError.message, 400, response.errors);
+      }
+      throw new ApiError(firstError.message, 400, response.errors);
+    }
+
+    const result = response.data?.rankTask;
+    if (!result) {
+      throw new ApiError('Failed to rank task.', 500, null);
+    }
+
+    return result;
+  }
+
+  public async updateTaskPriority(
+    taskId: string,
+    priority: TaskPriority | null
+  ): Promise<{ id: string; readableId: string; priority: TaskPriority | null }> {
+    const response = await this.client.post<
+      GraphQLResponse<{ updateTask: { id: string; readableId: string; priority: TaskPriority | null } }>
+    >('/graphql', {
+      query: UPDATE_TASK_PRIORITY_MUTATION,
+      variables: { input: { taskId, priority } },
+    });
+
+    if (response.errors && response.errors.length > 0) {
+      const firstError = response.errors[0];
+      const code = firstError.extensions?.code;
+      if (code === 'NOT_FOUND') {
+        throw new ApiError(firstError.message, 404, response.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHORIZED' || code === 'FORBIDDEN') {
+        throw new ApiError(firstError.message, 403, response.errors);
+      }
+      if (code === 'AUTH_NOT_AUTHENTICATED') {
+        throw new ApiError(firstError.message, 401, response.errors);
+      }
+      throw new ApiError(firstError.message, 400, response.errors);
+    }
+
+    const result = response.data?.updateTask;
+    if (!result) {
+      throw new ApiError('Failed to update task priority.', 500, null);
+    }
+
+    return result;
   }
 }
