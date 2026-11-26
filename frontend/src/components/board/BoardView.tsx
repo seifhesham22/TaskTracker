@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ColumnCategory,
+  type BlockedTaskStartFailure,
   type BoardDetails,
   type CreateTaskInput,
+  type TaskDependencyRef,
   type TaskItem,
   type UpdateTaskInput,
 } from '../../domain/models';
@@ -11,6 +13,7 @@ import type { ProjectAccessState } from '../../domain/projectAccess';
 import { ProjectAccessView } from '../access/ProjectAccessView';
 import { BoardColumn } from './BoardColumn';
 import { BoardHeader } from './BoardHeader';
+import { BlockedTaskStartModal } from './BlockedTaskStartModal';
 import { CreateTaskForm } from './CreateTaskForm';
 import {
   ParentTaskDetailsModal,
@@ -35,11 +38,16 @@ export interface BoardViewProps {
   readonly createTaskError?: string | null;
   readonly savingTaskIds?: ReadonlySet<string>;
   readonly moveError?: string | null;
+  readonly moveRevertedBanner?: string | null;
   readonly incompleteSubtasksError?: BlockedIncompleteSubtasksInfo | null;
+  readonly blockedStartError?: BlockedTaskStartFailure | null;
   readonly createdBanner?: string | null;
   readonly backToBoardsUrl?: string | null;
   readonly onClearMoveError?: () => void;
   readonly onClearIncompleteSubtasksError?: () => void;
+  readonly onClearBlockedStartError?: () => void;
+  readonly onRecheckBlockers?: (taskId: string) => Promise<readonly TaskDependencyRef[]>;
+  readonly onStartBlockedTask?: (taskId: string, targetColumnId?: string) => Promise<boolean>;
   readonly onReload?: () => void;
   readonly onCreateTask: (input: CreateTaskInput) => Promise<boolean>;
   readonly onCreateSubtask?: (parentTask: TaskItem, title: string) => Promise<boolean>;
@@ -64,11 +72,16 @@ export function BoardView({
   createTaskError,
   savingTaskIds,
   moveError,
+  moveRevertedBanner,
   incompleteSubtasksError,
+  blockedStartError,
   createdBanner,
   backToBoardsUrl,
   onClearMoveError,
   onClearIncompleteSubtasksError,
+  onClearBlockedStartError,
+  onRecheckBlockers,
+  onStartBlockedTask,
   onReload,
   onCreateTask,
   onCreateSubtask,
@@ -467,6 +480,33 @@ export function BoardView({
         onUnassign={async (taskId, userId) => {
           if (!onUnassignTask) return false;
           return await onUnassignTask(taskId, userId);
+        }}
+      />
+
+      <BlockedTaskStartModal
+        failure={blockedStartError || null}
+        isOpen={Boolean(blockedStartError)}
+        allTasks={tasks}
+        rollbackBanner={moveRevertedBanner}
+        onClose={() => {
+          if (onClearBlockedStartError) {
+            onClearBlockedStartError();
+          }
+        }}
+        onRecheck={async (taskId) => {
+          if (onRecheckBlockers) {
+            return await onRecheckBlockers(taskId);
+          }
+          return [];
+        }}
+        onStartTask={async (taskId, targetColumnId) => {
+          if (onStartBlockedTask) {
+            return await onStartBlockedTask(taskId, targetColumnId);
+          }
+          if (onMoveTask && targetColumnId) {
+            return await onMoveTask(taskId, targetColumnId);
+          }
+          return false;
         }}
       />
     </div>
