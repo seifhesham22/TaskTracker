@@ -280,6 +280,51 @@ describe('BoardService', () => {
     }
   });
 
+  it('throws BlockedTaskStartApiError when moveTask is rejected due to unfinished blockers', async () => {
+    const postMock = vi.fn().mockResolvedValue({
+      errors: [
+        {
+          message:
+            "TES-24 is blocked by this unfinished task: TES-18 (Approve scope). It can't be started until that task is done.",
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            blockers: [
+              { id: 'task-18', readableId: 'TES-18', title: 'Approve scope' },
+            ],
+          },
+        },
+      ],
+    });
+
+    const mockHttpClient: HttpClient = {
+      get: vi.fn(),
+      post: postMock,
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+
+    const service = new BoardService(mockHttpClient);
+
+    await expect(
+      service.moveTask({ taskId: 'task-24', columnId: 'col-inprogress' })
+    ).rejects.toThrowError(
+      "TES-24 is blocked by this unfinished task: TES-18 (Approve scope). It can't be started until that task is done."
+    );
+
+    try {
+      await service.moveTask({ taskId: 'task-24', columnId: 'col-inprogress' });
+    } catch (err: unknown) {
+      const error = err as import('../errors').BlockedTaskStartApiError;
+      expect(error.name).toBe('BlockedTaskStartApiError');
+      expect(error.blockers).toHaveLength(1);
+      expect(error.blockers[0]).toEqual({
+        id: 'task-18',
+        readableId: 'TES-18',
+        title: 'Approve scope',
+      });
+    }
+  });
+
   it('preserves parentTaskId when moveTask succeeds', async () => {
     const postMock = vi.fn().mockResolvedValue({
       data: {

@@ -152,7 +152,7 @@ describe('Your projects', () => {
   it('lists the signed-in user’s projects as in the design', async () => {
     await reopenSignedIn();
 
-    expect(screen.getByText('Pick up where your team left off.')).toBeOnTheScreen();
+    expect(screen.getByText('Projects you belong to')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Log out' })).toBeOnTheScreen();
     const card = await screen.findByTestId(`project-${PROJECT_ID}`);
     expect(within(card).getByText('Test Project')).toBeOnTheScreen();

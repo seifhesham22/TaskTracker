@@ -14,6 +14,7 @@ import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } f
 import { backlogRequest } from '../api/backlog';
 import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
 import { backlogVariables, type BacklogQuery } from '../domain/backlog';
+import { createProjectRequest } from '../api/projects';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { looksLikeKey } from '../domain/dependencies';
 import { SESSION_EXPIRED } from '../domain/authErrors';
@@ -92,6 +93,10 @@ export function createBackendBoardRepository(): BoardRepository {
       } catch (error) {
         throw toBoardLoadError(error);
       }
+    },
+
+    async createProject(name: string) {
+      return toProjectSummary(await createProjectRequest(name));
     },
 
     async listBoards() {

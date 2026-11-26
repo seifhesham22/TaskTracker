@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, IncompleteSubtasksApiError, type IncompleteSubtaskDto } from '../api';
-import type {
-  BoardDetails,
+import {
+  api,
+  BlockedTaskStartApiError,
+  IncompleteSubtasksApiError,
+  type IncompleteSubtaskDto,
+} from '../api';
+import {
   ColumnCategory,
-  CreateTaskInput,
-  GetBoardTasksOptions,
-  TaskItem,
-  TaskPriority,
-  UpdateTaskInput,
+  type BlockedTaskStartFailure,
+  type BoardDetails,
+  type CreateTaskInput,
+  type GetBoardTasksOptions,
+  type TaskDependencyRef,
+  type TaskItem,
+  type TaskPriority,
+  type UpdateTaskInput,
 } from '../domain/models';
 import { defaultProjectAccessClassifier, type ProjectAccessState } from '../domain/projectAccess';
 
@@ -28,9 +35,15 @@ export interface UseBoardState {
   readonly createTaskError: string | null;
   readonly savingTaskIds: ReadonlySet<string>;
   readonly moveError: string | null;
+  readonly moveRevertedBanner: string | null;
   readonly incompleteSubtasksError: IncompleteSubtaskFailure | null;
+  readonly blockedStartError: BlockedTaskStartFailure | null;
   readonly clearMoveError: () => void;
+  readonly clearMoveRevertedBanner: () => void;
   readonly clearIncompleteSubtasksError: () => void;
+  readonly clearBlockedStartError: () => void;
+  readonly handleRecheckBlockers: (taskId: string) => Promise<readonly TaskDependencyRef[]>;
+  readonly handleStartBlockedTask: (taskId: string, targetColumnId?: string) => Promise<boolean>;
   readonly reload: () => Promise<void>;
   readonly handleCreateTask: (input: CreateTaskInput) => Promise<boolean>;
   readonly handleCreateSubtask: (parentTask: TaskItem, title: string) => Promise<boolean>;
@@ -140,7 +153,9 @@ export function useBoard(boardId: string): UseBoardState {
 
   const [savingTaskIds, setSavingTaskIds] = useState<ReadonlySet<string>>(new Set<string>());
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveRevertedBanner, setMoveRevertedBanner] = useState<string | null>(null);
   const [incompleteSubtasksError, setIncompleteSubtasksError] = useState<IncompleteSubtaskFailure | null>(null);
+  const [blockedStartError, setBlockedStartError] = useState<BlockedTaskStartFailure | null>(null);
 
   const hasActiveFilters = Boolean(
     debouncedSearch.trim() || statusFilter || priorityFilter || assigneeFilter
@@ -400,7 +415,9 @@ export function useBoard(boardId: string): UseBoardState {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? optimisticTask : t)));
     setSavingTaskIds((prev) => new Set(prev).add(taskId));
     setMoveError(null);
+    setMoveRevertedBanner(null);
     setIncompleteSubtasksError(null);
+    setBlockedStartError((prev) => (prev && prev.taskId === taskId ? prev : null));
 
     try {
       const updatedTask = await api.board.moveTask({ taskId, columnId: targetColumnId });
@@ -419,7 +436,35 @@ export function useBoard(boardId: string): UseBoardState {
       }
       // If the change is refused (network error or validation guard), the card stays where it was.
       setTasks(previousTasks);
-      if (err instanceof IncompleteSubtasksApiError) {
+      if (err instanceof BlockedTaskStartApiError) {
+        const fromColName =
+          task.columnName ||
+          board?.columns.find((c) => c.id === task.columnId)?.name ||
+          'To do';
+        const bannerText = `Move reverted · ${task.readableId} stays in ${fromColName}.`;
+        setMoveRevertedBanner(bannerText);
+        setBlockedStartError({
+          taskId,
+          taskTitle: task.title,
+          readableId: task.readableId,
+          projectName: board?.projectName || board?.name || '',
+          currentStatus: task.status,
+          currentColumnName: fromColName,
+          targetColumnId,
+          blockers: err.blockers.map((b) => {
+            const fromBlockedBy = task.blockedBy?.find((dep) => dep.id === b.id)?.status;
+            const fromTasks = tasks.find((t) => t.id === b.id)?.status;
+            return {
+              id: b.id,
+              readableId: b.readableId,
+              title: b.title,
+              status: (b.status as ColumnCategory) || fromBlockedBy || fromTasks || ColumnCategory.Backlog,
+            };
+          }),
+          message: err.message,
+        });
+        setMoveError(bannerText);
+      } else if (err instanceof IncompleteSubtasksApiError) {
         setIncompleteSubtasksError({
           taskId,
           message: err.message,
@@ -438,6 +483,34 @@ export function useBoard(boardId: string): UseBoardState {
         return next;
       });
     }
+  };
+
+  const handleRecheckBlockers = async (
+    targetTaskId: string
+  ): Promise<readonly TaskDependencyRef[]> => {
+    const { board: reloadedBoard, tasks: reloadedTasks } = await loadBoardWithMembers(boardId);
+    setBoard(reloadedBoard);
+    setTasks(reloadedTasks);
+    const updatedTask = reloadedTasks.find((t) => t.id === targetTaskId);
+    if (!updatedTask || !updatedTask.blockedBy) {
+      return [];
+    }
+    return updatedTask.blockedBy;
+  };
+
+  const handleStartBlockedTask = async (
+    targetTaskId: string,
+    targetColumnId?: string
+  ): Promise<boolean> => {
+    let colId = targetColumnId;
+    if (!colId) {
+      const inProgressCol = board?.columns.find(
+        (c) => c.category === ColumnCategory.InProgress
+      );
+      colId = inProgressCol?.id;
+    }
+    if (!colId) return false;
+    return await handleMoveTask(targetTaskId, colId);
   };
 
   const handleCreateSubtask = async (parentTask: TaskItem, title: string): Promise<boolean> => {
@@ -553,10 +626,19 @@ export function useBoard(boardId: string): UseBoardState {
 
   const clearMoveError = useCallback(() => {
     setMoveError(null);
+    setMoveRevertedBanner(null);
+  }, []);
+
+  const clearMoveRevertedBanner = useCallback(() => {
+    setMoveRevertedBanner(null);
   }, []);
 
   const clearIncompleteSubtasksError = useCallback(() => {
     setIncompleteSubtasksError(null);
+  }, []);
+
+  const clearBlockedStartError = useCallback(() => {
+    setBlockedStartError(null);
   }, []);
 
   return {
@@ -570,9 +652,15 @@ export function useBoard(boardId: string): UseBoardState {
     createTaskError,
     savingTaskIds,
     moveError,
+    moveRevertedBanner,
     incompleteSubtasksError,
+    blockedStartError,
     clearMoveError,
+    clearMoveRevertedBanner,
     clearIncompleteSubtasksError,
+    clearBlockedStartError,
+    handleRecheckBlockers,
+    handleStartBlockedTask,
     reload: fetchBoardData,
     handleCreateTask,
     handleCreateSubtask,

@@ -127,5 +127,7 @@ export interface ProjectSummary {
   id: string;
   name: string;
   description: string | null;
+  /** The signed-in user's role: OWNER, WRITER or READER. */
+  role: string | null;
   boardCount: number;
 }
