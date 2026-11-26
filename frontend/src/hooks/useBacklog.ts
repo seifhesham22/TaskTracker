@@ -252,44 +252,159 @@ export function useBacklog({
     [data]
   );
 
+  const handleMoveToPosition = useCallback(
+    async (item: BacklogItem, newPosition1Based: number): Promise<boolean> => {
+      if (!data || !canReorder || !projectId) return false;
+      if (newPosition1Based < 1 || newPosition1Based > data.totalCount) return false;
+
+      const pageStartIndex = (data.page - 1) * data.pageSize;
+      const currentItemLocalIndex = data.items.findIndex((i) => i.id === item.id);
+      if (currentItemLocalIndex === -1) return false;
+
+      const currentGlobalPosition = pageStartIndex + currentItemLocalIndex + 1;
+      if (currentGlobalPosition === newPosition1Based) return true;
+
+      let afterTaskId: string | null = null;
+      let isWithinCurrentPage = false;
+      let targetLocalIndex = 0;
+
+      if (newPosition1Based === 1) {
+        if (data.page === 1) {
+          isWithinCurrentPage = true;
+          targetLocalIndex = 0;
+        }
+      } else {
+        const targetPredecessorGlobalPos =
+          newPosition1Based > currentGlobalPosition
+            ? newPosition1Based
+            : newPosition1Based - 1;
+
+        const targetPredecessorLocalIndex = targetPredecessorGlobalPos - pageStartIndex - 1;
+
+        if (
+          targetPredecessorLocalIndex >= 0 &&
+          targetPredecessorLocalIndex < data.items.length
+        ) {
+          const predecessorItem = data.items[targetPredecessorLocalIndex];
+          afterTaskId = predecessorItem.id;
+
+          const targetItemLocalIndex = newPosition1Based - pageStartIndex - 1;
+          if (targetItemLocalIndex >= 0 && targetItemLocalIndex < data.items.length) {
+            isWithinCurrentPage = true;
+            targetLocalIndex = targetItemLocalIndex;
+          }
+        } else {
+          // Predecessor is on another page: fetch it
+          setIsSavingOrder(true);
+          setOrderSavedBanner(false);
+          setReorderError(null);
+
+          try {
+            const filterWhere = api.backlog.buildFilter(statusFilter, priorityFilter);
+            const targetPage = await api.backlog.getBacklog({
+              projectId,
+              page: targetPredecessorGlobalPos,
+              pageSize: 1,
+              search: debouncedSearch.trim() || undefined,
+              where: filterWhere,
+            });
+            const targetTask = targetPage.items[0];
+            if (!targetTask) {
+              setIsSavingOrder(false);
+              return false;
+            }
+            afterTaskId = targetTask.id;
+          } catch (err: unknown) {
+            setIsSavingOrder(false);
+            const message =
+              err instanceof Error && err.message
+                ? err.message
+                : "Couldn't save order. Changes were rolled back.";
+            setReorderError(message);
+            return false;
+          }
+        }
+      }
+
+      if (isWithinCurrentPage) {
+        return handleRankTask(item.id, afterTaskId, targetLocalIndex);
+      }
+
+      // Cross-page move execution
+      setIsSavingOrder(true);
+      setOrderSavedBanner(false);
+      setReorderError(null);
+
+      try {
+        await api.backlog.rankTask({
+          taskId: item.id,
+          afterTaskId: afterTaskId ?? undefined,
+        });
+
+        const filterWhere = api.backlog.buildFilter(statusFilter, priorityFilter);
+        const refreshed = await api.backlog.getBacklog({
+          projectId,
+          page: data.page,
+          pageSize: data.pageSize,
+          search: debouncedSearch.trim() || undefined,
+          where: filterWhere,
+        });
+        setData(refreshed);
+
+        setIsSavingOrder(false);
+        setOrderSavedBanner(true);
+
+        if (orderSavedTimeoutRef.current) {
+          clearTimeout(orderSavedTimeoutRef.current);
+        }
+        orderSavedTimeoutRef.current = setTimeout(() => {
+          setOrderSavedBanner(false);
+        }, 4000);
+
+        return true;
+      } catch (err: unknown) {
+        setIsSavingOrder(false);
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Couldn't save order. Changes were rolled back.";
+        setReorderError(message);
+        return false;
+      }
+    },
+    [
+      data,
+      canReorder,
+      projectId,
+      statusFilter,
+      priorityFilter,
+      debouncedSearch,
+      handleRankTask,
+    ]
+  );
+
   const handleMoveUp = useCallback(
     async (item: BacklogItem): Promise<boolean> => {
       if (!data || !canReorder) return false;
-      const currentIndex = data.items.findIndex((i) => i.id === item.id);
-      if (currentIndex <= 0) return false;
-      const targetIndex = currentIndex - 1;
-      const remaining = data.items.filter((i) => i.id !== item.id);
-      const afterTaskId = targetIndex === 0 ? null : remaining[targetIndex - 1].id;
-      return handleRankTask(item.id, afterTaskId, targetIndex);
+      const currentItemLocalIndex = data.items.findIndex((i) => i.id === item.id);
+      if (currentItemLocalIndex === -1) return false;
+      const currentGlobalPosition = (data.page - 1) * data.pageSize + currentItemLocalIndex + 1;
+      if (currentGlobalPosition <= 1) return false;
+      return handleMoveToPosition(item, currentGlobalPosition - 1);
     },
-    [data, canReorder, handleRankTask]
+    [data, canReorder, handleMoveToPosition]
   );
 
   const handleMoveDown = useCallback(
     async (item: BacklogItem): Promise<boolean> => {
       if (!data || !canReorder) return false;
-      const currentIndex = data.items.findIndex((i) => i.id === item.id);
-      if (currentIndex === -1 || currentIndex >= data.items.length - 1) return false;
-      const targetIndex = currentIndex + 1;
-      const remaining = data.items.filter((i) => i.id !== item.id);
-      const afterTaskId = targetIndex === 0 ? null : remaining[targetIndex - 1].id;
-      return handleRankTask(item.id, afterTaskId, targetIndex);
+      const currentItemLocalIndex = data.items.findIndex((i) => i.id === item.id);
+      if (currentItemLocalIndex === -1) return false;
+      const currentGlobalPosition = (data.page - 1) * data.pageSize + currentItemLocalIndex + 1;
+      if (currentGlobalPosition >= data.totalCount) return false;
+      return handleMoveToPosition(item, currentGlobalPosition + 1);
     },
-    [data, canReorder, handleRankTask]
-  );
-
-  const handleMoveToPosition = useCallback(
-    async (item: BacklogItem, newPosition1Based: number): Promise<boolean> => {
-      if (!data || !canReorder) return false;
-      const targetIndex = newPosition1Based - 1;
-      if (targetIndex < 0 || targetIndex >= data.items.length) return false;
-      const currentIndex = data.items.findIndex((i) => i.id === item.id);
-      if (currentIndex === targetIndex) return true;
-      const remaining = data.items.filter((i) => i.id !== item.id);
-      const afterTaskId = targetIndex === 0 ? null : remaining[targetIndex - 1].id;
-      return handleRankTask(item.id, afterTaskId, targetIndex);
-    },
-    [data, canReorder, handleRankTask]
+    [data, canReorder, handleMoveToPosition]
   );
 
   const handleUpdatePriority = useCallback(

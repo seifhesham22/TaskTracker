@@ -146,11 +146,11 @@ export function ProjectBacklogPage() {
   };
 
   const actionsItemPos = actionsItem && data
-    ? data.items.findIndex((i) => i.id === actionsItem.id) + 1
+    ? (data.page - 1) * data.pageSize + data.items.findIndex((i) => i.id === actionsItem.id) + 1
     : 1;
 
   const movePositionItemPos = movePositionItem && data
-    ? data.items.findIndex((i) => i.id === movePositionItem.id) + 1
+    ? (data.page - 1) * data.pageSize + data.items.findIndex((i) => i.id === movePositionItem.id) + 1
     : 1;
 
   return (

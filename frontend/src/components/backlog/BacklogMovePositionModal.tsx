@@ -81,9 +81,11 @@ function BacklogMovePositionModalContent({
     if (parsedPos === 1) {
       previewText = 'Move this item to the top of the backlog.';
     } else {
-      const remaining = items.filter((i) => i.id !== item.id);
-      const preceding = remaining[parsedPos - 2];
-      if (preceding) {
+      const pageStartIndex = currentPosition - (items.findIndex((i) => i.id === item.id) + 1);
+      const precedingGlobalPos = parsedPos > currentPosition ? parsedPos : parsedPos - 1;
+      const precedingLocalIndex = precedingGlobalPos - pageStartIndex - 1;
+      const preceding = items[precedingLocalIndex];
+      if (preceding && preceding.id !== item.id) {
         previewText = `Move this item after ${preceding.readableId}.`;
       } else {
         previewText = `Move this item to position ${parsedPos}.`;

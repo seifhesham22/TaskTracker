@@ -459,4 +459,119 @@ describe('[US-24] Prioritize and Reorder Backlog Items (T1WOR-163)', () => {
       });
     });
   });
+
+  it('supports moving beyond the loaded page (e.g. position 1 to 25 with 26 tasks) and persists order', async () => {
+    const user = userEvent.setup();
+
+    // Create 26 mock tasks
+    const all26Tasks: BacklogItem[] = Array.from({ length: 26 }, (_, idx) => ({
+      id: `task-${idx + 1}`,
+      readableId: `TES-${idx + 1}`,
+      number: idx + 1,
+      boardId: 'b-1',
+      title: `Backlog Task ${idx + 1}`,
+      status: ColumnCategory.Backlog,
+      column: { id: 'col-backlog', name: 'Backlog', category: ColumnCategory.Backlog },
+      priority: TaskPriority.Medium,
+      assignees: [],
+    }));
+
+    // Page 1 initial response (20 items)
+    const page1Initial = {
+      items: all26Tasks.slice(0, 20),
+      totalCount: 26,
+      page: 1,
+      pageSize: 20,
+      totalPages: 2,
+      hasNextPage: true,
+      hasPreviousPage: false,
+    };
+
+    // Single item query for target predecessor at position 25
+    const position25SingleItem = {
+      items: [all26Tasks[24]], // task-25
+      totalCount: 26,
+      page: 25,
+      pageSize: 1,
+      totalPages: 26,
+      hasNextPage: true,
+      hasPreviousPage: true,
+    };
+
+    // Page 1 response after task-1 is moved to position 25 (task-2 through task-21)
+    const page1AfterMove = {
+      items: all26Tasks.slice(1, 21),
+      totalCount: 26,
+      page: 1,
+      pageSize: 20,
+      totalPages: 2,
+      hasNextPage: true,
+      hasPreviousPage: false,
+    };
+
+    const getBacklogSpy = vi.spyOn(api.backlog, 'getBacklog').mockImplementation(async (input) => {
+      if (input.page === 25 && input.pageSize === 1) {
+        return position25SingleItem;
+      }
+      if (input.page === 1) {
+        return page1Initial;
+      }
+      return page1Initial;
+    });
+
+    const rankSpy = vi.spyOn(api.backlog, 'rankTask').mockImplementation(async () => {
+      // Once ranked, subsequent page 1 queries return page1AfterMove
+      getBacklogSpy.mockResolvedValue(page1AfterMove);
+      return { id: 'task-1', readableId: 'TES-1' };
+    });
+
+    renderAt(`/projects/${projectId}/backlog`);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Project backlog' })).toBeInTheDocument();
+
+    // Verify task-1 is initially at position 1
+    expect(screen.getByText('1 · TES-1')).toBeInTheDocument();
+
+    // Open item actions on task-1
+    await user.click(screen.getByTestId('backlog-item-actions-btn-task-1'));
+    // Click "Move to position…"
+    await user.click(screen.getByTestId('backlog-action-move-position'));
+
+    // Move to position modal opens with allowed range 1 to 26
+    expect(screen.getByTestId('backlog-move-position-modal')).toBeInTheDocument();
+    expect(screen.getByText('Enter a position from 1 to 26 for TES-1.')).toBeInTheDocument();
+
+    const input = screen.getByTestId('backlog-position-input');
+    await user.clear(input);
+    await user.type(input, '25');
+
+    // Submit move to position 25
+    const submitBtn = screen.getByTestId('backlog-move-submit-btn');
+    expect(submitBtn).toBeEnabled();
+    await user.click(submitBtn);
+
+    // Verify it fetched the target task at position 25
+    await waitFor(() => {
+      expect(getBacklogSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 25,
+          pageSize: 1,
+        })
+      );
+    });
+
+    // Verify rankTask was called placing task-1 after task-25
+    await waitFor(() => {
+      expect(rankSpy).toHaveBeenCalledWith({
+        taskId: 'task-1',
+        afterTaskId: 'task-25',
+      });
+    });
+
+    // Verify order saved banner is displayed
+    expect(await screen.findByTestId('backlog-order-saved-banner')).toBeInTheDocument();
+
+    // Verify task-1 has moved off page 1 (now at position 25 on page 2), and task-2 is now at position 1
+    expect(screen.getByText('1 · TES-2')).toBeInTheDocument();
+    expect(screen.queryByText('1 · TES-1')).not.toBeInTheDocument();
+  });
 });
