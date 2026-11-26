@@ -211,11 +211,11 @@ describe('Moving between columns', () => {
 });
 
 describe('Loading and failed requests', () => {
-  it('shows the skeleton and no empty message while the query is running', async () => {
+  it('shows Checking access and no empty message while the query is running', async () => {
     globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
     await renderBoard();
 
-    expect(await screen.findByLabelText('Loading board')).toBeOnTheScreen();
+    expect(await screen.findByTestId('access-checking')).toBeOnTheScreen();
     expect(screen.queryByText('No tasks yet')).not.toBeOnTheScreen();
   });
 
@@ -223,21 +223,21 @@ describe('Loading and failed requests', () => {
     mockFetch('network-error', ...loaded([titleOnlyTaskNode(0, { title: 'Back again' })]));
     await renderBoard();
 
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Try again'));
+    expect(await screen.findByRole('header', { name: 'Couldn’t connect' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('access-retry'));
     expect(await screen.findByText('Back again')).toBeOnTheScreen();
   });
 
-  it('shows "Board not found" when the server says this board is missing', async () => {
+  it('shows “Project unavailable” when the server refuses the board (missing, or not a member)', async () => {
     mockFetch({ body: gqlError('NOT_FOUND', `Board '${BOARD_ID}' was not found.`) });
     await renderBoard();
-    expect(await screen.findByText('Board not found')).toBeOnTheScreen();
+    expect(await screen.findByTestId('access-unavailable')).toBeOnTheScreen();
   });
 
-  it('shows "Board not found" for an ID that is not a board ID, without a request', async () => {
+  it('shows “Project unavailable” for an ID that is not a board ID, without a request', async () => {
     const fetchMock = mockFetch();
     await renderBoard('not-a-board');
-    expect(await screen.findByText('Board not found')).toBeOnTheScreen();
+    expect(await screen.findByTestId('access-unavailable')).toBeOnTheScreen();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -247,8 +247,9 @@ describe('Loading and failed requests', () => {
   ])('does not call a NOT_FOUND about %s a missing board', async (_, message) => {
     mockFetch({ body: gqlError('NOT_FOUND', message) });
     await renderBoard();
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    expect(screen.queryByText('Board not found')).not.toBeOnTheScreen();
+    // Neither a refusal nor a lost connection: the server's own problem.
+    expect(await screen.findByTestId('access-service-problem')).toBeOnTheScreen();
+    expect(screen.queryByTestId('access-unavailable')).not.toBeOnTheScreen();
   });
 });
 
@@ -309,20 +310,23 @@ describe('Pull-to-refresh', () => {
 
     expect(await screen.findByText(REFRESH_FAILED_MESSAGE)).toBeOnTheScreen();
     expect(within(page(BACKLOG.id)).getByText('Moving task')).toBeOnTheScreen();
-    expect(screen.queryByText('Couldn’t load this board')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('access-unverified')).not.toBeOnTheScreen();
 
     await pullToRefresh(BACKLOG.id);
     await waitFor(() => expect(within(page(DONE.id)).getByText('Moving task')).toBeOnTheScreen());
   });
 
-  it('shows "Board not found" when a refresh finds the board was deleted', async () => {
+  it('clears the board when a refresh is refused (deleted, or access lost while it was open)', async () => {
     mockFetch(...loaded([inBacklog]), { body: gqlError('NOT_FOUND', `Board '${BOARD_ID}' was not found.`) });
     await renderBoard();
     await screen.findByText('Moving task');
 
     await pullToRefresh(BACKLOG.id);
 
-    expect(await screen.findByText('Board not found')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Your project access has changed' })).toBeOnTheScreen();
+    expect(screen.getByText('You no longer have access to this project.')).toBeOnTheScreen();
+    expect(screen.queryByText('Moving task')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/Test Project/)).not.toBeOnTheScreen();
   });
 });
 

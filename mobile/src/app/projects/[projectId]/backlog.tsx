@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { controlStyles } from '../../../components/form/fields';
@@ -17,12 +17,50 @@ import {
   type BacklogItem,
 } from '../../../domain/backlog';
 import { PRIORITY_LABELS } from '../../../domain/models';
+import { AccessDenied, AccessProblem, CheckingAccess } from '../../../components/access/AccessScreens';
+import { useBoardRepository } from '../../../data/BoardRepositoryContext';
+import { useAccessCheckedLoad } from '../../../hooks/useAccessCheckedLoad';
 import { useBacklog } from '../../../hooks/useBacklog';
 import { colors, radius, touchTarget } from '../../../theme/tokens';
 
-/** US-23: every task of the project's boards in one list, in the backend's order. */
+/**
+ * US-23: every task of the project's boards in one list, in the backend's order.
+ *
+ * US-5: the backend confirms membership first, and gives the project's name. A name carried by
+ * the link is never shown: until the backend answers there is only “Checking access”.
+ */
 export default function ProjectBacklogScreen() {
-  const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName?: string }>();
+  const { projectId } = useLocalSearchParams<{ projectId: string }>();
+  const repository = useBoardRepository();
+  const load = useCallback(() => repository.getProject(projectId ?? ''), [repository, projectId]);
+  const access = useAccessCheckedLoad(projectId, load);
+  const { state } = access;
+
+  if (state.status === 'checking') return <CheckingAccess />;
+  if (state.status === 'denied') return <AccessDenied denial={state.denial} />;
+  if (state.status === 'unverified') return <AccessProblem error={state.error} onRetry={access.retry} />;
+  return (
+    <BacklogView
+      projectId={state.data.id}
+      projectName={state.data.name}
+      refreshing={state.refreshing}
+      onRefresh={access.refresh}
+    />
+  );
+}
+
+function BacklogView({
+  projectId,
+  projectName,
+  refreshing,
+  onRefresh,
+}: {
+  projectId: string;
+  /** From the backend, once it has confirmed membership. */
+  projectName: string;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
   const router = useRouter();
   const backlog = useBacklog(projectId);
   const { state, query } = backlog;
@@ -30,15 +68,28 @@ export default function ProjectBacklogScreen() {
 
   const backToProject = () => {
     if (router.canGoBack()) router.back();
-    else router.replace({ pathname: '/boards', params: { projectId } });
+    else router.replace({ pathname: '/projects/[projectId]', params: { projectId } });
   };
+
+  // A refusal: nothing of the project stays on screen, not even the name the link carried.
+  if (state.status === 'error' && state.denied) return <AccessDenied denial={state.revoked ? 'revoked' : 'unavailable'} />;
   const openTask = (item: BacklogItem) =>
     router.push({ pathname: '/tasks/[taskId]', params: { taskId: item.id, boardId: item.boardId } });
 
   const filtersActive = query.statuses.length > 0 || query.priorities.length > 0;
 
   return (
-    <TaskScreen title="Project backlog" breadcrumb={projectName ?? ''} testID="backlog-screen">
+    <TaskScreen
+      title="Project backlog"
+      breadcrumb={projectName}
+      refreshing={refreshing}
+      onRefresh={() => {
+        // The membership and the list are both read again; the list stays until the answer.
+        onRefresh();
+        backlog.refresh();
+      }}
+      testID="backlog-screen"
+    >
       <Text style={styles.subtitle}>Upcoming work, in one ordered list.</Text>
 
       <TextInput

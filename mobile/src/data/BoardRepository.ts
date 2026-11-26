@@ -5,6 +5,7 @@ import type {
   BoardData,
   BoardSummary,
   CreateTaskInput,
+  ProjectDetails,
   ProjectSummary,
   Task,
   TaskDetails,
@@ -12,12 +13,23 @@ import type {
   UpdateTaskChanges,
 } from '../domain/models';
 
-export type BoardLoadErrorKind = 'notFound' | 'configuration' | 'network' | 'server';
+/**
+ * - `notFound`: the backend refused (NOT_FOUND / AUTH_NOT_AUTHORIZED); for a non-member it answers
+ *   exactly as for something that doesn't exist.
+ * - `expired`: AUTH_NOT_AUTHENTICATED; the app is signing the user out.
+ * - `network`: no answer. `server`: an answer that isn't usable. `configuration`: the app's own setup.
+ */
+export type BoardLoadErrorKind = 'notFound' | 'expired' | 'configuration' | 'network' | 'server';
 
 export class BoardLoadError extends Error {
   constructor(
     public readonly kind: BoardLoadErrorKind,
     message: string,
+    /**
+     * What was not found: the board or project (access may be lost), or only a task on a board the
+     * backend did return (deleted or moved, access is fine).
+     */
+    public readonly subject: 'project' | 'task' = 'project',
   ) {
     super(message);
     this.name = 'BoardLoadError';
@@ -33,6 +45,8 @@ export interface BacklogResult {
 
 export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
+  /** One of the user's projects with its boards. Rejects with BoardLoadError ('notFound' for a non-member). */
+  getProject(projectId: string): Promise<ProjectDetails>;
   /** Rejects with the backend's error; `toCreateProjectFailure` turns it into messages. */
   createProject(name: string): Promise<ProjectSummary>;
   /** The project's members. Rejects with BoardLoadError ('notFound' if the user isn't one of them). */

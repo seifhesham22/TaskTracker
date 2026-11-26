@@ -12,6 +12,7 @@ import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
 import CreateSubtaskScreen from '../src/app/tasks/[taskId]/subtask';
 import TaskDependenciesScreen from '../src/app/tasks/[taskId]/dependencies';
 import ProjectBacklogScreen from '../src/app/projects/[projectId]/backlog';
+import ProjectScreen from '../src/app/projects/[projectId]/index';
 import AddMemberScreen from '../src/app/projects/[projectId]/members/add';
 import ProjectMembersScreen from '../src/app/projects/[projectId]/members/index';
 import RemoveMemberScreen from '../src/app/projects/[projectId]/members/remove';
@@ -70,6 +71,7 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'tasks/[taskId]/subtask': CreateSubtaskScreen,
       'tasks/[taskId]/dependencies': TaskDependenciesScreen,
       'projects/new': CreateProjectScreen,
+      'projects/[projectId]/index': ProjectScreen,
       'projects/[projectId]/members/index': ProjectMembersScreen,
       'projects/[projectId]/members/add': AddMemberScreen,
       'projects/[projectId]/members/remove': RemoveMemberScreen,

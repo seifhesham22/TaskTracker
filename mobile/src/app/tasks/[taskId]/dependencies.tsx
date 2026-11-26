@@ -2,10 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 
-import { BoardState } from '../../../components/board/BoardState';
+import { AccessProblem, CheckingAccess } from '../../../components/access/AccessScreens';
 import { SelectControl, SelectionSheet, controlStyles } from '../../../components/form/fields';
 import { DependencyList, LinkCard, RelationBox } from '../../../components/task/Dependencies';
-import { ErrorBanner, SuccessBanner, TaskFormSkeleton, TaskScreen } from '../../../components/task/TaskScreen';
+import { ErrorBanner, SuccessBanner, TaskScreen } from '../../../components/task/TaskScreen';
 import { Button, Skeleton } from '../../../components/ui';
 import { useBoardRepository } from '../../../data/BoardRepositoryContext';
 import {
@@ -51,23 +51,9 @@ export default function TaskDependenciesScreen() {
     else router.replace({ pathname: '/tasks/[taskId]', params: { taskId, boardId } });
   };
 
-  if (state.status !== 'ready') {
-    return (
-      <TaskScreen title="Task dependencies" onClose={close} testID="dependencies-screen">
-        {state.status === 'loading' ? (
-          <TaskFormSkeleton />
-        ) : (
-          <View style={styles.state}>
-            {state.error.kind === 'notFound' ? (
-              <BoardState type="notfound" title="Task not found" description={state.error.message} action="Go back" onAction={close} />
-            ) : (
-              <BoardState type="error" title="Couldn’t load this task" description={state.error.message} onAction={retry} />
-            )}
-          </View>
-        )}
-      </TaskScreen>
-    );
-  }
+  if (state.status === 'error') return <AccessProblem error={state.error} revoked={state.revoked} onRetry={retry} />;
+  // Nothing of the task until the backend has confirmed access, and no action before it.
+  if (state.status !== 'ready') return <CheckingAccess />;
 
   const { details } = state;
   const { task, projectName } = details;

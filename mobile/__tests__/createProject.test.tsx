@@ -153,7 +153,7 @@ describe('Create a project form', () => {
     expect(sent(fetchMock)[index + 1].query).toBe(PROJECTS_QUERY);
 
     await fireEvent.press(within(card).getByRole('button', { name: 'Open Website redesign' }));
-    await waitFor(() => expect(router).toHavePathname('/boards'));
+    await waitFor(() => expect(router).toHavePathname('/projects/p-redesign'));
     expect(await screen.findByText('Board')).toBeOnTheScreen();
   });
 

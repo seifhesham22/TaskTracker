@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
@@ -10,8 +10,11 @@ import { Button } from '../components/ui';
 import { BoardLoadError } from '../data/BoardRepository';
 import { useBoardRepository } from '../data/BoardRepositoryContext';
 import { LOGOUT_FAILED } from '../domain/authErrors';
+import { onAccessLost, reportAccessConfirmed, reportAccessLost } from '../data/projectAccess';
+import { CHOOSE_PROJECT, PROJECTS_SUBTITLE, sameId } from '../domain/access';
 import { PROJECT_CREATED, PROJECTS_REFRESH_FAILED, projectAccessLabel } from '../domain/createProject';
 import type { ProjectSummary } from '../domain/models';
+import { useForegroundRefresh } from '../hooks/useForegroundRefresh';
 import { colors, radius } from '../theme/tokens';
 
 type ProjectsState =
@@ -29,6 +32,22 @@ export default function ProjectsScreen() {
   const [state, setState] = useState<ProjectsState>({ status: 'loading' });
   const [refreshFailed, setRefreshFailed] = useState(false);
   const latest = useRef(0);
+  /** The projects in the list on screen, to notice one that is gone. */
+  const shownIds = useRef<string[]>([]);
+
+  // A project lost on any screen leaves the list at once, before the next read confirms it.
+  useEffect(
+    () =>
+      onAccessLost((lostId) => {
+        shownIds.current = shownIds.current.filter((id) => !sameId(id, lostId));
+        setState((current) =>
+          current.status === 'ready'
+            ? { ...current, projects: current.projects.filter((p) => !sameId(p.id, lostId)) }
+            : current,
+        );
+      }),
+    [],
+  );
   // Set by the Create a project screen once the backend has saved the project.
   const { created } = useLocalSearchParams<{ created?: string }>();
   const [logoutState, setLogoutState] = useState<LogoutState>('idle');
@@ -38,6 +57,14 @@ export default function ProjectsScreen() {
     repository.listProjects().then(
       (projects) => {
         if (request !== latest.current) return;
+        // The backend lists only the user's projects: one shown before and missing now was lost,
+        // so any of its screens still open clears too. The others are confirmed.
+        const listed = new Set(projects.map((p) => p.id.toLowerCase()));
+        shownIds.current.forEach((id) => {
+          if (!listed.has(id.toLowerCase())) reportAccessLost(id);
+        });
+        projects.forEach((p) => reportAccessConfirmed(p.id));
+        shownIds.current = projects.map((p) => p.id);
         setRefreshFailed(false);
         setState({ status: 'ready', projects });
       },
@@ -62,6 +89,9 @@ export default function ProjectsScreen() {
     }, [load]),
   );
 
+  // Back from the background: a project the user was removed from in the meantime drops off.
+  useForegroundRefresh(load);
+
   /** Leaves the list; the note about a created project has been seen by then. */
   const leaveTo = (href: Parameters<typeof router.push>[0]) => {
     if (created) router.setParams({ created: undefined });
@@ -83,7 +113,7 @@ export default function ProjectsScreen() {
 
   return (
     <AuthScreen testID="projects-screen">
-      <ScreenTitle title="Your projects" subtitle="Projects you belong to" />
+      <ScreenTitle title="Your projects" subtitle={PROJECTS_SUBTITLE} />
 
       <View style={styles.logout}>
         <Button
@@ -152,7 +182,8 @@ export default function ProjectsScreen() {
                 size="lg"
                 block
                 accessibilityLabel={`Open ${project.name}`}
-                onPress={() => leaveTo({ pathname: '/boards', params: { projectId: project.id } })}
+                onPress={() => leaveTo({ pathname: '/projects/[projectId]', params: { projectId: project.id } })}
+                testID={`open-${project.id}`}
                 style={styles.cardButton}
               />
               <Button
@@ -183,6 +214,12 @@ export default function ProjectsScreen() {
             </View>
           ))
         : null}
+
+      {state.status === 'ready' && state.projects.length > 0 ? (
+        <Text style={styles.hint} testID="choose-project">
+          {CHOOSE_PROJECT}
+        </Text>
+      ) : null}
 
       {state.status === 'ready' ? (
         <Button

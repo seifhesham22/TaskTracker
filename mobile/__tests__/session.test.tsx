@@ -60,6 +60,18 @@ beforeEach(() => {
   setSession(null);
 });
 
+/** The design's “Your session has expired”, then Log in opens the form, which still says why. */
+async function expectSessionExpiredScreen() {
+  expect(await screen.findByRole('header', { name: 'Your session has expired' })).toBeOnTheScreen();
+  expect(screen.getByText('Log in again to continue.')).toBeOnTheScreen();
+  expect(
+    screen.getByText('Private project content is hidden until your session and membership are verified.'),
+  ).toBeOnTheScreen();
+  await fireEvent.press(screen.getByTestId('session-expired-login'));
+  expect(screen.getByText('Welcome back')).toBeOnTheScreen();
+  expect(screen.getByTestId('form-error')).toHaveTextContent(SESSION_EXPIRED);
+}
+
 describe('Restoring the session when the app is reopened', () => {
   it('restores a valid session after the backend confirms the token, and shows the user’s projects', async () => {
     const { router, fetchMock } = await reopenSignedIn();
@@ -77,9 +89,8 @@ describe('Restoring the session when the app is reopened', () => {
     const fetchMock = mockFetch();
     const router = await renderApp('/');
 
-    expect(await screen.findByText('Welcome back')).toBeOnTheScreen();
+    await expectSessionExpiredScreen();
     expect(router).toHavePathname('/login');
-    expect(screen.getByTestId('form-error')).toHaveTextContent(SESSION_EXPIRED);
     expect(storedValue(SESSION_KEY)).toBeUndefined();
     expect(getSession()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -90,9 +101,8 @@ describe('Restoring the session when the app is reopened', () => {
     mockFetch(NOT_AUTHENTICATED());
     const router = await renderApp('/');
 
-    expect(await screen.findByText('Welcome back')).toBeOnTheScreen();
+    await expectSessionExpiredScreen();
     expect(router).toHavePathname('/login');
-    expect(screen.getByTestId('form-error')).toHaveTextContent(SESSION_EXPIRED);
     expect(storedValue(SESSION_KEY)).toBeUndefined();
     expect(getSession()).toBeNull();
   });
@@ -123,9 +133,8 @@ describe('Restoring the session when the app is reopened', () => {
     mockFetch(meResponse(), NOT_AUTHENTICATED());
     const router = await renderApp('/');
 
-    expect(await screen.findByText('Welcome back')).toBeOnTheScreen();
+    await expectSessionExpiredScreen();
     expect(router).toHavePathname('/login');
-    expect(screen.getByTestId('form-error')).toHaveTextContent(SESSION_EXPIRED);
     expect(storedValue(SESSION_KEY)).toBeUndefined();
     expect(getSession()).toBeNull();
   });
@@ -152,7 +161,8 @@ describe('Your projects', () => {
   it('lists the signed-in user’s projects as in the design', async () => {
     await reopenSignedIn();
 
-    expect(screen.getByText('Projects you belong to')).toBeOnTheScreen();
+    expect(screen.getByText('Only projects you can access')).toBeOnTheScreen();
+    expect(screen.getByText('Choose a project from your list.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Log out' })).toBeOnTheScreen();
     const card = await screen.findByTestId(`project-${PROJECT_ID}`);
     expect(within(card).getByText('Test Project')).toBeOnTheScreen();
@@ -161,14 +171,16 @@ describe('Your projects', () => {
     expect(screen.getByText('Other Project')).toBeOnTheScreen();
   });
 
-  it('opens a project’s boards', async () => {
+  it('opens a project’s boards once the backend confirms membership', async () => {
     const { router, fetchMock } = await reopenSignedIn();
     mockFetch(projectsWithDescription());
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Open Test Project' }));
 
-    await waitFor(() => expect(router).toHavePathname('/boards'));
+    await waitFor(() => expect(router).toHavePathname(`/projects/${PROJECT_ID}`));
     expect(await screen.findByText('Test Board')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Test Project' })).toBeOnTheScreen();
+    expect(screen.getByText('Member access · permitted content')).toBeOnTheScreen();
     expect(screen.queryByText('Other Board')).not.toBeOnTheScreen();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

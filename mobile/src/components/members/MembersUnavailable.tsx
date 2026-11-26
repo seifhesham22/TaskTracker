@@ -1,31 +1,17 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-
 import type { ProjectMembersState } from '../../hooks/useProjectMembers';
-import { BoardState } from '../board/BoardState';
+import { AccessProblem, CheckingAccess } from '../access/AccessScreens';
 
-/** What every members screen shows until the members are there. */
+/**
+ * What every members screen shows until the backend has confirmed membership: the neutral loading
+ * shell, a generic refusal, or a problem that isn't a refusal. Never the project's name or members.
+ */
 export function MembersUnavailable({
   state,
   onRetry,
-  onBack,
 }: {
   state: Exclude<ProjectMembersState, { status: 'ready' }>;
   onRetry: () => void;
-  onBack: () => void;
 }) {
-  return (
-    <View style={styles.center}>
-      {state.status === 'loading' ? (
-        <ActivityIndicator accessibilityLabel="Loading members" />
-      ) : state.notFound ? (
-        <BoardState type="notfound" title="Project not found" description={state.message} action="Go back" onAction={onBack} />
-      ) : (
-        <BoardState type="error" title="Couldn’t load the members" description={state.message} onAction={onRetry} />
-      )}
-    </View>
-  );
+  if (state.status === 'loading') return <CheckingAccess />;
+  return <AccessProblem error={state.error} revoked={state.revoked} onRetry={onRetry} />;
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 },
-});

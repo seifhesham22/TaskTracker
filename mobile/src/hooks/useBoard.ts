@@ -4,15 +4,19 @@ import { BoardLoadError } from '../data/BoardRepository';
 import { useBoardRepository } from '../data/BoardRepositoryContext';
 import type { BoardColumn, BoardData, Task } from '../domain/models';
 import { toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
+import { reportAccessConfirmed, reportAccessLost } from '../data/projectAccess';
+import { useForegroundRefresh } from './useForegroundRefresh';
 
 export type BoardScreenState =
   | { status: 'loading' }
   | { status: 'ready'; data: BoardData; refreshing: boolean }
-  | { status: 'error'; error: BoardLoadError };
+  /** `revoked`: the backend refused a board that was on screen (access lost while using it). */
+  | { status: 'error'; error: BoardLoadError; revoked: boolean };
 
 export type MoveTaskOutcome = { status: 'moved'; task: Task } | { status: 'failed'; message: string } | { status: 'alreadySaving' };
 
-export const SKELETON_DELAY_MS = 300;
+// TaskLookupService's NOT_FOUND message, for a missing task or one in a project the user isn't in.
+const TASK_GONE = /^Task '[^']+' was not found\.$/;
 
 export const REFRESH_FAILED_MESSAGE = 'Couldn’t refresh the board. Pull down to try again.';
 
@@ -28,7 +32,6 @@ function withPendingMove(task: Task, column: BoardColumn): Task {
 export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const repository = useBoardRepository();
   const [state, setState] = useState<BoardScreenState>({ status: 'loading' });
-  const [showSkeleton, setShowSkeleton] = useState(false);
   const latestRequest = useRef(0);
   const [reloadKey, setReloadKey] = useState(0);
   const keepData = useRef(false);
@@ -36,6 +39,8 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const loadInFlight = useRef(false);
   const savingTasks = useRef(new Set<string>());
   const [pendingMoves, setPendingMoves] = useState<Record<string, BoardColumn>>({});
+  /** The project of the board on screen, once the backend has returned it. */
+  const shownProject = useRef<string | null>(null);
 
   useEffect(() => {
     const request = ++latestRequest.current;
@@ -46,6 +51,8 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
       (data) => {
         if (request !== latestRequest.current) return;
         loadInFlight.current = false;
+        reportAccessConfirmed(data.board.projectId);
+        shownProject.current = data.board.projectId;
         setState({ status: 'ready', data, refreshing: false });
       },
       (error: unknown) => {
@@ -55,21 +62,18 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
         setState((current) =>
           isRefresh && current.status === 'ready' && loadError.kind !== 'notFound'
             ? { ...current, refreshing: false }
-            : { status: 'error', error: loadError },
+            : {
+                status: 'error',
+                error: loadError,
+                revoked: current.status === 'ready' || (current.status === 'error' && current.revoked),
+              },
         );
         if (isRefresh && reportFailure && loadError.kind !== 'notFound') onRefreshFailed?.();
+        // Refused after it was shown: every open screen of the project clears, not only this one.
+        if (loadError.kind === 'notFound' && shownProject.current) reportAccessLost(shownProject.current);
       },
     );
   }, [repository, boardId, reloadKey, onRefreshFailed]);
-
-  useEffect(() => {
-    if (state.status !== 'loading') return;
-    const timer = setTimeout(() => setShowSkeleton(true), SKELETON_DELAY_MS);
-    return () => {
-      clearTimeout(timer);
-      setShowSkeleton(false);
-    };
-  }, [state.status]);
 
   const retry = useCallback(() => {
     keepData.current = false;
@@ -90,6 +94,9 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
     setReloadKey((k) => k + 1);
   }, []);
 
+  // Back from the background: membership may have changed, so ask the backend again.
+  useForegroundRefresh(reloadQuietly);
+
   const addCreatedTask = useCallback(
     (task: Task) => {
       setState((current) =>
@@ -105,7 +112,9 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const markNotFound = useCallback((message: string) => {
     latestRequest.current += 1;
     loadInFlight.current = false;
-    setState({ status: 'error', error: new BoardLoadError('notFound', message) });
+    // Only an open board can report this, so it was on screen.
+    setState({ status: 'error', error: new BoardLoadError('notFound', message), revoked: true });
+    if (shownProject.current) reportAccessLost(shownProject.current);
   }, []);
 
   const moveTask = useCallback(
@@ -123,7 +132,15 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
         if (loadInFlight.current) setReloadKey((k) => k + 1);
         return { status: 'moved', task: moved };
       } catch (error) {
-        return { status: 'failed', message: toMoveTaskFailureMessage(error) };
+        const message = toMoveTaskFailureMessage(error);
+        // The backend answers a task the user may no longer see as not found: read the board again,
+        // which replaces it with the access screen if access was lost.
+        if (TASK_GONE.test(message)) {
+          keepData.current = true;
+          reportRefreshFailure.current = false;
+          setReloadKey((k) => k + 1);
+        }
+        return { status: 'failed', message };
       } finally {
         savingTasks.current.delete(task.id);
         setPendingMoves((moves) => {
@@ -149,7 +166,6 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
 
   return {
     state: shownState,
-    showSkeleton,
     retry,
     refresh,
     reloadQuietly,

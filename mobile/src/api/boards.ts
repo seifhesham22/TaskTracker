@@ -81,6 +81,9 @@ export const PROJECT_FIELDS = `
       boards {
         id
         name
+        columns {
+          id
+        }
       }
       projectMembers {
         userId
@@ -156,7 +159,8 @@ export interface ProjectNode {
   name: string;
   description?: string | null;
   role?: string | null;
-  boards: { id: string; name: string }[];
+  /** `columns` is read for the project screen's “3 columns”. */
+  boards: { id: string; name: string; columns?: { id: string }[] }[];
   projectMembers: { userId: string; userName: string; role?: string }[];
 }
 

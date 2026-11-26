@@ -66,7 +66,9 @@ function toBoardLoadError(error: unknown, boardId?: string): BoardLoadError {
   const boardMissing = boardId ? missingBoardMessage(error, boardId) : null;
   if (boardMissing) return new BoardLoadError('notFound', boardMissing);
   if (hasError(error, 'NOT_FOUND', USER_NOT_FOUND_MESSAGE)) return new BoardLoadError('server', USER_NOT_FOUND);
-  if (hasErrorCode(error, NOT_AUTHENTICATED)) return new BoardLoadError('server', SESSION_EXPIRED);
+  if (hasErrorCode(error, NOT_AUTHENTICATED)) return new BoardLoadError('expired', SESSION_EXPIRED);
+  // The backend's code for a refusal by role or ownership: access is refused, like NOT_FOUND.
+  if (hasErrorCode(error, 'AUTH_NOT_AUTHORIZED')) return new BoardLoadError('notFound', (error as Error).message);
   if (error instanceof NetworkError) return new BoardLoadError('network', BOARD_LOAD_NETWORK);
   return new BoardLoadError('server', BOARD_LOAD_SERVER);
 }
@@ -95,6 +97,25 @@ export function createBackendBoardRepository(): BoardRepository {
       } catch (error) {
         throw toBoardLoadError(error);
       }
+    },
+
+    async getProject(projectId: string) {
+      const userId = getSignedInUserId();
+      if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
+      let project;
+      try {
+        project = (await projectsRequest(userId)).find((p) => p.id === projectId);
+      } catch (error) {
+        throw toBoardLoadError(error);
+      }
+      // `projects` lists only the user's own, so a project missing from it is one they can't see.
+      if (!project) throw new BoardLoadError('notFound', PROJECT_NOT_FOUND);
+      return {
+        id: project.id,
+        name: project.name,
+        role: project.role ?? null,
+        boards: project.boards.map((b) => ({ id: b.id, name: b.name, columnCount: b.columns?.length ?? 0 })),
+      };
     },
 
     async createProject(name: string) {
@@ -199,7 +220,7 @@ export function createBackendBoardRepository(): BoardRepository {
     async getTask(boardId: string, taskId: string): Promise<TaskDetails> {
       const { board, tasks } = await repository.getBoard(boardId);
       const task = tasks.find((t) => t.id.toLowerCase() === taskId.toLowerCase());
-      if (!task) throw new BoardLoadError('notFound', TASK_NOT_FOUND);
+      if (!task) throw new BoardLoadError('notFound', TASK_NOT_FOUND, 'task');
       // The backend keeps the relationship as each task's parentTaskId, so a task's subtasks are
       // the board's tasks that point at it.
       const sameId = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();

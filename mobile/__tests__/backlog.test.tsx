@@ -87,9 +87,10 @@ const lastVariables = (fetchMock: jest.Mock) => backlogCalls(fetchMock).at(-1)!.
 
 const backlogUrl = `/projects/${PROJECT_ID}/backlog?projectName=Test%20Project`;
 
+/** The backlog screen first confirms membership (`projects`), then reads the backlog. */
 async function openBacklog(...responses: FakeResponse[]) {
   resetSecureStore(storedSession());
-  const fetchMock = mockFetch(meResponse(), ...responses);
+  const fetchMock = mockFetch(meResponse(), projectsResponse(), ...responses);
   const router = await renderApp(backlogUrl);
   return { router, fetchMock };
 }
@@ -105,7 +106,7 @@ beforeEach(() => {
 describe('Project backlog', () => {
   it('opens from the project and lists the backend’s items from all its boards, in its order, as in the design', async () => {
     resetSecureStore(storedSession());
-    const fetchMock = mockFetch(meResponse(), projectsResponse(), page(DESIGN));
+    const fetchMock = mockFetch(meResponse(), projectsResponse(), projectsResponse(), page(DESIGN));
     const router = await renderApp('/');
 
     await fireEvent.press(await screen.findByRole('button', { name: 'View the backlog of Test Project' }));
@@ -154,6 +155,8 @@ describe('Project backlog', () => {
     let answer!: (value: unknown) => void;
     const queue: (() => Promise<unknown>)[] = [
       async () => ({ ok: true, status: 200, text: async () => JSON.stringify(meResponse().body) }),
+      // Membership confirmed, then the backlog is read.
+      async () => ({ ok: true, status: 200, text: async () => JSON.stringify(projectsResponse().body) }),
       () => new Promise((resolve) => (answer = resolve)),
     ];
     globalThis.fetch = jest.fn(() => queue.shift()!()) as unknown as typeof fetch;
@@ -248,6 +251,8 @@ describe('Search', () => {
       answers[index]({ ok: true, status: 200, text: async () => JSON.stringify(body) });
     const fetchMock = jest.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(init.body as string);
+      if (body.query.includes('projects(userId'))
+        return { ok: true, status: 200, text: async () => JSON.stringify(projectsResponse().body) };
       if (body.query !== BACKLOG_QUERY) return { ok: true, status: 200, text: async () => JSON.stringify(meResponse().body) };
       return new Promise((resolve) => answers.push(resolve));
     });

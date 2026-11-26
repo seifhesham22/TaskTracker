@@ -1,72 +1,43 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BoardState } from '../../components/board/BoardState';
-import { BoardLoadError } from '../../data/BoardRepository';
+import { AccessDenied, AccessProblem, CheckingAccess } from '../../components/access/AccessScreens';
 import { useBoardRepository } from '../../data/BoardRepositoryContext';
-import type { BoardSummary } from '../../domain/models';
+import { onAccessLost } from '../../data/projectAccess';
+import { useAccessCheckedLoad } from '../../hooks/useAccessCheckedLoad';
 import { colors, radius, touchTarget } from '../../theme/tokens';
 
-type ListState = { status: 'loading' } | { status: 'ready'; boards: BoardSummary[] } | { status: 'error'; message: string };
-
 export default function BoardsScreen() {
-  const router = useRouter();
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
+  // A project's boards are on its screen, which checks access before showing anything.
+  if (projectId) return <Redirect href={{ pathname: '/projects/[projectId]', params: { projectId } }} />;
+  return <AllBoards />;
+}
+
+/** Every board of the user's projects. */
+function AllBoards() {
+  const router = useRouter();
   const repository = useBoardRepository();
-  const [state, setState] = useState<ListState>({ status: 'loading' });
-  const [reloadKey, setReloadKey] = useState(0);
+  // The boards of the user's projects only, as the backend lists them; read again on focus and
+  // when the app comes back to the foreground.
+  const { state, retry, reload } = useAccessCheckedLoad(undefined, repository.listBoards);
+  // A project lost on any screen: its boards leave this list with the next read.
+  useEffect(() => onAccessLost(() => reload()), [reload]);
 
-  useEffect(() => {
-    let active = true;
-    repository.listBoards().then(
-      (boards) =>
-        active &&
-        setState({ status: 'ready', boards: projectId ? boards.filter((b) => b.projectId === projectId) : boards }),
-      (error: unknown) =>
-        active &&
-        setState({ status: 'error', message: error instanceof BoardLoadError ? error.message : 'Something went wrong.' }),
-    );
-    return () => {
-      active = false;
-    };
-  }, [repository, reloadKey, projectId]);
+  const header = <Stack.Screen options={{ title: 'Boards' }} />;
 
-  const title = projectId && state.status === 'ready' ? state.boards[0]?.projectName : undefined;
-  const header = <Stack.Screen options={{ title: title ?? 'Boards' }} />;
+  if (state.status === 'checking') return <CheckingAccess />;
+  if (state.status === 'denied') return <AccessDenied denial={state.denial} />;
+  if (state.status === 'unverified') return <AccessProblem error={state.error} onRetry={retry} />;
+  const boards = state.data;
 
-  if (state.status === 'loading') {
-    return (
-      <View style={styles.center}>
-        {header}
-        <ActivityIndicator accessibilityLabel="Loading boards" />
-      </View>
-    );
-  }
-
-  if (state.status === 'error') {
-    return (
-      <View style={styles.center}>
-        {header}
-        <BoardState
-          type="error"
-          title="Couldn’t load your boards"
-          description={state.message}
-          onAction={() => {
-            setState({ status: 'loading' });
-            setReloadKey((k) => k + 1);
-          }}
-        />
-      </View>
-    );
-  }
-
-  if (state.boards.length === 0) {
+  if (boards.length === 0) {
     return (
       <View style={styles.center}>
         {header}
         <Text style={styles.detail}>
-          {projectId ? 'This project has no boards yet.' : 'You aren’t a member of any project with a board.'}
+          You aren’t a member of any project with a board.
         </Text>
       </View>
     );
@@ -75,7 +46,7 @@ export default function BoardsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
       {header}
-      {state.boards.map((board) => (
+      {boards.map((board) => (
         <Pressable
           key={board.id}
           accessibilityRole="button"

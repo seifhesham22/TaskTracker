@@ -2,9 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 
-import { BoardState } from '../../../components/board/BoardState';
+import { AccessProblem, CheckingAccess } from '../../../components/access/AccessScreens';
 import { controlStyles } from '../../../components/form/fields';
-import { ErrorBanner, TaskFormSkeleton, TaskScreen, breadcrumbFor } from '../../../components/task/TaskScreen';
+import { ErrorBanner, TaskScreen, breadcrumbFor } from '../../../components/task/TaskScreen';
 import { Button } from '../../../components/ui';
 import { useBoardRepository } from '../../../data/BoardRepositoryContext';
 import type { CreateTaskInput, TaskDetails } from '../../../domain/models';
@@ -36,21 +36,10 @@ export default function CreateSubtaskScreen() {
     );
   }
 
-  return (
-    <TaskScreen title="Create subtask" onClose={leave} testID="create-subtask-screen">
-      {state.status === 'loading' ? (
-        <TaskFormSkeleton />
-      ) : (
-        <View style={styles.state}>
-          {state.error.kind === 'notFound' ? (
-            <BoardState type="notfound" title="Task not found" description={state.error.message} action="Go back" onAction={leave} />
-          ) : (
-            <BoardState type="error" title="Couldn’t load this task" description={state.error.message} onAction={retry} />
-          )}
-        </View>
-      )}
-    </TaskScreen>
-  );
+  if (state.status === 'error') return <AccessProblem error={state.error} revoked={state.revoked} onRetry={retry} />;
+
+  // Nothing of the task until the backend has confirmed access, and no action before it.
+  return <CheckingAccess />;
 }
 
 function CreateSubtaskForm({

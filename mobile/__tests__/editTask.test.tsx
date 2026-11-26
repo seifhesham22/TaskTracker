@@ -125,7 +125,7 @@ describe('Edit task screen', () => {
     expect(updateCalls(fetchMock)).toHaveLength(0);
   });
 
-  it('shows grey placeholders and “Loading…” until the task arrives', async () => {
+  it('shows Checking access, and no form or Save, until the task arrives', async () => {
     resetSecureStore(storedSession());
     let answer!: (value: unknown) => void;
     const pending = new Promise((resolve) => (answer = resolve));
@@ -137,9 +137,9 @@ describe('Edit task screen', () => {
     globalThis.fetch = jest.fn(() => queue.shift()!()) as unknown as typeof fetch;
     await renderApp(editUrl);
 
-    expect(await screen.findByTestId('task-form-skeleton')).toBeOnTheScreen();
-    expect(screen.getByText('Loading…')).toBeOnTheScreen();
-    expect(screen.getByTestId('save-button')).toBeDisabled();
+    expect(await screen.findByTestId('access-checking')).toBeOnTheScreen();
+    expect(screen.queryByTestId('save-button')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('title-input')).not.toBeOnTheScreen();
 
     answer({ ok: true, status: 200, text: async () => JSON.stringify(boardResponse([savedTask()]).body) });
     expect(await screen.findByDisplayValue('Plan the project launch')).toBeOnTheScreen();
@@ -414,10 +414,11 @@ describe('Task details', () => {
     expect(screen.queryByText('Task updated')).not.toBeOnTheScreen();
   });
 
-  it('says so when the task isn’t on its board any more', async () => {
+  it('shows the generic “Project unavailable” when the task isn’t on its board any more', async () => {
     await open(detailsUrl, boardResponse([]), projectsResponse());
 
-    expect(await screen.findByText('Task not found')).toBeOnTheScreen();
+    expect(await screen.findByTestId('access-unavailable')).toBeOnTheScreen();
+    expect(screen.queryByText('Plan the project launch')).not.toBeOnTheScreen();
   });
 
   it('opens from a task card on the board, and the board shows the edit when you come back', async () => {

@@ -2,13 +2,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { BoardState } from '../../../components/board/BoardState';
+import { AccessProblem, CheckingAccess } from '../../../components/access/AccessScreens';
 import { SelectControl, SelectionSheet, controlStyles } from '../../../components/form/fields';
 import { DateField } from '../../../components/task/DateField';
 import {
   DiscardChangesDialog,
   ErrorBanner,
-  TaskFormSkeleton,
   TaskScreen,
   breadcrumbFor,
 } from '../../../components/task/TaskScreen';
@@ -46,33 +45,10 @@ export default function EditTaskScreen() {
     );
   }
 
-  return (
-    <TaskScreen title="Edit task" onClose={leave} testID="edit-task-screen">
-      {state.status === 'loading' ? (
-        <>
-          <TaskFormSkeleton />
-          <View style={styles.actions}>
-            <Button label="Cancel" variant="outline" size="lg" style={styles.action} onPress={leave} testID="cancel-button" />
-            <Button label="Loading…" size="lg" style={styles.action} disabled testID="save-button" />
-          </View>
-        </>
-      ) : (
-        <View style={styles.state}>
-          {state.error.kind === 'notFound' ? (
-            <BoardState
-              type="notfound"
-              title="Task not found"
-              description={state.error.message}
-              action="Go back"
-              onAction={leave}
-            />
-          ) : (
-            <BoardState type="error" title="Couldn’t load this task" description={state.error.message} onAction={retry} />
-          )}
-        </View>
-      )}
-    </TaskScreen>
-  );
+  if (state.status === 'error') return <AccessProblem error={state.error} revoked={state.revoked} onRetry={retry} />;
+
+  // Nothing of the task until the backend has confirmed access, and no action before it.
+  return <CheckingAccess />;
 }
 
 function EditTaskForm({
