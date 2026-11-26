@@ -419,6 +419,8 @@ Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, 
 - on pull-to-refresh (project, board, task details, members, backlog);
 - every 30 seconds while a project, board, task details, members or backlog screen is left open and the app is in the foreground: one `projects` request. It stops when the screen is left or the app goes to the background. Forms don't do it, so nobody's typing is replaced.
 
+**A refused save:** if **Edit task** gets `NOT_FOUND` for the task (how the backend refuses someone who is no longer a member, and a deleted task), the form locks (“Checking access…”) and the task is read at once, as when the app resumes. Refused: the editor makes way for **Your project access has changed**, and everything below clears. Still there: the typed changes stay, with “We couldn't save your changes.” No answer: the task is hidden behind **Couldn't connect**. Validation errors, a role refusal (`AUTH_NOT_AUTHORIZED`, shown with the backend's reason) and a lost connection keep the editor as it is.
+
 **When access is lost** (`src/data/projectAccess.ts`): every open screen of that project clears at once, not only the one that found out, and the project leaves the project list. Screens of other projects keep their data, and the session goes on. **Back to projects** closes the project's screens and reads the list again. Only project IDs are kept in memory, and nothing is kept between sessions.
 
 **Backlog title:** the backlog first asks the backend for the project (`projects`), then shows its name. A name carried by the link is never shown.
