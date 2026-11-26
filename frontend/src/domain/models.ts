@@ -252,3 +252,15 @@ export interface RankTaskResult {
   readonly id: string;
   readonly readableId: string;
 }
+
+export interface BlockedTaskStartFailure {
+  readonly taskId: string;
+  readonly taskTitle: string;
+  readonly readableId: string;
+  readonly projectName?: string;
+  readonly currentStatus: ColumnCategory;
+  readonly currentColumnName: string;
+  readonly targetColumnId: string;
+  readonly blockers: readonly TaskDependencyRef[];
+  readonly message: string;
+}
