@@ -11,6 +11,7 @@ import { BoardService } from './services/BoardService';
 import { ProjectMemberService } from './services/ProjectMemberService';
 import { ProjectService } from './services/ProjectService';
 import { SystemService } from './services/SystemService';
+import { WorkloadService } from './services/WorkloadService';
 
 const httpClient = new FetchHttpClient(
   appConfig.apiBaseUrl,
@@ -25,6 +26,7 @@ export const api = {
   auth: new AuthService(httpClient),
   project: new ProjectService(httpClient),
   projectMember: new ProjectMemberService(httpClient),
+  workload: new WorkloadService(httpClient),
 } as const;
 
 export type Api = typeof api;
@@ -42,6 +44,7 @@ export { BoardService } from './services/BoardService';
 export { BacklogService } from './services/BacklogService';
 export { ProjectService } from './services/ProjectService';
 export { ProjectMemberService } from './services/ProjectMemberService';
+export { WorkloadService } from './services/WorkloadService';
 export { AuthService, AuthError } from './services/AuthService';
 export type {
   RegisterInput,

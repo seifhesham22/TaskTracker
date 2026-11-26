@@ -6,6 +6,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProjectBacklogPage } from '../pages/ProjectBacklogPage';
 import { ProjectBoardsPage } from '../pages/ProjectBoardsPage';
 import { ProjectMembersPage } from '../pages/ProjectMembersPage';
+import { ProjectWorkloadPage } from '../pages/ProjectWorkloadPage';
 import { ProjectsPage } from '../pages/ProjectsPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { TasksPage } from '../pages/TasksPage';
@@ -31,7 +32,9 @@ export const routes: RouteObject[] = [
           { path: 'projects/:projectId/boards', element: <ProjectBoardsPage /> },
           { path: 'projects/:projectId/members', element: <ProjectMembersPage /> },
           { path: 'projects/:projectId/backlog', element: <ProjectBacklogPage /> },
+          { path: 'projects/:projectId/workload', element: <ProjectWorkloadPage /> },
           { path: 'backlog', element: <ProjectBacklogPage /> },
+          { path: 'workload', element: <ProjectWorkloadPage /> },
           { path: 'tasks', element: <TasksPage /> },
           { path: 'boards/:boardId', element: <TasksPage /> },
           { path: '*', element: <NotFoundPage /> },
