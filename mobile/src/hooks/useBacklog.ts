@@ -9,13 +9,16 @@ import {
   type BacklogItem,
   type BacklogQuery,
 } from '../domain/backlog';
+import { accessProblemOf } from '../domain/access';
 import type { ColumnCategory, TaskPriority } from '../domain/models';
+import { reportAccessLost } from '../data/projectAccess';
 
 export const SEARCH_DELAY_MS = 350;
 
 export type BacklogState =
   | { status: 'loading' }
-  | { status: 'error'; message: string }
+  /** `denied`: the backend refused (not a member); `revoked`: it refused while the list was shown. */
+  | { status: 'error'; message: string; denied: boolean; revoked: boolean }
   | {
       status: 'ready';
       items: BacklogItem[];
@@ -41,19 +44,33 @@ export function useBacklog(projectId: string | undefined) {
   const [reloadKey, setReloadKey] = useState(0);
   // Bumped for every new query; an answer carrying an older number is dropped.
   const generation = useRef(0);
+  /** Pull-to-refresh: the list stays while page 1 is read again, unless the backend refuses. */
+  const quiet = useRef(false);
+  /** Whether the list has been on screen, so a refusal is “access changed”. */
+  const shown = useRef(false);
 
   // Page 1 of the current query. The handlers that change the query show the loading state.
   useEffect(() => {
     const current = ++generation.current;
+    const isRefresh = quiet.current;
+    quiet.current = false;
     if (!projectId) return;
     repository.getBacklog(projectId, query, 1).then(
       (result) => {
         if (current !== generation.current) return;
+        shown.current = true;
         setState({ status: 'ready', ...result, loadingMore: false, moreError: null });
       },
       (error: unknown) => {
         if (current !== generation.current) return;
-        setState({ status: 'error', message: backlogErrorMessage(error) });
+        const denied = accessProblemOf(error) === 'denied';
+        setState((s) =>
+          isRefresh && !denied && s.status === 'ready'
+            ? s
+            : { status: 'error', message: backlogErrorMessage(error), denied, revoked: denied && shown.current },
+        );
+        // Refused after it was shown: every open screen of the project clears, not only this one.
+        if (denied && shown.current) reportAccessLost(projectId);
       },
     );
   }, [repository, projectId, query, reloadKey]);
@@ -108,11 +125,26 @@ export function useBacklog(projectId: string | undefined) {
             }
           : s,
       );
-    } catch {
+    } catch (error) {
       if (current !== generation.current) return;
+      if (accessProblemOf(error) === 'denied') {
+        // Access was lost while the list was shown: nothing of it may stay, here or elsewhere.
+        setState({ status: 'error', message: backlogErrorMessage(error), denied: true, revoked: true });
+        reportAccessLost(projectId);
+        return;
+      }
       // Keep what is already shown; the same page can be asked for again.
       setState((s) => (s.status === 'ready' ? { ...s, loadingMore: false, moreError: LOAD_MORE_FAILED } : s));
     }
+  };
+
+  // Coming back from the background re-checks the project's membership on the screen around this
+  // list (useAccessCheckedLoad), so the list doesn't ask the backend a second time.
+
+  /** Pull-to-refresh: page 1 of the same query, read again without the loading state. */
+  const refresh = () => {
+    quiet.current = true;
+    setReloadKey((k) => k + 1);
   };
 
   return {
@@ -125,6 +157,7 @@ export function useBacklog(projectId: string | undefined) {
     clearFilters,
     clearAll,
     retry,
+    refresh,
     loadMore: () => {
       void loadMore();
     },

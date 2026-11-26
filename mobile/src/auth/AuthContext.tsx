@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { loginRequest, logoutRequest, meRequest, type Credentials } from '../api/auth';
 import { NOT_AUTHENTICATED, hasErrorCode } from '../api/graphql';
 import { getSession, isExpired, setSession, setUnauthenticatedHandler, type Session, type SessionUser } from './session';
+import { resetProjectAccess } from '../data/projectAccess';
 import { secureSessionStorage, type SessionStorage } from './sessionStorage';
 
 export type AuthStatus = 'restoring' | 'signedOut' | 'signedIn';
@@ -51,11 +52,14 @@ export function AuthProvider({
   const [state, setState] = useState<AuthState>({ status: 'restoring', user: null, notice: null });
 
   const signIn = useCallback((session: Session) => {
+    // A new session assumes nothing about project access from an earlier one.
+    resetProjectAccess();
     setSession(session);
     setState({ status: 'signedIn', user: session.user, notice: null });
   }, []);
 
   const signOut = useCallback((notice: SignOutNotice) => {
+    resetProjectAccess();
     setSession(null);
     setState({ status: 'signedOut', user: null, notice });
   }, []);

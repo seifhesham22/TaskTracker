@@ -28,20 +28,10 @@ export default function ProjectMembersScreen() {
   }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { state, retry } = useProjectMembers(projectId);
+  // The list only shows members: also checked now and then while it is left open.
+  const { state, retry, refresh } = useProjectMembers(projectId, { poll: true });
 
-  const back = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  };
-
-  if (state.status !== 'ready') {
-    return (
-      <TaskScreen title="Project members" testID="members-screen">
-        <MembersUnavailable state={state} onRetry={retry} onBack={back} />
-      </TaskScreen>
-    );
-  }
+  if (state.status !== 'ready') return <MembersUnavailable state={state} onRetry={retry} />;
 
   const { project, refreshFailed } = state;
   const isOwner = project.role === 'OWNER';
@@ -55,7 +45,7 @@ export default function ProjectMembersScreen() {
   };
 
   return (
-    <TaskScreen title="Project members" testID="members-screen">
+    <TaskScreen title="Project members" refreshing={state.refreshing} onRefresh={refresh} testID="members-screen">
       <Text style={styles.subtitle}>
         {project.projectName}
         {viewLabel}

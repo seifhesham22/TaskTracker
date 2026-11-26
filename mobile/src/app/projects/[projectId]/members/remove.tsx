@@ -37,13 +37,7 @@ export default function RemoveMemberScreen() {
       });
   };
 
-  if (state.status !== 'ready') {
-    return (
-      <TaskScreen title="Remove member" testID="remove-member-screen">
-        <MembersUnavailable state={state} onRetry={retry} onBack={back} />
-      </TaskScreen>
-    );
-  }
+  if (state.status !== 'ready') return <MembersUnavailable state={state} onRetry={retry} />;
 
   const { project } = state;
   const member = project.members.find((m) => m.userId === userId);

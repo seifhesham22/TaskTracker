@@ -123,6 +123,14 @@ export interface BoardSummary {
   projectName: string;
 }
 
+/** A project as its screen shows it: its boards, read only once the backend confirms membership. */
+export interface ProjectDetails {
+  id: string;
+  name: string;
+  role: string | null;
+  boards: { id: string; name: string; columnCount: number }[];
+}
+
 export interface ProjectSummary {
   id: string;
   name: string;

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef } from 'react';
-import { View, type TextInputInstance } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, Text, View, type TextInputInstance } from 'react-native';
 
 import {
   AuthScreen,
@@ -14,8 +14,10 @@ import {
 } from '../components/auth/AuthForm';
 import { Button } from '../components/ui';
 import { useAuth } from '../auth/AuthContext';
+import { SESSION_EXPIRED_SCREEN } from '../domain/access';
 import { SESSION_EXPIRED, toLoginErrors } from '../domain/authErrors';
 import { useCredentialsForm } from '../hooks/useCredentialsForm';
+import { colors } from '../theme/tokens';
 
 /**
  * US-2: log in. Once signed in, the root layout's guard swaps this screen for the user's projects.
@@ -24,6 +26,8 @@ import { useCredentialsForm } from '../hooks/useCredentialsForm';
 export default function LoginScreen() {
   const { login, notice, clearNotice } = useAuth();
   const { email: registeredEmail } = useLocalSearchParams<{ email?: string }>();
+  // The expired-session screen comes first; Log in on it opens the form.
+  const [continued, setContinued] = useState(false);
 
   if (notice === 'loggedOut') {
     return (
@@ -41,6 +45,23 @@ export default function LoginScreen() {
           onPress={clearNotice}
           style={authStyles.submit}
           testID="back-to-login"
+        />
+      </AuthScreen>
+    );
+  }
+
+  if (notice === 'expired' && !continued) {
+    return (
+      <AuthScreen testID="session-expired-screen">
+        <ScreenTitle title={SESSION_EXPIRED_SCREEN.title} subtitle={SESSION_EXPIRED_SCREEN.subtitle} />
+        <Text style={styles.note}>{SESSION_EXPIRED_SCREEN.note}</Text>
+        <Button
+          label="Log in"
+          size="lg"
+          block
+          onPress={() => setContinued(true)}
+          style={authStyles.submit}
+          testID="session-expired-login"
         />
       </AuthScreen>
     );
@@ -151,3 +172,7 @@ function LoginForm({
     </AuthScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  note: { marginTop: 16, fontSize: 16, lineHeight: 24, color: colors.foreground },
+});

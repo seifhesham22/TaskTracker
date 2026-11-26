@@ -210,7 +210,7 @@ The screens follow the designer's handoff for registration, login, the projects 
 | --- | --- |
 | **Create your account** (`/register`) | Email and password, both required; the email must look like `name@domain.tld`. Sends `register(input: { email, password })`. While it runs the button says **Creating account…** and the form is locked, so it can't be sent twice. On success: **Account created / You’re ready to get started.**, then **Continue to log in** opens the login screen with the email filled in. Registering doesn't sign in, because the backend returns no token. |
 | **Welcome back** (`/login`) | Same validation. Sends `login(input: { email, password })` (**Logging in…** while it runs), keeps the session, and the guard opens **Your projects**. Typed values stay after an error. |
-| **Your projects** (`/`) | `projects(userId)` for the signed-in user. **Open project** lists that project's boards. **Log out** shows **Logging out…** and “Ending your session…”. |
+| **Your projects** (`/`) | `projects(userId)` for the signed-in user. **Open project** opens the project's screen with its boards. **Log out** shows **Logging out…** and “Ending your session…”. |
 | **You’re logged out** | Shown on `/login` after a logout, with **Back to log in**. |
 
 **Show password** / **Hide password** switches the field's masking without changing its value. The email field uses the email keyboard without autocapitalisation; the password fields use `new-password` / `current-password` autofill. The forms scroll and keep the focused field above the keyboard, inside the safe area. After a failed submit, focus moves to the first field with an error.
@@ -263,7 +263,7 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Reopening the app | `me` |
 | Log out | `logout` |
 | Your projects (`/`) | `projects(userId)` with the signed-in user's ID |
-| Board list (`/boards?projectId=…`) | `projects(userId)` → that project's `boards` |
+| Project (`/projects/[projectId]`) | `projects(userId)` → that project's `boards { columns { id } }`; missing from the list means no access |
 | Board screen | `board(id)` with `columns`, and `tasks(boardId)` with `position`, `status`, `column` and `assignees`, in one request |
 | Assignee list in the form | `projects(userId)` → `projectMembers` of the board's project |
 | Create task | `createTask(input)` |
@@ -399,6 +399,33 @@ The design shows no search, filter or paging controls; they follow the app's exi
 - **No usable answer:** retrying an add first checks whether the account became a member; a removal checks the members before saying that it failed or succeeded. If that can't be read either, the app says it couldn't confirm.
 
 The refusals are told apart by the backend's messages (`src/domain/members.ts`).
+
+## Project Access (US-5)
+
+Only members see a project's boards and tasks. The backend checks membership on every request (the user comes from the token, never from the app): `board`, `tasks`, `backlog` and every task change refuse a non-member with `NOT_FOUND`, exactly as for something that doesn't exist, and `projects` lists only the user's own projects. The app relies on those answers, never on hidden buttons. It uses only existing operations.
+
+**Every protected screen** (project, all boards, board, task details, edit task, create subtask, dependencies, members, backlog) shows:
+
+- **Checking access** until the backend answers: nothing of the project, not even its name, and no action.
+- **Project unavailable** for a refusal, including any direct link to someone else's project, board or task. The text is generic on purpose.
+- **Your project access has changed** for a refusal of data that was on screen. The data is cleared at once.
+- **Couldn't connect** when the backend can't be reached, and **Couldn't check access** for a server error (HTTP 5xx, an unexpected code) or the app's own setup. Neither is ever shown as a refusal; **Try again** asks again.
+
+Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, the GraphQL codes `NOT_FOUND`, `AUTH_NOT_AUTHORIZED` and `AUTH_NOT_AUTHENTICATED`), in `src/domain/access.ts`. Board refusals are `NOT_FOUND` about the board; a `NOT_FOUND` about a column is a server problem, and a task missing from a board the user can see is only that task.
+
+**When access is checked again:**
+
+- each time a screen comes into view, and when the app comes back to the foreground;
+- on pull-to-refresh (project, board, task details, members, backlog);
+- every 30 seconds while a project, board, task details, members or backlog screen is left open and the app is in the foreground: one `projects` request. It stops when the screen is left or the app goes to the background. Forms don't do it, so nobody's typing is replaced.
+
+**When access is lost** (`src/data/projectAccess.ts`): every open screen of that project clears at once, not only the one that found out, and the project leaves the project list. Screens of other projects keep their data, and the session goes on. **Back to projects** closes the project's screens and reads the list again. Only project IDs are kept in memory, and nothing is kept between sessions.
+
+**Backlog title:** the backlog first asks the backend for the project (`projects`), then shows its name. A name carried by the link is never shown.
+
+**Session expired:** **Your session has expired** comes first, then the login form. After logging in again, the app goes back to the screen the user was on, only if it is one of its own project, board or task screens, and that screen checks access again.
+
+**Open project** opens the project's own screen, with its boards. The old link, `/boards?projectId=…`, leads there too.
 
 ## Manual test against the real backend
 

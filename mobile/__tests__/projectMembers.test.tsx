@@ -226,12 +226,17 @@ describe('Project members', () => {
     const queue = [async () => ok(meResponse().body), () => new Promise((resolve) => (answer = resolve))];
     globalThis.fetch = jest.fn(() => queue.shift()!()) as unknown as typeof fetch;
     await renderApp(membersUrl);
-    expect(await screen.findByLabelText('Loading members')).toBeOnTheScreen();
+    // Nothing of the project, not even its name, until the backend answers.
+    expect(await screen.findByTestId('access-checking')).toBeOnTheScreen();
+    expect(screen.getByText('Loading your permitted workspace…')).toBeOnTheScreen();
+    expect(screen.queryByText(/Website redesign/)).not.toBeOnTheScreen();
 
     await act(async () => answer({ ok: false, status: 500, text: async () => '' }));
-    expect(await screen.findByText('Couldn’t load the members')).toBeOnTheScreen();
+    // An HTTP 500 is the server's problem: neither a refusal nor a lost connection.
+    expect(await screen.findByRole('header', { name: 'Couldn’t check access' })).toBeOnTheScreen();
+    expect(screen.queryByText('Check your connection and try again.')).not.toBeOnTheScreen();
     mockFetch(read(TEAM));
-    await fireEvent.press(screen.getByText('Try again'));
+    await fireEvent.press(screen.getByTestId('access-retry'));
     expect(await screen.findByTestId('member-u-seif')).toBeOnTheScreen();
   });
 
@@ -242,7 +247,8 @@ describe('Project members', () => {
 
   it('says so when the user isn’t a member of the project any more', async () => {
     await open(membersUrl, projectsResponse([]));
-    expect(await screen.findByText('Project not found')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Project unavailable' })).toBeOnTheScreen();
+    expect(screen.getByText('Return to your projects. If you need access, contact a project Owner.')).toBeOnTheScreen();
   });
 });
 

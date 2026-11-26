@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 import type { BoardNode, ColumnNode, TaskNode } from '../src/api/boards';
 import BoardScreen from '../src/app/boards/[boardId]';
 import BoardsScreen from '../src/app/boards/index';
-import { BOARD_LOAD_NETWORK, BOARD_LOAD_SERVER, createBackendBoardRepository } from '../src/data/backendBoardRepository';
+import { createBackendBoardRepository } from '../src/data/backendBoardRepository';
 import { BoardRepositoryProvider } from '../src/data/BoardRepositoryContext';
 import { initials } from '../src/domain/format';
 import { setSession } from '../src/auth/session';
@@ -92,8 +92,8 @@ describe('Columns come from the board query', () => {
     mockFetch('network-error');
     await renderBoard();
 
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    expect(screen.getByText(BOARD_LOAD_NETWORK)).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Couldn’t connect' })).toBeOnTheScreen();
+    expect(screen.getByText('Check your connection and try again.')).toBeOnTheScreen();
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
@@ -101,7 +101,9 @@ describe('Columns come from the board query', () => {
     mockFetch({ status: 500, body: 'Internal Server Error' });
     await renderBoard();
 
-    expect(await screen.findByText(BOARD_LOAD_SERVER)).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Couldn’t check access' })).toBeOnTheScreen();
+    expect(screen.getByText('Something went wrong on the server. Try again in a moment.')).toBeOnTheScreen();
+    expect(screen.queryByText('Check your connection and try again.')).not.toBeOnTheScreen();
   });
 
   it('does not treat a board without columns as an empty board', async () => {
@@ -243,7 +245,7 @@ describe('Without a real backend', () => {
       { initialUrl: '/boards' },
     );
 
-    expect(await screen.findByText('Couldn’t load your boards')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Couldn’t check access' })).toBeOnTheScreen();
     expect(screen.getByText(/EXPO_PUBLIC_API_URL is not set/)).toBeOnTheScreen();
   });
 
@@ -268,7 +270,7 @@ describe('Without a real backend', () => {
     mockFetch({ body: gqlError('NOT_FOUND', 'Couldn\'t find a column associated with this task') });
     await renderBoard();
 
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    expect(screen.queryByText('Board not found')).not.toBeOnTheScreen();
+    expect(await screen.findByTestId('access-service-problem')).toBeOnTheScreen();
+    expect(screen.queryByTestId('access-unavailable')).not.toBeOnTheScreen();
   });
 });

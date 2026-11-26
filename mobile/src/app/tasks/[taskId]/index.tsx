@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BoardState } from '../../../components/board/BoardState';
+import { AccessProblem, CheckingAccess } from '../../../components/access/AccessScreens';
 import { RelationBox } from '../../../components/task/Dependencies';
 import { IncompleteSubtasks } from '../../../components/task/IncompleteSubtasks';
 import { StatusChip, SubtaskList } from '../../../components/task/SubtaskList';
@@ -42,7 +42,8 @@ export default function TaskDetailsScreen() {
     created?: string;
   }>();
   const router = useRouter();
-  const { state, retry, reload } = useTaskDetails(boardId, taskId);
+  // A screen that only shows the task: also checked now and then while it is left open.
+  const { state, retry, refresh, reload } = useTaskDetails(boardId, taskId, { poll: true });
 
   const close = () => {
     if (router.canGoBack()) router.back();
@@ -50,25 +51,9 @@ export default function TaskDetailsScreen() {
     else router.replace('/');
   };
 
-  if (state.status !== 'ready') {
-    return (
-      <TaskScreen title="Task details" onClose={close} testID="task-details-screen">
-        {state.status === 'loading' ? (
-          <View style={styles.state}>
-            <ActivityIndicator accessibilityLabel="Loading task" />
-          </View>
-        ) : (
-          <View style={styles.state}>
-            {state.error.kind === 'notFound' ? (
-              <BoardState type="notfound" title="Task not found" description={state.error.message} action="Go back" onAction={close} />
-            ) : (
-              <BoardState type="error" title="Couldn’t load this task" description={state.error.message} onAction={retry} />
-            )}
-          </View>
-        )}
-      </TaskScreen>
-    );
-  }
+  // Nothing of the task, not even its project, until the backend has confirmed access.
+  if (state.status === 'loading') return <CheckingAccess />;
+  if (state.status === 'error') return <AccessProblem error={state.error} revoked={state.revoked} onRetry={retry} />;
 
   return (
     <TaskDetailsView
@@ -77,6 +62,8 @@ export default function TaskDetailsScreen() {
       boardId={boardId}
       banner={updated === '1' ? 'Task updated' : created === '1' ? 'Subtask created' : null}
       reload={reload}
+      refreshing={state.refreshing}
+      onRefresh={refresh}
       onClose={close}
     />
   );
@@ -87,12 +74,16 @@ function TaskDetailsView({
   boardId,
   banner,
   reload,
+  refreshing,
+  onRefresh,
   onClose,
 }: {
   details: TaskDetails;
   boardId: string;
   banner: string | null;
   reload: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -156,6 +147,8 @@ function TaskDetailsView({
       breadcrumb={breadcrumbFor(projectName, task.readableId)}
       onClose={onClose}
       closeDisabled={completing}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
       testID="task-details-screen"
     >
       <StatusChip task={task} />

@@ -17,6 +17,7 @@ async function renderBoard(repository: BoardRepository) {
         </BoardRepositoryProvider>
       ),
       'boards/index': () => <Text>Boards list</Text>,
+      index: () => <Text>Your projects</Text>,
     },
     { initialUrl: `/boards/${BOARD_ID}` },
   );
@@ -80,29 +81,31 @@ describe('Board screen: empty state', () => {
 });
 
 describe('Board screen: board not found', () => {
-  it('shows "Board not found" when the board does not exist, with a way back to the boards', async () => {
+  it('shows “Project unavailable” for a board that is missing or not the user’s, with a way back to the projects', async () => {
     await renderBoard(
       testRepository(async () => {
         throw new BoardLoadError('notFound', `Board '${BOARD_ID}' was not found.`);
       }),
     );
 
-    expect(await screen.findByText('Board not found')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Go to boards'));
-    expect(screen).toHavePathname('/boards');
+    expect(await screen.findByRole('header', { name: 'Project unavailable' })).toBeOnTheScreen();
+    expect(screen.getByText('You don’t have access, or this project is unavailable.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('back-to-projects'));
+    expect(screen).toHavePathname('/');
   });
 
-  it('shows "Board not found" when createTask reports that the board was deleted', async () => {
+  it('clears the board when createTask reports that it is gone (deleted, or access lost)', async () => {
     mockFetch({ body: gqlError('NOT_FOUND', `Board '${BOARD_ID}' was not found.`) });
     await renderBoard(testRepository(async () => boardData()));
 
     await openFormAndSubmit('Too late');
 
-    expect(await screen.findByText('Board not found')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Your project access has changed' })).toBeOnTheScreen();
     expect(screen.queryByTestId('create-task-sheet')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Test Project · 0 tasks')).not.toBeOnTheScreen();
   });
 
-  it('does not show "Board not found" when only the column is missing', async () => {
+  it('does not treat a missing column as a lost board', async () => {
     mockFetch({ body: gqlError('NOT_FOUND', `Column '${COLUMNS[0].id}' was not found on board '${BOARD_ID}'.`) });
     await renderBoard(testRepository(async () => boardData()));
 
@@ -110,14 +113,16 @@ describe('Board screen: board not found', () => {
 
     expect(await screen.findByTestId('form-error-alert')).toBeOnTheScreen();
     expect(screen.getByTestId('create-task-sheet')).toBeOnTheScreen();
-    expect(screen.queryByText('Board not found')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('access-revoked')).not.toBeOnTheScreen();
   });
 });
 
 describe('Board screen: loading and errors', () => {
-  it('shows the skeleton while the board takes longer than 300 ms to load', async () => {
+  it('shows Checking access, and nothing of the board, until the backend answers', async () => {
     await renderBoard(testRepository(() => new Promise(() => {})));
-    expect(await screen.findByLabelText('Loading board')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Checking access' })).toBeOnTheScreen();
+    expect(screen.queryByText(/Test Board|Test Project/)).not.toBeOnTheScreen();
+    expect(screen.queryByText('Create task')).not.toBeOnTheScreen();
   });
 
   it('shows the error state and loads again on "Try again"', async () => {
@@ -130,8 +135,10 @@ describe('Board screen: loading and errors', () => {
       }),
     );
 
-    expect(await screen.findByText('Couldn’t load this board')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Try again'));
+    // Not a permission denial: access couldn't be checked.
+    expect(await screen.findByRole('header', { name: 'Couldn’t connect' })).toBeOnTheScreen();
+    expect(screen.getByText('Check your connection and try again.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('access-retry'));
     expect(await screen.findAllByText('No tasks yet')).toHaveLength(COLUMNS.length);
   });
 

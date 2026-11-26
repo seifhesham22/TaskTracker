@@ -69,23 +69,12 @@ export default function AddMemberScreen() {
     );
   }
 
+  if (state.status !== 'ready') return <MembersUnavailable state={state} onRetry={retry} />;
+
   return (
     <TaskScreen title="Add a member" testID="add-member-screen">
-      {state.status === 'ready' ? (
-        <>
-          <Text style={styles.subtitle}>{ONLY_OWNER_MANAGES}</Text>
-          <Button
-            label="Back to members"
-            size="lg"
-            block
-            style={styles.button}
-            onPress={back}
-            testID="back-to-members"
-          />
-        </>
-      ) : (
-        <MembersUnavailable state={state} onRetry={retry} onBack={back} />
-      )}
+      <Text style={styles.subtitle}>{ONLY_OWNER_MANAGES}</Text>
+      <Button label="Back to members" size="lg" block style={styles.button} onPress={back} testID="back-to-members" />
     </TaskScreen>
   );
 }

@@ -3,8 +3,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BoardColumnPager, BoardSkeleton } from '../../components/board/BoardColumnPager';
-import { BoardColumnTabs, BoardColumnTabsSkeleton } from '../../components/board/BoardColumnTabs';
+import { AccessProblem, CheckingAccess } from '../../components/access/AccessScreens';
+import { BoardColumnPager } from '../../components/board/BoardColumnPager';
+import { BoardColumnTabs } from '../../components/board/BoardColumnTabs';
 import { BoardHeader } from '../../components/board/BoardHeader';
 import { BoardState } from '../../components/board/BoardState';
 import { CreateTaskButton } from '../../components/board/CreateTaskButton';
@@ -17,9 +18,11 @@ import { useBoardRepository } from '../../data/BoardRepositoryContext';
 import { groupTasksByColumn } from '../../domain/board';
 import type { BoardColumn, Task } from '../../domain/models';
 import { REFRESH_FAILED_MESSAGE, useBoard } from '../../hooks/useBoard';
+import { useProjectAccessWatch } from '../../hooks/useProjectAccessWatch';
 import { colors } from '../../theme/tokens';
 
 const NO_COLUMNS_TITLE = 'This board has no columns';
+const BOARD_ACCESS_LOST = 'You no longer have access to this project.';
 const NO_COLUMNS_DESCRIPTION = 'Tasks need a column to go in. Add columns to this board, then try again.';
 
 type FailedMove = { task: Task; column: BoardColumn; message: string };
@@ -34,7 +37,7 @@ export default function BoardScreen() {
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
   const hideToast = useCallback(() => setToast(null), []);
   const showRefreshFailure = useCallback(() => setToast({ message: REFRESH_FAILED_MESSAGE, tone: 'error' }), []);
-  const { state, showSkeleton, retry, refresh, reloadQuietly, addCreatedTask, markNotFound, moveTask, savingTaskIds } =
+  const { state, retry, refresh, reloadQuietly, addCreatedTask, markNotFound, moveTask, savingTaskIds } =
     useBoard(boardId, showRefreshFailure);
 
   // Coming back from a task's details or Edit task: read the board again so edits show on the cards.
@@ -52,8 +55,7 @@ export default function BoardScreen() {
   const [taskToMove, setTaskToMove] = useState<Task | null>(null);
   const [failedMove, setFailedMove] = useState<FailedMove | null>(null);
 
-  const goToBoards = () => router.replace('/boards');
-  const goBack = () => (router.canGoBack() ? router.back() : goToBoards());
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   const data = state.status === 'ready' ? state.data : null;
   const columns = useMemo(() => data?.board.columns ?? [], [data]);
@@ -94,6 +96,10 @@ export default function BoardScreen() {
     }
   };
 
+  // Lost anywhere in the app, or found by the check while the board is left open.
+  const lostAccess = useCallback(() => markNotFound(BOARD_ACCESS_LOST), [markNotFound]);
+  useProjectAccessWatch(state.status === 'ready' ? state.data.board.projectId : null, lostAccess);
+
   const handleBoardNotFound = (message: string) => {
     setCreateIn(undefined);
     markNotFound(message);
@@ -101,28 +107,11 @@ export default function BoardScreen() {
 
   let content;
   if (state.status === 'loading') {
-    content = showSkeleton ? (
-      <>
-        <BoardHeader onBack={goBack} loading />
-        <BoardColumnTabsSkeleton />
-        <BoardSkeleton />
-      </>
-    ) : (
-      <BoardHeader onBack={goBack} />
-    );
+    // Nothing of the board, not even its name, until the backend has confirmed access.
+    return <CheckingAccess />;
   } else if (state.status === 'error') {
-    content = (
-      <>
-        <BoardHeader onBack={goBack} />
-        <View style={styles.center}>
-          {state.error.kind === 'notFound' ? (
-            <BoardState type="notfound" onAction={goToBoards} />
-          ) : (
-            <BoardState type="error" onAction={retry} description={state.error.message} />
-          )}
-        </View>
-      </>
-    );
+    // Refused, or not checked: the board's columns and tasks are gone from the screen either way.
+    return <AccessProblem error={state.error} revoked={state.revoked} onRetry={retry} />;
   } else {
     const { board, tasks } = state.data;
     content = (

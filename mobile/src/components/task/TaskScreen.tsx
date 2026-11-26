@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, touchTarget } from '../../theme/tokens';
@@ -16,6 +26,8 @@ export function TaskScreen({
   onClose,
   closeDisabled,
   avoidKeyboardOnAndroid,
+  refreshing,
+  onRefresh,
   testID,
   children,
 }: {
@@ -26,6 +38,9 @@ export function TaskScreen({
   closeDisabled?: boolean;
   /** Keeps everything scrollable above the keyboard on Android, whose edge-to-edge window isn't resized by it. */
   avoidKeyboardOnAndroid?: boolean;
+  /** Pull-to-refresh: reads the screen's data from the backend again. */
+  refreshing?: boolean;
+  onRefresh?: () => void;
   testID?: string;
   children: ReactNode;
 }) {
@@ -41,6 +56,8 @@ export function TaskScreen({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
+          testID={testID ? `${testID}-scroll` : undefined}
         >
           <View style={styles.heading}>
             <View style={styles.headingText}>
