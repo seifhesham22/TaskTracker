@@ -190,4 +190,41 @@ describe('BlockedTaskStartModal', () => {
 
     expect(screen.getByTestId('try-again-btn')).toBeInTheDocument();
   });
+
+  it('correctly labels a Backlog prerequisite as "Backlog" instead of "In progress"', () => {
+    const backlogFailure: BlockedTaskStartFailure = {
+      ...mockFailure,
+      blockers: [
+        {
+          id: 'task-backlog-1',
+          readableId: 'TES-10',
+          title: 'Initial architecture definition',
+          status: ColumnCategory.Backlog,
+        },
+      ],
+    };
+
+    render(
+      <BlockedTaskStartModal
+        failure={backlogFailure}
+        isOpen={true}
+        onClose={vi.fn()}
+        onRecheck={vi.fn()}
+        onStartTask={vi.fn()}
+      />
+    );
+
+    // Blocker list card should label it "Backlog · Blocks TES-24"
+    const blockerItem = screen.getByTestId('blocker-item-task-backlog-1');
+    expect(blockerItem).toHaveTextContent('Backlog · Blocks TES-24');
+    expect(blockerItem).not.toHaveTextContent('In progress · Blocks');
+
+    // Open prerequisite details
+    fireEvent.click(screen.getByTestId('open-blocker-task-backlog-1'));
+
+    // Status badge must show "Backlog", not "In progress"
+    const badge = screen.getByTestId('prerequisite-status-badge');
+    expect(badge).toHaveTextContent('Backlog');
+    expect(badge).not.toHaveTextContent('In progress');
+  });
 });

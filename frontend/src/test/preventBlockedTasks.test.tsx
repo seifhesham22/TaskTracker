@@ -308,4 +308,61 @@ describe('[US-17] Prevent blocked tasks from starting (T1WOR-158)', () => {
 
     expect(screen.getByTestId('try-again-btn')).toBeInTheDocument();
   });
+
+  it('correctly labels a Backlog blocker as "Backlog" in board modal and prerequisite details', async () => {
+    const boardWithBacklogBlocker = {
+      ...mockBoardData,
+      tasks: [
+        ...mockBoardData.tasks,
+        {
+          id: 't-backlog',
+          readableId: 'TES-99',
+          number: 99,
+          boardId: '01a18766-48b5-7fb8-a04c-13e1bf648def',
+          title: 'Backlog prerequisite item',
+          status: ColumnCategory.Backlog,
+          columnId: 'c-backlog',
+          columnName: 'Backlog',
+          priority: TaskPriority.Low,
+          assignees: [],
+          assigneeIds: [],
+          blockedBy: [],
+          blocks: [],
+        } as TaskItem,
+      ],
+    };
+
+    vi.spyOn(api.board, 'getBoardWithTasks').mockResolvedValue(boardWithBacklogBlocker);
+    vi.spyOn(api.board, 'moveTask').mockRejectedValue(
+      new BlockedTaskStartApiError(
+        "TES-24 is blocked by this unfinished task: TES-99 (Backlog prerequisite item).",
+        [{ id: 't-backlog', readableId: 'TES-99', title: 'Backlog prerequisite item' }],
+        {}
+      )
+    );
+
+    renderAt('/tasks');
+
+    const inProgressColumn = await screen.findByTestId('board-column-IN_PROGRESS');
+    fireEvent.drop(inProgressColumn, {
+      dataTransfer: {
+        getData: (type: string) => (type === 'application/x-task-id' ? 't-24' : ''),
+      },
+    });
+
+    await screen.findByTestId('blocked-task-start-modal');
+
+    // Blocker list item must show Backlog label
+    const blockerItem = screen.getByTestId('blocker-item-t-backlog');
+    expect(blockerItem).toHaveTextContent('Backlog · Blocks TES-24');
+    expect(blockerItem).not.toHaveTextContent('In progress · Blocks');
+
+    // Navigate to prerequisite details
+    fireEvent.click(screen.getByTestId('open-blocker-t-backlog'));
+
+    // Status badge must show Backlog
+    const statusBadge = screen.getByTestId('prerequisite-status-badge');
+    expect(statusBadge).toHaveTextContent('Backlog');
+    expect(statusBadge).not.toHaveTextContent('In progress');
+  });
 });

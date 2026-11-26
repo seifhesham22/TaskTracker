@@ -113,6 +113,30 @@
   border-color: #bfdbfe;
 }
 
+.blocked-start-status-badge--backlog {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-color: #e5e7eb;
+}
+
+.blocked-start-status-badge--todo {
+  background-color: #fefce8;
+  color: #854d0e;
+  border-color: #fef08a;
+}
+
+.blocked-start-status-badge--done {
+  background-color: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.blocked-start-status-badge--cancelled {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
 /* Rollback & Alert Banners */
 .blocked-start-banner {
   border-radius: 10px;

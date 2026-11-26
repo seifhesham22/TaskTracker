@@ -19,6 +19,41 @@ export interface BlockedTaskStartModalProps {
 
 type ModalViewMode = 'explanation' | 'prerequisite_details';
 
+function formatStatus(status?: ColumnCategory | string): string {
+  switch (status) {
+    case ColumnCategory.Backlog:
+      return 'Backlog';
+    case ColumnCategory.ToDo:
+      return 'To do';
+    case ColumnCategory.InProgress:
+      return 'In progress';
+    case ColumnCategory.Done:
+      return 'Done';
+    case ColumnCategory.Cancelled:
+      return 'Cancelled';
+    default:
+      if (status) return status;
+      return 'Backlog';
+  }
+}
+
+function getStatusBadgeModifier(status?: ColumnCategory | string): string {
+  switch (status) {
+    case ColumnCategory.InProgress:
+      return 'inprogress';
+    case ColumnCategory.Done:
+      return 'done';
+    case ColumnCategory.ToDo:
+      return 'todo';
+    case ColumnCategory.Backlog:
+      return 'backlog';
+    case ColumnCategory.Cancelled:
+      return 'cancelled';
+    default:
+      return 'backlog';
+  }
+}
+
 export function BlockedTaskStartModal({
   failure,
   isOpen,
@@ -162,12 +197,12 @@ function BlockedTaskStartModalContent({
               <div className="blocked-start-status-row">
                 <span className="blocked-start-status-label">Status</span>
                 <span
-                  className="blocked-start-status-badge blocked-start-status-badge--inprogress"
+                  className={`blocked-start-status-badge blocked-start-status-badge--${getStatusBadgeModifier(
+                    activePrerequisite.status
+                  )}`}
                   data-testid="prerequisite-status-badge"
                 >
-                  {activePrerequisite.status === ColumnCategory.Done
-                    ? 'Done'
-                    : 'In progress'}
+                  {formatStatus(activePrerequisite.status)}
                 </span>
               </div>
 
@@ -278,30 +313,35 @@ function BlockedTaskStartModalContent({
                   className="blocked-start-blockers-section"
                   data-testid="open-blockers-list"
                 >
-                  {currentBlockers.map((blocker) => (
-                    <div
-                      key={blocker.id}
-                      className="blocked-start-blocker-card"
-                      data-testid={`blocker-item-${blocker.id}`}
-                    >
-                      <div className="blocked-start-blocker-info">
-                        <span className="blocked-start-blocker-title">
-                          {blocker.readableId} · {blocker.title}
-                        </span>
-                        <span className="blocked-start-blocker-status">
-                          In progress · Blocks {failure.readableId}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="blocked-start-btn blocked-start-btn--secondary"
-                        onClick={() => handleOpenPrerequisite(blocker.id)}
-                        data-testid={`open-blocker-${blocker.id}`}
+                  {currentBlockers.map((blocker) => {
+                    const taskFromAll = allTasks.find((t) => t.id === blocker.id);
+                    const blockerStatus = blocker.status || taskFromAll?.status || ColumnCategory.Backlog;
+                    const statusText = formatStatus(blockerStatus);
+                    return (
+                      <div
+                        key={blocker.id}
+                        className="blocked-start-blocker-card"
+                        data-testid={`blocker-item-${blocker.id}`}
                       >
-                        Open blocker
-                      </button>
-                    </div>
-                  ))}
+                        <div className="blocked-start-blocker-info">
+                          <span className="blocked-start-blocker-title">
+                            {blocker.readableId} · {blocker.title}
+                          </span>
+                          <span className="blocked-start-blocker-status">
+                            {statusText} · Blocks {failure.readableId}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="blocked-start-btn blocked-start-btn--secondary"
+                          onClick={() => handleOpenPrerequisite(blocker.id)}
+                          data-testid={`open-blocker-${blocker.id}`}
+                        >
+                          Open blocker
+                        </button>
+                      </div>
+                    );
+                  })}
 
                   {/* State 03: Mobile Status Selection helper view */}
                   <div
@@ -309,7 +349,7 @@ function BlockedTaskStartModalContent({
                     data-testid="mobile-status-selection-box"
                   >
                     <div className="blocked-start-mobile-status-item blocked-start-mobile-status-item--current">
-                      <span>To do · Current status</span>
+                      <span>{failure.currentColumnName || 'To do'} · Current status</span>
                       <span>●</span>
                     </div>
                     <div className="blocked-start-mobile-status-item blocked-start-mobile-status-item--unavailable">

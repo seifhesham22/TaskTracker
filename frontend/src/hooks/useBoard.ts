@@ -271,12 +271,16 @@ export function useBoard(boardId: string): UseBoardState {
           currentStatus: task.status,
           currentColumnName: fromColName,
           targetColumnId,
-          blockers: err.blockers.map((b) => ({
-            id: b.id,
-            readableId: b.readableId,
-            title: b.title,
-            status: (b.status as ColumnCategory) || ColumnCategory.InProgress,
-          })),
+          blockers: err.blockers.map((b) => {
+            const fromBlockedBy = task.blockedBy?.find((dep) => dep.id === b.id)?.status;
+            const fromTasks = tasks.find((t) => t.id === b.id)?.status;
+            return {
+              id: b.id,
+              readableId: b.readableId,
+              title: b.title,
+              status: (b.status as ColumnCategory) || fromBlockedBy || fromTasks || ColumnCategory.Backlog,
+            };
+          }),
           message: err.message,
         });
         setMoveError(bannerText);
