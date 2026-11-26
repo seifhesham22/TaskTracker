@@ -75,6 +75,23 @@ export function TasksPage() {
     handleSearchTasks,
     handleAssignTask,
     handleUnassignTask,
+
+    // Search and filter additions [US-36]
+    search,
+    statusFilter,
+    priorityFilter,
+    assigneeFilter,
+    assigneeName,
+    isFilterLoading,
+    filterError,
+    totalPermittedCount,
+    hasActiveFilters,
+    activeFilterCount,
+    setSearch,
+    applyFilters,
+    clearAllFilters,
+    removeFilter,
+    retryFilter,
   } = useBoard(effectiveBoardId);
 
   // Sync active project and board with context as soon as board data loads
@@ -135,6 +152,23 @@ export function TasksPage() {
         onSearchTasks={handleSearchTasks}
         onAssignTask={handleAssignTask}
         onUnassignTask={handleUnassignTask}
+
+        // Search and filter props [US-36]
+        search={search}
+        statusFilter={statusFilter}
+        priorityFilter={priorityFilter}
+        assigneeFilter={assigneeFilter}
+        assigneeName={assigneeName}
+        isFilterLoading={isFilterLoading}
+        filterError={filterError}
+        totalPermittedCount={totalPermittedCount}
+        hasActiveFilters={hasActiveFilters}
+        activeFilterCount={activeFilterCount}
+        onSearchChange={setSearch}
+        onApplyFilters={applyFilters}
+        onClearAllFilters={clearAllFilters}
+        onRemoveFilter={removeFilter}
+        onRetryFilter={retryFilter}
       />
     </div>
   );

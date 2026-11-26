@@ -1103,5 +1103,96 @@ describe('BoardService', () => {
       });
     });
   });
+
+  describe('buildTaskFilter & task search and filtering', () => {
+    it('returns undefined when no filters are set', () => {
+      const service = new BoardService({} as HttpClient);
+      expect(service.buildTaskFilter(null, null, null)).toBeUndefined();
+      expect(service.buildTaskFilter(undefined, undefined, undefined)).toBeUndefined();
+    });
+
+    it('builds filter for status, priority, and assignee correctly', () => {
+      const service = new BoardService({} as HttpClient);
+
+      // Status only
+      expect(service.buildTaskFilter(ColumnCategory.ToDo, null, null)).toEqual({
+        status: { eq: ColumnCategory.ToDo },
+      });
+
+      // Priority only
+      expect(service.buildTaskFilter(null, TaskPriority.High, null)).toEqual({
+        priority: { eq: TaskPriority.High },
+      });
+
+      // No Priority ('NONE')
+      expect(service.buildTaskFilter(null, 'NONE', null)).toEqual({
+        priority: { eq: null },
+      });
+
+      // Member Assignee
+      expect(service.buildTaskFilter(null, null, 'user-123')).toEqual({
+        assignees: { some: { userId: { eq: 'user-123' } } },
+      });
+
+      // Unassigned
+      expect(service.buildTaskFilter(null, null, 'UNASSIGNED')).toEqual({
+        assignees: { any: false },
+      });
+
+      // Combined
+      expect(service.buildTaskFilter(ColumnCategory.InProgress, TaskPriority.Critical, 'user-456')).toEqual({
+        status: { eq: ColumnCategory.InProgress },
+        priority: { eq: TaskPriority.Critical },
+        assignees: { some: { userId: { eq: 'user-456' } } },
+      });
+    });
+
+    it('passes search and where variables to GraphQL query in getBoardWithTasks', async () => {
+      const postMock = vi.fn().mockResolvedValue({
+        data: {
+          board: {
+            id: 'b-1',
+            projectId: 'p-1',
+            name: 'Test Board',
+            columns: [],
+            members: [],
+          },
+          tasks: [],
+        },
+      });
+
+      const mockHttpClient: HttpClient = {
+        get: vi.fn(),
+        post: postMock,
+        put: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      const service = new BoardService(mockHttpClient);
+      await service.getBoardWithTasks('b-1', {
+        search: 'auth bug',
+        where: {
+          status: { eq: ColumnCategory.ToDo },
+          priority: { eq: TaskPriority.High },
+        },
+      });
+
+      expect(postMock).toHaveBeenCalledWith(
+        '/graphql',
+        expect.objectContaining({
+          query: expect.stringContaining('$search: String, $where: TaskFilterInput'),
+          variables: {
+            boardId: 'b-1',
+            search: 'auth bug',
+            where: {
+              status: { eq: ColumnCategory.ToDo },
+              priority: { eq: TaskPriority.High },
+            },
+          },
+        })
+      );
+    });
+  });
 });
+
 

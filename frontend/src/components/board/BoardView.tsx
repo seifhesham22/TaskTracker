@@ -7,11 +7,13 @@ import {
   type CreateTaskInput,
   type TaskDependencyRef,
   type TaskItem,
+  type TaskPriority,
   type UpdateTaskInput,
 } from '../../domain/models';
 import type { ProjectAccessState } from '../../domain/projectAccess';
 import { ProjectAccessView } from '../access/ProjectAccessView';
 import { BoardColumn } from './BoardColumn';
+import { BoardFilterBar } from './BoardFilterBar';
 import { BoardHeader } from './BoardHeader';
 import { BlockedTaskStartModal } from './BlockedTaskStartModal';
 import { CreateTaskForm } from './CreateTaskForm';
@@ -57,6 +59,28 @@ export interface BoardViewProps {
   readonly onSearchTasks?: (query: string) => Promise<TaskItem[]>;
   readonly onAssignTask?: (taskId: string, userId: string) => Promise<boolean>;
   readonly onUnassignTask?: (taskId: string, userId: string) => Promise<boolean>;
+
+  // Search and filter props [US-36]
+  readonly search?: string;
+  readonly statusFilter?: ColumnCategory | null;
+  readonly priorityFilter?: TaskPriority | 'NONE' | null;
+  readonly assigneeFilter?: string | 'UNASSIGNED' | null;
+  readonly assigneeName?: string | null;
+  readonly isFilterLoading?: boolean;
+  readonly filterError?: string | null;
+  readonly totalPermittedCount?: number;
+  readonly hasActiveFilters?: boolean;
+  readonly activeFilterCount?: number;
+  readonly onSearchChange?: (term: string) => void;
+  readonly onApplyFilters?: (
+    status: ColumnCategory | null,
+    priority: TaskPriority | 'NONE' | null,
+    assigneeId: string | 'UNASSIGNED' | null,
+    assigneeName?: string | null
+  ) => void;
+  readonly onClearAllFilters?: () => void;
+  readonly onRemoveFilter?: (kind: 'search' | 'status' | 'priority' | 'assignee') => void;
+  readonly onRetryFilter?: () => void;
 }
 
 export function BoardView({
@@ -91,6 +115,23 @@ export function BoardView({
   onSearchTasks,
   onAssignTask,
   onUnassignTask,
+
+  // Search and filter props [US-36]
+  search,
+  statusFilter,
+  priorityFilter,
+  assigneeFilter,
+  assigneeName,
+  isFilterLoading,
+  filterError,
+  totalPermittedCount,
+  hasActiveFilters,
+  activeFilterCount,
+  onSearchChange,
+  onApplyFilters,
+  onClearAllFilters,
+  onRemoveFilter,
+  onRetryFilter,
 }: BoardViewProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
@@ -270,6 +311,29 @@ export function BoardView({
           setIsCreateModalOpen(true);
         }}
       />
+
+      {onSearchChange && (
+        <BoardFilterBar
+          boardName={board?.name}
+          search={search ?? ''}
+          statusFilter={statusFilter ?? null}
+          priorityFilter={priorityFilter ?? null}
+          assigneeFilter={assigneeFilter ?? null}
+          assigneeName={assigneeName ?? null}
+          isFilterLoading={isFilterLoading ?? false}
+          filterError={filterError ?? null}
+          totalPermittedCount={totalPermittedCount ?? tasks.length}
+          matchingCount={tasks.length}
+          hasActiveFilters={hasActiveFilters ?? false}
+          activeFilterCount={activeFilterCount ?? 0}
+          members={board?.members ?? []}
+          onSearchChange={onSearchChange}
+          onApplyFilters={onApplyFilters ?? (() => {})}
+          onClearAll={onClearAllFilters ?? (() => {})}
+          onRemoveFilter={onRemoveFilter ?? (() => {})}
+          onRetry={onRetryFilter ?? (() => {})}
+        />
+      )}
 
       {createdBanner && (
         <div

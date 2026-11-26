@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   api,
   BlockedTaskStartApiError,
@@ -10,8 +10,10 @@ import {
   type BlockedTaskStartFailure,
   type BoardDetails,
   type CreateTaskInput,
+  type GetBoardTasksOptions,
   type TaskDependencyRef,
   type TaskItem,
+  type TaskPriority,
   type UpdateTaskInput,
 } from '../domain/models';
 import { defaultProjectAccessClassifier, type ProjectAccessState } from '../domain/projectAccess';
@@ -51,13 +53,44 @@ export interface UseBoardState {
   readonly handleUnassignTask: (taskId: string, userId: string) => Promise<boolean>;
   readonly handleAddDependency: (blockingTaskId: string, blockedTaskId: string) => Promise<boolean>;
   readonly handleSearchTasks: (query: string) => Promise<TaskItem[]>;
+
+  // Search and filter additions [US-36]
+  readonly search: string;
+  readonly debouncedSearch: string;
+  readonly statusFilter: ColumnCategory | null;
+  readonly priorityFilter: TaskPriority | 'NONE' | null;
+  readonly assigneeFilter: string | 'UNASSIGNED' | null;
+  readonly assigneeName: string | null;
+  readonly isFilterLoading: boolean;
+  readonly filterError: string | null;
+  readonly totalPermittedCount: number;
+  readonly hasActiveFilters: boolean;
+  readonly activeFilterCount: number;
+  readonly setSearch: (term: string) => void;
+  readonly setStatusFilter: (status: ColumnCategory | null) => void;
+  readonly setPriorityFilter: (priority: TaskPriority | 'NONE' | null) => void;
+  readonly setAssigneeFilter: (assigneeId: string | 'UNASSIGNED' | null, assigneeName?: string | null) => void;
+  readonly applyFilters: (
+    status: ColumnCategory | null,
+    priority: TaskPriority | 'NONE' | null,
+    assigneeId: string | 'UNASSIGNED' | null,
+    assigneeName?: string | null
+  ) => void;
+  readonly clearAllFilters: () => void;
+  readonly removeFilter: (kind: 'search' | 'status' | 'priority' | 'assignee') => void;
+  readonly retryFilter: () => void;
 }
 
-async function loadBoardWithMembers(boardId: string): Promise<{
+async function loadBoardWithMembers(
+  boardId: string,
+  options?: GetBoardTasksOptions
+): Promise<{
   board: BoardDetails;
   tasks: TaskItem[];
 }> {
-  const data = await api.board.getBoardWithTasks(boardId);
+  const data = options
+    ? await api.board.getBoardWithTasks(boardId, options)
+    : await api.board.getBoardWithTasks(boardId);
   let members = data.board.members && data.board.members.length > 0 ? [...data.board.members] : [];
   let userRole: string | undefined = data.board.userRole;
   let projectName = data.board.projectName;
@@ -100,6 +133,21 @@ export function useBoard(boardId: string): UseBoardState {
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
   const [accessState, setAccessState] = useState<ProjectAccessState>('checking');
 
+  // Search and filter state [US-36]
+  const [search, setSearchState] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ColumnCategory | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'NONE' | null>(null);
+  const [assigneeFilter, setAssigneeFilterState] = useState<string | 'UNASSIGNED' | null>(null);
+  const [assigneeName, setAssigneeName] = useState<string | null>(null);
+  const [isFilterLoading, setIsFilterLoading] = useState<boolean>(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [totalPermittedCount, setTotalPermittedCount] = useState<number>(0);
+  const [filterReloadTrigger, setFilterReloadTrigger] = useState(0);
+
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedInitialRef = useRef<boolean>(false);
+
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [createTaskError, setCreateTaskError] = useState<string | null>(null);
 
@@ -108,6 +156,79 @@ export function useBoard(boardId: string): UseBoardState {
   const [moveRevertedBanner, setMoveRevertedBanner] = useState<string | null>(null);
   const [incompleteSubtasksError, setIncompleteSubtasksError] = useState<IncompleteSubtaskFailure | null>(null);
   const [blockedStartError, setBlockedStartError] = useState<BlockedTaskStartFailure | null>(null);
+
+  const hasActiveFilters = Boolean(
+    debouncedSearch.trim() || statusFilter || priorityFilter || assigneeFilter
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter) count++;
+    if (priorityFilter) count++;
+    if (assigneeFilter) count++;
+    return count;
+  }, [statusFilter, priorityFilter, assigneeFilter]);
+
+  const setSearch = useCallback((query: string) => {
+    setSearchState(query);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(query);
+    }, 250);
+  }, []);
+
+  const setAssigneeFilter = useCallback((assigneeId: string | 'UNASSIGNED' | null, label?: string | null) => {
+    setAssigneeFilterState(assigneeId);
+    setAssigneeName(label ?? null);
+    setFilterError(null);
+  }, []);
+
+  const applyFilters = useCallback(
+    (
+      status: ColumnCategory | null,
+      priority: TaskPriority | 'NONE' | null,
+      assigneeId: string | 'UNASSIGNED' | null,
+      assigneeLabel?: string | null
+    ) => {
+      setStatusFilter(status);
+      setPriorityFilter(priority);
+      setAssigneeFilterState(assigneeId);
+      setAssigneeName(assigneeLabel ?? null);
+      setFilterError(null);
+    },
+    []
+  );
+
+  const clearAllFilters = useCallback(() => {
+    setSearchState('');
+    setDebouncedSearch('');
+    setStatusFilter(null);
+    setPriorityFilter(null);
+    setAssigneeFilterState(null);
+    setAssigneeName(null);
+    setFilterError(null);
+  }, []);
+
+  const removeFilter = useCallback((kind: 'search' | 'status' | 'priority' | 'assignee') => {
+    if (kind === 'search') {
+      setSearchState('');
+      setDebouncedSearch('');
+    } else if (kind === 'status') {
+      setStatusFilter(null);
+    } else if (kind === 'priority') {
+      setPriorityFilter(null);
+    } else if (kind === 'assignee') {
+      setAssigneeFilterState(null);
+      setAssigneeName(null);
+    }
+    setFilterError(null);
+  }, []);
+
+  const retryFilter = useCallback(() => {
+    setFilterReloadTrigger((prev) => prev + 1);
+  }, []);
 
   const checkActionRevocation = useCallback((err: unknown): boolean => {
     const classified = defaultProjectAccessClassifier.classifyError(err, true);
@@ -131,10 +252,21 @@ export function useBoard(boardId: string): UseBoardState {
     setIsNotFound(false);
 
     try {
-      const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
+      const where = api.board.buildTaskFilter(statusFilter, priorityFilter, assigneeFilter);
+      const options: GetBoardTasksOptions | undefined = hasActiveFilters
+        ? {
+            search: debouncedSearch.trim() || undefined,
+            where,
+          }
+        : undefined;
+
+      const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId, options);
       setBoard(loadedBoard);
       setTasks(loadedTasks);
       setAccessState('permitted');
+      if (!hasActiveFilters) {
+        setTotalPermittedCount(loadedTasks.length);
+      }
     } catch (err: unknown) {
       const classified = defaultProjectAccessClassifier.classifyError(err, false);
       setAccessState(classified);
@@ -149,35 +281,74 @@ export function useBoard(boardId: string): UseBoardState {
       }
     } finally {
       setIsLoading(false);
+      setIsFilterLoading(false);
     }
-  }, [boardId]);
+  }, [boardId, debouncedSearch, statusFilter, priorityFilter, assigneeFilter, hasActiveFilters]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
 
     const run = async () => {
+      const isInitial = !hasLoadedInitialRef.current;
+      if (isInitial) {
+        setIsLoading(true);
+      } else {
+        setIsFilterLoading(true);
+      }
+      setFilterError(null);
+
       try {
-        const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId);
+        const where = api.board.buildTaskFilter(statusFilter, priorityFilter, assigneeFilter);
+        const options: GetBoardTasksOptions | undefined = hasActiveFilters
+          ? {
+              search: debouncedSearch.trim() || undefined,
+              where,
+            }
+          : undefined;
+
+        const { board: loadedBoard, tasks: loadedTasks } = await loadBoardWithMembers(boardId, options);
         if (!ignore) {
           setBoard(loadedBoard);
           setTasks(loadedTasks);
+          if (!hasActiveFilters || isInitial) {
+            setTotalPermittedCount(loadedTasks.length);
+          }
           setAccessState('permitted');
-          setIsLoading(false);
+          hasLoadedInitialRef.current = true;
         }
       } catch (err: unknown) {
         if (!ignore) {
-          const classified = defaultProjectAccessClassifier.classifyError(err, false);
-          setAccessState(classified);
-          setBoard(null);
-          setTasks([]);
-          if (classified === 'unavailable') {
-            setIsNotFound(true);
-            setError(`Board '${boardId}' was not found.`);
+          if (isInitial) {
+            const classified = defaultProjectAccessClassifier.classifyError(err, false);
+            setAccessState(classified);
+            setBoard(null);
+            setTasks([]);
+            if (classified === 'unavailable') {
+              setIsNotFound(true);
+              setError(`Board '${boardId}' was not found.`);
+            } else {
+              const message = err instanceof Error ? err.message : 'Failed to load board data from server.';
+              setError(message);
+            }
           } else {
-            const message = err instanceof Error ? err.message : 'Failed to load board data from server.';
-            setError(message);
+            if (!checkActionRevocation(err)) {
+              // General filter query failure (State 08)
+              setFilterError(err instanceof Error ? err.message : 'Couldn’t load matching tasks. Try again.');
+            }
           }
+        }
+      } finally {
+        if (!ignore) {
           setIsLoading(false);
+          setIsFilterLoading(false);
         }
       }
     };
@@ -187,7 +358,16 @@ export function useBoard(boardId: string): UseBoardState {
     return () => {
       ignore = true;
     };
-  }, [boardId]);
+  }, [
+    boardId,
+    debouncedSearch,
+    statusFilter,
+    priorityFilter,
+    assigneeFilter,
+    filterReloadTrigger,
+    hasActiveFilters,
+    checkActionRevocation,
+  ]);
 
   const handleCreateTask = async (input: CreateTaskInput): Promise<boolean> => {
     setIsCreatingTask(true);
@@ -490,5 +670,26 @@ export function useBoard(boardId: string): UseBoardState {
     handleUnassignTask,
     handleAddDependency,
     handleSearchTasks,
+
+    // Search and filter additions [US-36]
+    search,
+    debouncedSearch,
+    statusFilter,
+    priorityFilter,
+    assigneeFilter,
+    assigneeName,
+    isFilterLoading,
+    filterError,
+    totalPermittedCount,
+    hasActiveFilters,
+    activeFilterCount,
+    setSearch,
+    setStatusFilter,
+    setPriorityFilter,
+    setAssigneeFilter,
+    applyFilters,
+    clearAllFilters,
+    removeFilter,
+    retryFilter,
   };
 }
