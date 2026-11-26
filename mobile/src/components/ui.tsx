@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,6 +7,7 @@ import {
   View,
   type DimensionValue,
   type StyleProp,
+  type ViewInstance,
   type ViewStyle,
 } from 'react-native';
 
@@ -31,6 +32,7 @@ export interface ButtonProps {
   testID?: string;
   style?: StyleProp<ViewStyle>;
   textColor?: string;
+  ref?: Ref<ViewInstance>;
 }
 
 const HEIGHTS: Record<ButtonSize, number> = { sm: 32, default: 36, lg: touchTarget };
@@ -49,6 +51,7 @@ export function Button({
   testID,
   style,
   textColor,
+  ref,
 }: ButtonProps) {
   const fg =
     textColor ?? (variant === 'default' ? colors.primaryForeground : colors.foreground);
@@ -56,6 +59,7 @@ export function Button({
   const iconOnly = !label;
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}

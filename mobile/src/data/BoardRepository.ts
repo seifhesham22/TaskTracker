@@ -1,4 +1,5 @@
 import type { BacklogItem, BacklogQuery } from '../domain/backlog';
+import type { MemberRole, ProjectMemberDetails, ProjectMembers } from '../domain/members';
 
 import type {
   BoardData,
@@ -34,6 +35,17 @@ export interface BoardRepository {
   listProjects(): Promise<ProjectSummary[]>;
   /** Rejects with the backend's error; `toCreateProjectFailure` turns it into messages. */
   createProject(name: string): Promise<ProjectSummary>;
+  /** The project's members. Rejects with BoardLoadError ('notFound' if the user isn't one of them). */
+  getProjectMembers(projectId: string): Promise<ProjectMembers>;
+  /** Adds the account with exactly this email. Rejects with the backend's error (`toAddFailure`). */
+  addMember(projectId: string, email: string, role: MemberRole): Promise<ProjectMemberDetails>;
+  /**
+   * The accounts the user may see, as `searchAccounts` looks through them: every member of the
+   * user's projects (the backend offers no wider account search), and the project's members now.
+   */
+  getKnownAccounts(projectId: string): Promise<{ accounts: string[]; members: ProjectMemberDetails[] }>;
+  /** Rejects with the backend's error (`toRemoveFailure`). */
+  removeMember(projectId: string, userId: string): Promise<void>;
   listBoards(): Promise<BoardSummary[]>;
   getBoard(boardId: string): Promise<BoardData>;
   createTask(input: CreateTaskInput): Promise<Task>;

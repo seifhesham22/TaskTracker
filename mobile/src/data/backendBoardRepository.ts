@@ -14,6 +14,7 @@ import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } f
 import { backlogRequest } from '../api/backlog';
 import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
 import { backlogVariables, type BacklogQuery } from '../domain/backlog';
+import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
 import { createProjectRequest } from '../api/projects';
 import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
 import { looksLikeKey } from '../domain/dependencies';
@@ -21,6 +22,7 @@ import { SESSION_EXPIRED } from '../domain/authErrors';
 import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask';
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput, TaskDetails, UpdateTaskChanges } from '../domain/models';
+import { MEMBERS_LOAD_FAILED as PROJECT_MEMBERS_LOAD_FAILED, PROJECT_NOT_FOUND } from '../domain/members';
 import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
 import { BoardLoadError, type BoardRepository } from './BoardRepository';
 
@@ -97,6 +99,60 @@ export function createBackendBoardRepository(): BoardRepository {
 
     async createProject(name: string) {
       return toProjectSummary(await createProjectRequest(name));
+    },
+
+    async getProjectMembers(projectId: string) {
+      const userId = getSignedInUserId();
+      if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
+      let project;
+      try {
+        project = (await projectsRequest(userId)).find((p) => p.id === projectId);
+      } catch (error) {
+        const failure = toBoardLoadError(error);
+        throw failure.message === BOARD_LOAD_SERVER
+          ? new BoardLoadError('server', PROJECT_MEMBERS_LOAD_FAILED)
+          : failure;
+      }
+      // `projects` lists only the user's own, so a project that's missing is one they can't see.
+      if (!project) throw new BoardLoadError('notFound', PROJECT_NOT_FOUND);
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        role: project.role ?? null,
+        members: project.projectMembers.map((m) => ({
+          userId: m.userId,
+          userName: m.userName,
+          role: m.role ?? '',
+        })),
+      };
+    },
+
+    async addMember(projectId, email, role) {
+      const member = await addProjectMemberRequest(projectId, email, role);
+      return {
+        userId: member.userId,
+        userName: member.userName,
+        role: member.role,
+      };
+    },
+
+    async getKnownAccounts(projectId) {
+      const userId = getSignedInUserId();
+      if (!userId) throw new BoardLoadError('configuration', NOT_SIGNED_IN);
+      const projects = await projectsRequest(userId);
+      const project = projects.find((p) => p.id === projectId);
+      return {
+        accounts: projects.flatMap((p) => p.projectMembers.map((m) => m.userName)),
+        members: (project?.projectMembers ?? []).map((m) => ({
+          userId: m.userId,
+          userName: m.userName,
+          role: m.role ?? '',
+        })),
+      };
+    },
+
+    async removeMember(projectId, userId) {
+      await removeProjectMemberRequest(projectId, userId);
     },
 
     async listBoards() {
