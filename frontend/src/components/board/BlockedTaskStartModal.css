@@ -1,0 +1,326 @@
+/* BlockedTaskStartModal.css - US-17 Prevent blocked tasks from starting */
+
+.blocked-start-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.blocked-start-dialog {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.blocked-start-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: #737373;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.blocked-start-close:hover {
+  color: #0a0a0a;
+  background-color: #f5f5f5;
+}
+
+.blocked-start-content {
+  padding: 24px 28px 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header */
+.blocked-start-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.blocked-start-eyebrow {
+  font-size: 13px;
+  font-weight: 500;
+  color: #636363;
+  letter-spacing: 0.2px;
+}
+
+.blocked-start-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0a0a0a;
+  margin: 0;
+}
+
+/* Status Row */
+.blocked-start-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #636363;
+}
+
+.blocked-start-status-label {
+  font-weight: 500;
+}
+
+.blocked-start-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.blocked-start-status-badge--inprogress {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.blocked-start-status-badge--backlog {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-color: #e5e7eb;
+}
+
+.blocked-start-status-badge--todo {
+  background-color: #fefce8;
+  color: #854d0e;
+  border-color: #fef08a;
+}
+
+.blocked-start-status-badge--done {
+  background-color: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.blocked-start-status-badge--cancelled {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+/* Rollback & Alert Banners */
+.blocked-start-banner {
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.blocked-start-banner--rollback {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+.blocked-start-banner--warning {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.blocked-start-banner--info {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.blocked-start-banner--ready {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-weight: 500;
+}
+
+.blocked-start-banner--success {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-weight: 600;
+}
+
+.blocked-start-banner--error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+/* Blockers List */
+.blocked-start-blockers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.blocked-start-blocker-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  gap: 12px;
+}
+
+.blocked-start-blocker-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.blocked-start-blocker-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blocked-start-blocker-status {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Mobile status selection preview / sheet simulation */
+.blocked-start-mobile-selection {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blocked-start-mobile-status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.blocked-start-mobile-status-item--current {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.blocked-start-mobile-status-item--unavailable {
+  color: #9ca3af;
+}
+
+.blocked-start-mobile-hint {
+  font-size: 13px;
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Navigate to prerequisite view (State 04) */
+.blocked-start-prerequisite-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Actions footer */
+.blocked-start-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.blocked-start-btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.blocked-start-btn--primary {
+  background-color: #0a0a0a;
+  color: #ffffff;
+  border: 1px solid #0a0a0a;
+}
+
+.blocked-start-btn--primary:hover:not(:disabled) {
+  background-color: #262626;
+  border-color: #262626;
+}
+
+.blocked-start-btn--secondary {
+  background-color: #ffffff;
+  color: #0a0a0a;
+  border: 1px solid #e5e5e5;
+}
+
+.blocked-start-btn--secondary:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #d4d4d4;
+}
+
+.blocked-start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

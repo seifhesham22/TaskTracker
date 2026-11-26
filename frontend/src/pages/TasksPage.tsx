@@ -58,9 +58,14 @@ export function TasksPage() {
     createTaskError,
     savingTaskIds,
     moveError,
+    moveRevertedBanner,
     incompleteSubtasksError,
+    blockedStartError,
     clearMoveError,
     clearIncompleteSubtasksError,
+    clearBlockedStartError,
+    handleRecheckBlockers,
+    handleStartBlockedTask,
     reload,
     handleCreateTask,
     handleCreateSubtask,
@@ -113,9 +118,14 @@ export function TasksPage() {
         createTaskError={createTaskError}
         savingTaskIds={savingTaskIds}
         moveError={moveError}
+        moveRevertedBanner={moveRevertedBanner}
         incompleteSubtasksError={incompleteSubtasksError}
+        blockedStartError={blockedStartError}
         onClearMoveError={clearMoveError}
         onClearIncompleteSubtasksError={clearIncompleteSubtasksError}
+        onClearBlockedStartError={clearBlockedStartError}
+        onRecheckBlockers={handleRecheckBlockers}
+        onStartBlockedTask={handleStartBlockedTask}
         onReload={reload}
         onCreateTask={handleCreateTask}
         onCreateSubtask={handleCreateSubtask}

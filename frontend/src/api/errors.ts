@@ -17,6 +17,13 @@ export interface IncompleteSubtaskDto {
   readonly title: string;
 }
 
+export interface TaskBlockerDto {
+  readonly id: string;
+  readonly readableId: string;
+  readonly title: string;
+  readonly status?: string;
+}
+
 /** Thrown when parent task completion is rejected due to incomplete subtasks. */
 export class IncompleteSubtasksApiError extends ApiError {
   readonly incompleteSubtasks: readonly IncompleteSubtaskDto[];
@@ -29,6 +36,21 @@ export class IncompleteSubtasksApiError extends ApiError {
     super(message, 400, body);
     this.name = 'IncompleteSubtasksApiError';
     this.incompleteSubtasks = incompleteSubtasks;
+  }
+}
+
+/** Thrown when starting a task is rejected due to unfinished blocking tasks. */
+export class BlockedTaskStartApiError extends ApiError {
+  readonly blockers: readonly TaskBlockerDto[];
+
+  constructor(
+    message: string,
+    blockers: readonly TaskBlockerDto[],
+    body: unknown
+  ) {
+    super(message, 400, body);
+    this.name = 'BlockedTaskStartApiError';
+    this.blockers = blockers;
   }
 }
 

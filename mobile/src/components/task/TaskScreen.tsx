@@ -15,6 +15,7 @@ export function TaskScreen({
   breadcrumb,
   onClose,
   closeDisabled,
+  avoidKeyboardOnAndroid,
   testID,
   children,
 }: {
@@ -23,6 +24,8 @@ export function TaskScreen({
   /** Shows the × button. */
   onClose?: () => void;
   closeDisabled?: boolean;
+  /** Keeps everything scrollable above the keyboard on Android, whose edge-to-edge window isn't resized by it. */
+  avoidKeyboardOnAndroid?: boolean;
   testID?: string;
   children: ReactNode;
 }) {
@@ -32,7 +35,7 @@ export function TaskScreen({
         <Icon name="columns-3" size={16} />
         <Text style={styles.brandText}>TaskTracker</Text>
       </View>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' || avoidKeyboardOnAndroid ? 'padding' : undefined}>
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.content}

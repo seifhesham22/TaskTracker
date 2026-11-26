@@ -1,0 +1,67 @@
+.backlog-priority-dialog {
+  max-width: 440px;
+}
+
+.backlog-priority-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.backlog-priority-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.backlog-priority-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #FAFAFA;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.backlog-priority-option:hover {
+  background: #F0F0F0;
+  border-color: #D4D4D4;
+}
+
+.backlog-priority-option-selected {
+  background: #F8FAFC;
+  border-color: #0A0A0A;
+}
+
+.backlog-priority-radio {
+  margin: 0;
+  accent-color: #0A0A0A;
+  cursor: pointer;
+}
+
+.backlog-priority-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.backlog-priority-label {
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0A0A0A;
+  flex: 1;
+}
+
+.backlog-priority-check {
+  font-size: 14px;
+  font-weight: bold;
+  color: #0A0A0A;
+}
