@@ -1,6 +1,7 @@
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, hasErrorCode } from '../api/graphql';
 import { SESSION_EXPIRED } from './authErrors';
+import { ROLE_LABELS } from './members';
 import type { ProjectSummary } from './models';
 
 // Wording from the designer's Create a project handoff.
@@ -8,8 +9,6 @@ export const PROJECT_NAME_REQUIRED = 'Enter a project name.';
 export const CREATE_PROJECT_FAILED = 'Couldn’t create the project. Your name is kept. Try again.';
 export const PROJECT_CREATED = 'Project created. You are the Owner.';
 export const PROJECTS_REFRESH_FAILED = 'Couldn’t refresh your projects.';
-
-const ROLE_LABELS: Record<string, string> = { OWNER: 'Owner', WRITER: 'Writer', READER: 'Reader' };
 
 /** “Owner · Private project”: every project is visible to its members only. */
 export function projectAccessLabel(role: string | null): string {

@@ -85,6 +85,7 @@ export const PROJECT_FIELDS = `
       projectMembers {
         userId
         userName
+        role
       }
 `;
 
@@ -156,7 +157,7 @@ export interface ProjectNode {
   description?: string | null;
   role?: string | null;
   boards: { id: string; name: string }[];
-  projectMembers: { userId: string; userName: string }[];
+  projectMembers: { userId: string; userName: string; role?: string }[];
 }
 
 export function toBoardColumn(node: ColumnNode): BoardColumn {

@@ -169,6 +169,17 @@ export default function ProjectsScreen() {
                 }
                 testID={`backlog-${project.id}`}
               />
+              <Button
+                label="Members"
+                variant="outline"
+                size="lg"
+                block
+                accessibilityLabel={`Members of ${project.name}`}
+                onPress={() =>
+                  leaveTo({ pathname: '/projects/[projectId]/members', params: { projectId: project.id } })
+                }
+                testID={`members-${project.id}`}
+              />
             </View>
           ))
         : null}

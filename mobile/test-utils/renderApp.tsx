@@ -12,6 +12,9 @@ import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
 import CreateSubtaskScreen from '../src/app/tasks/[taskId]/subtask';
 import TaskDependenciesScreen from '../src/app/tasks/[taskId]/dependencies';
 import ProjectBacklogScreen from '../src/app/projects/[projectId]/backlog';
+import AddMemberScreen from '../src/app/projects/[projectId]/members/add';
+import ProjectMembersScreen from '../src/app/projects/[projectId]/members/index';
+import RemoveMemberScreen from '../src/app/projects/[projectId]/members/remove';
 import CreateProjectScreen from '../src/app/projects/new';
 import type { Session } from '../src/auth/session';
 import { SESSION_KEY } from '../src/auth/sessionStorage';
@@ -67,6 +70,9 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'tasks/[taskId]/subtask': CreateSubtaskScreen,
       'tasks/[taskId]/dependencies': TaskDependenciesScreen,
       'projects/new': CreateProjectScreen,
+      'projects/[projectId]/members/index': ProjectMembersScreen,
+      'projects/[projectId]/members/add': AddMemberScreen,
+      'projects/[projectId]/members/remove': RemoveMemberScreen,
       'projects/[projectId]/backlog': ProjectBacklogScreen,
       '+not-found': NotFoundScreen,
       ...routes,

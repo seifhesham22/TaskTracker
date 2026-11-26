@@ -41,6 +41,7 @@ mobile/
     │   │   └── [boardId].tsx  # Board screen (/boards/:boardId)
     │   ├── projects/new.tsx   # Create a project (/projects/new)
     │   ├── projects/[projectId]/
+    │   │   ├── members/       # Project members, Add a member, Remove member
     │   │   └── backlog.tsx    # Project backlog (/projects/:projectId/backlog)
     │   ├── tasks/[taskId]/
     │   │   ├── index.tsx      # Task details (/tasks/:taskId?boardId=…)
@@ -273,6 +274,10 @@ The mobile app uses these backend GraphQL operations (`src/api/auth.ts`, `src/ap
 | Task dependencies (find a task) | `backlog(projectId, search, pageSize)` |
 | Task dependencies (add) | `addTaskDependency(input: { blockingTaskId, blockedTaskId })` |
 | Create a project | `createProject(input: { name })` |
+| Project members | `projects(userId)` → the project's `projectMembers` |
+| Find an account | `projects(userId)` → `projectMembers { userName }` |
+| Add a member | `addProjectMember(input: { projectId, email, role })` |
+| Remove member | `removeProjectMember(input: { projectId, userId })` |
 | Project backlog | `backlog(projectId, search, where, page, pageSize)` |
 | Create subtask | `createTask(input: { boardId, title, parentTaskId })` |
 | Edit task (saving) | `updateTask(input: { taskId, title?, description?, priority?, startDate?, dueDate? })`, with only the changed fields |
@@ -379,6 +384,21 @@ The design shows no search, filter or paging controls; they follow the app's exi
 - An empty or blank name shows “Enter a project name.” and sends nothing. Any other rule is the backend's (at most 100 characters): its message shows under the name.
 - While creating, the form, **Cancel** and Android's Back are locked, and only one request is sent.
 - With no answer or a server error: “Couldn’t create the project. Your name is kept. Try again.” The project may have been saved all the same, so trying the same name again first reads the list. If a project of that name that the user owns has appeared since the first attempt, it counts as created and nothing is sent. If the list can't be read, nothing is sent.
+
+## Project Members (US-4)
+
+**Members** on a project opens **Project members**: every member with their role, the signed-in user marked “(you)” and a project's only Owner “Last Owner”. The list is read from the backend each time it comes into view.
+
+- **Owner only, in the app:** only the Owner sees **Add member** and **Remove member**. This is not a security boundary: the backend's mutations also accept Writers.
+- **Add a member:** **Find an account** searches by name or email (accounts have only an email) once typing stops, showing “Searching accounts…”, the accounts found, or “No accounts found…”. The backend has no account search, so it looks through the accounts the user may see: the members of their own projects, read with `projects`. A full email it can't find is offered as well, and the backend checks that the account exists when adding. **Add member** stays disabled until an account is selected.
+- **Roles:** the picker offers **Owner**, **Writer** (proposed) and **Reader**, as designed. The backend keeps one Owner per project, its creator, and refuses a new Owner; the app shows that refusal and keeps the selection.
+- **Already a member:** found by the search or refused by the backend, it shows the error and **Choose another account**.
+- **Remove member** opens with focus on **Keep member**, the safe action.
+- **Remove member** asks first, naming the account and the project; **Keep member** changes nothing. An Owner has no **Remove member**, and a refusal from the backend shows **Owner required**.
+- While saving, the form and Android's Back are locked and one request is sent. The list changes only after the backend confirms, and is then read again.
+- **No usable answer:** retrying an add first checks whether the account became a member; a removal checks the members before saying that it failed or succeeded. If that can't be read either, the app says it couldn't confirm.
+
+The refusals are told apart by the backend's messages (`src/domain/members.ts`).
 
 ## Manual test against the real backend
 
