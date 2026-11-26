@@ -15,7 +15,9 @@ import { Toast } from '../../components/board/Toast';
 import { UnplacedTasksNotice } from '../../components/board/UnplacedTasksNotice';
 import { CreateTaskSheet } from '../../components/createTask/CreateTaskSheet';
 import { useBoardRepository } from '../../data/BoardRepositoryContext';
+import { SuccessBanner } from '../../components/task/TaskScreen';
 import { groupTasksByColumn } from '../../domain/board';
+import { boardCreatedIn } from '../../domain/createBoard';
 import type { BoardColumn, Task } from '../../domain/models';
 import { REFRESH_FAILED_MESSAGE, useBoard } from '../../hooks/useBoard';
 import { useProjectAccessWatch } from '../../hooks/useProjectAccessWatch';
@@ -30,7 +32,8 @@ type FailedMove = { task: Task; column: BoardColumn; message: string };
 const taskCount = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`;
 
 export default function BoardScreen() {
-  const { boardId } = useLocalSearchParams<{ boardId: string }>();
+  // `created`: opened by Create a board, once the backend returned this board.
+  const { boardId, created } = useLocalSearchParams<{ boardId: string; created?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const repository = useBoardRepository();
@@ -117,6 +120,11 @@ export default function BoardScreen() {
     content = (
       <>
         <BoardHeader onBack={goBack} title={board.name} subtitle={[board.projectName, taskCount(tasks.length)].filter(Boolean).join(' · ')} />
+        {created === '1' ? (
+          <View style={styles.banner}>
+            <SuccessBanner>{boardCreatedIn(board.projectName)}</SuccessBanner>
+          </View>
+        ) : null}
         {columns.length === 0 ? (
           <ScrollView
             contentContainerStyle={styles.scrollCenter}
@@ -186,6 +194,7 @@ export default function BoardScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  banner: { paddingHorizontal: 16, paddingBottom: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingBottom: 80 },
   scrollCenter: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingBottom: 80 },
 });

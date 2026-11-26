@@ -23,7 +23,12 @@ export type AccessCheckedState<T> =
  * screen of the project is cleared too. A failure without an answer is `unverified` at first; once
  * the data was shown, it stays and the next read tries again.
  */
-export function useAccessCheckedLoad<T>(projectId: string | undefined, load: () => Promise<T>) {
+export function useAccessCheckedLoad<T>(
+  projectId: string | undefined,
+  load: () => Promise<T>,
+  /** `poll: false` for forms: no periodic check, so nobody's typing is replaced while they work. */
+  { poll = true }: { poll?: boolean } = {},
+) {
   const [state, setState] = useState<AccessCheckedState<T>>({ status: 'checking' });
   const latest = useRef(0);
   /** Whether the project's data has been on screen, so a refusal is “access changed”. */
@@ -78,7 +83,7 @@ export function useAccessCheckedLoad<T>(projectId: string | undefined, load: () 
     shown.current = true;
     setState({ status: 'denied', denial: 'revoked' });
   }, []);
-  useProjectAccessWatch(state.status === 'ready' ? projectId : null, markLost);
+  useProjectAccessWatch(state.status === 'ready' ? projectId : null, markLost, poll);
 
   const retry = useCallback(() => {
     setState({ status: 'checking' });

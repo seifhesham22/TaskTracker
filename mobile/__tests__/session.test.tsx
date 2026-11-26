@@ -179,8 +179,8 @@ describe('Your projects', () => {
 
     await waitFor(() => expect(router).toHavePathname(`/projects/${PROJECT_ID}`));
     expect(await screen.findByText('Test Board')).toBeOnTheScreen();
-    expect(screen.getByRole('header', { name: 'Test Project' })).toBeOnTheScreen();
-    expect(screen.getByText('Member access · permitted content')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Project boards' })).toBeOnTheScreen();
+    expect(screen.getByTestId('project-subtitle')).toHaveTextContent('Test Project');
     expect(screen.queryByText('Other Board')).not.toBeOnTheScreen();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
