@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { HttpClient } from '../HttpClient';
 import { ApiError } from '../errors';
 import { ColumnCategory, ProjectRole, TaskPriority } from '../../domain/models';
-import { WorkloadService } from './WorkloadService';
+import { WORKLOAD_QUERY, WorkloadService } from './WorkloadService';
 
 describe('WorkloadService', () => {
   it('calls GraphQL workload query with projectId and maps response sorted by openTaskCount desc', async () => {
@@ -112,5 +112,9 @@ describe('WorkloadService', () => {
     const service = new WorkloadService(client);
 
     await expect(service.getWorkload('proj-missing')).rejects.toThrow(ApiError);
+  });
+
+  it('does not request unexposed columnName field in WORKLOAD_QUERY', () => {
+    expect(WORKLOAD_QUERY).not.toContain('columnName');
   });
 });

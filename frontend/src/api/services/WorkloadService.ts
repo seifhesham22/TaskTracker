@@ -19,7 +19,6 @@ interface RawWorkloadTask {
   readonly description?: string | null;
   readonly status: ColumnCategory;
   readonly columnId?: string;
-  readonly columnName?: string;
   readonly priority?: TaskPriority | null;
 }
 
@@ -55,7 +54,6 @@ export const WORKLOAD_QUERY = `
           description
           status
           columnId
-          columnName
           priority
         }
       }
@@ -68,7 +66,6 @@ export const WORKLOAD_QUERY = `
         description
         status
         columnId
-        columnName
         priority
       }
     }
@@ -150,7 +147,6 @@ export class WorkloadService {
       description: raw.description ?? null,
       status: raw.status,
       columnId: raw.columnId,
-      columnName: raw.columnName,
       priority: raw.priority ?? null,
     };
   }

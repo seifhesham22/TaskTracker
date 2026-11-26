@@ -252,7 +252,6 @@ export interface WorkloadTaskItem {
   readonly description?: string | null;
   readonly status: ColumnCategory;
   readonly columnId?: string;
-  readonly columnName?: string;
   readonly priority?: TaskPriority | null;
 }
 
