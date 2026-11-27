@@ -120,6 +120,8 @@ export interface TaskDetails {
   projectRole: string | null;
   /** US-12: the project's members, the only accounts a task of it can be assigned to. */
   members: ProjectMember[];
+  /** US-17: the board's columns, in order: the statuses the task can be moved to. */
+  columns: BoardColumn[];
 }
 
 export interface BoardSummary {

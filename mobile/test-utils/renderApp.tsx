@@ -12,6 +12,7 @@ import TaskDetailsScreen from '../src/app/tasks/[taskId]/index';
 import CreateSubtaskScreen from '../src/app/tasks/[taskId]/subtask';
 import TaskDependenciesScreen from '../src/app/tasks/[taskId]/dependencies';
 import TaskAssigneeScreen from '../src/app/tasks/[taskId]/assignee';
+import TaskStatusScreen from '../src/app/tasks/[taskId]/status';
 import ProjectBacklogScreen from '../src/app/projects/[projectId]/backlog';
 import ProjectScreen from '../src/app/projects/[projectId]/index';
 import CreateBoardScreen from '../src/app/projects/[projectId]/boards/new';
@@ -73,6 +74,7 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'tasks/[taskId]/subtask': CreateSubtaskScreen,
       'tasks/[taskId]/dependencies': TaskDependenciesScreen,
       'tasks/[taskId]/assignee': TaskAssigneeScreen,
+      'tasks/[taskId]/status': TaskStatusScreen,
       'projects/new': CreateProjectScreen,
       'projects/[projectId]/index': ProjectScreen,
       'projects/[projectId]/boards/new': CreateBoardScreen,

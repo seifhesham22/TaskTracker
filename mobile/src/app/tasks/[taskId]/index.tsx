@@ -16,6 +16,7 @@ import {
   type IncompleteSubtask,
 } from '../../../domain/completeTask';
 import { UNASSIGNED, assigneeLabel, currentAssignees } from '../../../domain/assignee';
+import { unfinishedBlockers } from '../../../domain/blockers';
 import { countLabel } from '../../../domain/dependencies';
 import { formatFullDate, isoToDateKey } from '../../../domain/format';
 import { PRIORITY_LABELS, type Task, type TaskDetails } from '../../../domain/models';
@@ -105,10 +106,22 @@ function TaskDetailsView({
   const task = completion.status === 'completed' ? { ...saved, ...completion.task } : saved;
   const openTask = (id: string) => router.push({ pathname: '/tasks/[taskId]', params: { taskId: id, boardId } });
 
+  /** US-17: the task's status, with its blockers; `reverted` after a move that was refused. */
+  const openStatus = (reverted = false) =>
+    router.push({
+      pathname: '/tasks/[taskId]/status',
+      params: { taskId: saved.id, boardId, ...(reverted ? { reverted: '1' } : {}) },
+    });
+
   const complete = async () => {
     if (inFlight.current) return;
     if (!doneColumnId) {
       setCompletion({ status: 'failed', message: NO_DONE_COLUMN });
+      return;
+    }
+    // US-17: Done is an active status, so unfinished blockers stop it here, before any request.
+    if (unfinishedBlockers(saved).length > 0) {
+      openStatus(true);
       return;
     }
     inFlight.current = true;
@@ -121,6 +134,12 @@ function TaskDetailsView({
     } catch (error) {
       if (!mounted.current) return;
       const failure = toCompleteTaskFailure(error);
+      if (failure.kind === 'blockedByTasks') {
+        // US-17: refused by the backend because other tasks aren't done; their screen explains.
+        setCompletion({ status: 'idle' });
+        openStatus(true);
+        return;
+      }
       setCompletion(
         failure.kind === 'incompleteSubtasks'
           ? { status: 'blocked', listed: failure.subtasks }
@@ -281,6 +300,15 @@ function TaskDetailsView({
             disabled={completing}
             onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id, boardId } })}
             testID="edit-task-button"
+          />
+          <Button
+            label="Change status"
+            variant="outline"
+            size="lg"
+            block
+            disabled={completing}
+            onPress={() => openStatus()}
+            testID="change-status-button"
           />
           <Button
             label="Assignee"

@@ -30,7 +30,7 @@ import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask
 import { CreateTaskError, toCreateTaskFailure } from '../domain/createTaskErrors';
 import type { BoardData, CreateTaskInput, TaskDetails, UpdateTaskChanges } from '../domain/models';
 import { MEMBERS_LOAD_FAILED as PROJECT_MEMBERS_LOAD_FAILED, PROJECT_NOT_FOUND } from '../domain/members';
-import { MoveTaskError, toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
+import { toMoveTaskError } from '../domain/moveTaskErrors';
 import { BoardLoadError, type BoardRepository } from './BoardRepository';
 
 export const NOT_SIGNED_IN = 'You’re not logged in. Log in to see your projects.';
@@ -250,6 +250,7 @@ export function createBackendBoardRepository(): BoardRepository {
         canEdit: board.projectRole !== 'READER',
         projectRole: board.projectRole ?? null,
         members: board.members,
+        columns: board.columns,
       };
     },
 
@@ -317,7 +318,7 @@ export function createBackendBoardRepository(): BoardRepository {
       try {
         return await moveTaskRequest(taskId, columnId);
       } catch (error) {
-        throw new MoveTaskError(toMoveTaskFailureMessage(error));
+        throw toMoveTaskError(error);
       }
     },
   };
