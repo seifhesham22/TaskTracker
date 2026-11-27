@@ -96,6 +96,10 @@ export default function BoardScreen() {
     } else if (outcome.status === 'failed') {
       setFailedMove({ task, column, message: outcome.message });
       setActiveColumnId((active) => (active === column.id ? task.columnId : active));
+    } else if (outcome.status === 'blocked') {
+      // US-17: the card stays where it was; the task's status screen explains which tasks block it.
+      setActiveColumnId((active) => (active === column.id ? task.columnId : active));
+      router.push({ pathname: '/tasks/[taskId]/status', params: { taskId: task.id, boardId, reverted: '1' } });
     }
   };
 

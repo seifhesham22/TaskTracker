@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardLoadError } from '../data/BoardRepository';
 import { useBoardRepository } from '../data/BoardRepositoryContext';
 import type { BoardColumn, BoardData, Task } from '../domain/models';
-import { toMoveTaskFailureMessage } from '../domain/moveTaskErrors';
+import { isActiveCategory, unfinishedBlockers, type Blocker } from '../domain/blockers';
+import { toMoveTaskError } from '../domain/moveTaskErrors';
 import { reportAccessConfirmed, reportAccessLost } from '../data/projectAccess';
 import { useForegroundRefresh } from './useForegroundRefresh';
 
@@ -13,7 +14,12 @@ export type BoardScreenState =
   /** `revoked`: the backend refused a board that was on screen (access lost while using it). */
   | { status: 'error'; error: BoardLoadError; revoked: boolean };
 
-export type MoveTaskOutcome = { status: 'moved'; task: Task } | { status: 'failed'; message: string } | { status: 'alreadySaving' };
+export type MoveTaskOutcome =
+  | { status: 'moved'; task: Task }
+  | { status: 'failed'; message: string }
+  /** US-17: unfinished blockers; nothing was moved. */
+  | { status: 'blocked'; blockers: Blocker[] }
+  | { status: 'alreadySaving' };
 
 // TaskLookupService's NOT_FOUND message, for a missing task or one in a project the user isn't in.
 const TASK_GONE = /^Task '[^']+' was not found\.$/;
@@ -120,6 +126,10 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
   const moveTask = useCallback(
     async (task: Task, column: BoardColumn): Promise<MoveTaskOutcome> => {
       if (savingTasks.current.has(task.id)) return { status: 'alreadySaving' };
+      // US-17: a task with an unfinished blocker isn't started: nothing is sent, the card stays put.
+      // The backend checks again on every move, with the blockers as they are now.
+      const known = isActiveCategory(column.category) ? unfinishedBlockers(task) : [];
+      if (known.length > 0) return { status: 'blocked', blockers: known };
       savingTasks.current.add(task.id);
       setPendingMoves((moves) => ({ ...moves, [task.id]: column }));
       try {
@@ -132,7 +142,9 @@ export function useBoard(boardId: string, onRefreshFailed?: () => void) {
         if (loadInFlight.current) setReloadKey((k) => k + 1);
         return { status: 'moved', task: moved };
       } catch (error) {
-        const message = toMoveTaskFailureMessage(error);
+        const failure = toMoveTaskError(error);
+        if (failure.blockers) return { status: 'blocked', blockers: failure.blockers };
+        const message = failure.message;
         // The backend answers a task the user may no longer see as not found: read the board again,
         // which replaces it with the access screen if access was lost.
         if (TASK_GONE.test(message)) {

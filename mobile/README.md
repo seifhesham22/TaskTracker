@@ -459,6 +459,17 @@ Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, 
 | Task assignee | `board` + `tasks` (assignees), `projects` (members, roles) |
 | Change assignee | `assignTask` / `unassignTask`, then the task read again |
 
+## Blocked Tasks Can't Start (US-17)
+
+A task can't enter an active status (In progress, or Done) while a task it depends on (`blockedBy`) isn't done. **The backend enforces it:** `moveTask` (MoveTaskHandler → TaskBlockerGuard) refuses with `BAD_USER_INPUT` and the unfinished blockers in `extensions.blockers`. The app checks first, so a blocked start isn't even sent, and shows the backend's list when it refuses.
+
+- **Task status** (`/tasks/[taskId]/status`, from **Change status** on Task details): reads the task and its blockers each time it comes into view (“Checking prerequisites…”). Blocked: “This task can't start yet…”, each unfinished blocker (key, title, status, **Open blocker**), **Check again** and **Back to board**. Clear: the board's columns and **Start task**; “All prerequisites are complete or removed.” when it had blockers.
+- **Right before a start or a completion** the blockers are read again; only if none is unfinished is `moveTask` sent. If they can't be read: “Couldn't verify prerequisites. The task was not started.”, nothing sent, **Try again**. A move without an answer is checked before it is sent again.
+- **Blockers only:** the tasks in `blockedBy` that aren't in a Done column. The tasks this one blocks (`blocks`) never stop it.
+- **Open blocker** opens that task's status (“This task blocks TES-24.”, **Back to blocked task**), where it can be completed; back on the blocked task, the blockers are read again.
+- **Board and Task details:** a long-press move to In progress or Done, and **Mark complete**, of a task with an unfinished blocker send nothing and open its status with “Move reverted · TES-24 stays in To do.”; a refusal from the backend does the same. Moves that don't start work (e.g. to Backlog) go through as before.
+- The status shown is always the backend's: it changes only after the move is confirmed and the task read again.
+
 ## Manual test against the real backend
 
 Use a local development database only, never shared data.

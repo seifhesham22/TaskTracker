@@ -1,5 +1,6 @@
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NetworkError } from '../api/graphql';
+import { blockersFromError, type Blocker } from './blockers';
 import type { Task } from './models';
 
 // Wording from the designer's parent-completion handoff.
@@ -18,11 +19,13 @@ export interface IncompleteSubtask {
 
 export type CompleteTaskFailure =
   | { kind: 'incompleteSubtasks'; subtasks: IncompleteSubtask[] }
+  /** US-17: unfinished tasks block this one (Done is an active status for the backend). */
+  | { kind: 'blockedByTasks'; blockers: Blocker[] }
   | { kind: 'failed'; message: string };
 
 export class CompleteTaskError extends Error {
   constructor(public readonly failure: CompleteTaskFailure) {
-    super(failure.kind === 'failed' ? failure.message : 'incompleteSubtasks');
+    super(failure.kind === 'failed' ? failure.message : failure.kind);
     this.name = 'CompleteTaskError';
   }
 }
@@ -40,6 +43,8 @@ function isIncompleteSubtask(value: unknown): value is IncompleteSubtask {
  */
 export function toCompleteTaskFailure(error: unknown): CompleteTaskFailure {
   if (error instanceof CompleteTaskError) return error.failure;
+  const blockers = blockersFromError(error);
+  if (blockers) return { kind: 'blockedByTasks', blockers };
   if (error instanceof GraphQLResponseError) {
     const blocked = error.errors.find((e) => e.extensions && 'incompleteSubtasks' in e.extensions);
     if (blocked) {
