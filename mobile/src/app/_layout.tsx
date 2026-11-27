@@ -54,6 +54,12 @@ function RootNavigator() {
         <Stack.Screen name="projects/[projectId]/members/add" options={{ headerShown: false, title: 'Add a member' }} />
         <Stack.Screen name="projects/[projectId]/members/remove" options={{ headerShown: false, title: 'Remove member' }} />
         <Stack.Screen name="projects/[projectId]/backlog" options={{ headerShown: false, title: 'Project backlog' }} />
+        <Stack.Screen name="projects/[projectId]/workload/index" options={{ headerShown: false, title: 'Team workload' }} />
+        <Stack.Screen
+          name="projects/[projectId]/workload/member/[userId]"
+          options={{ headerShown: false, title: 'Member’s open tasks' }}
+        />
+        <Stack.Screen name="projects/[projectId]/workload/unassigned" options={{ headerShown: false, title: 'Unassigned work' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false, title: 'Log in' }} />

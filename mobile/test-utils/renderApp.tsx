@@ -14,6 +14,9 @@ import TaskDependenciesScreen from '../src/app/tasks/[taskId]/dependencies';
 import TaskAssigneeScreen from '../src/app/tasks/[taskId]/assignee';
 import TaskStatusScreen from '../src/app/tasks/[taskId]/status';
 import ProjectBacklogScreen from '../src/app/projects/[projectId]/backlog';
+import TeamWorkloadScreen from '../src/app/projects/[projectId]/workload/index';
+import MemberWorkloadScreen from '../src/app/projects/[projectId]/workload/member/[userId]';
+import UnassignedWorkScreen from '../src/app/projects/[projectId]/workload/unassigned';
 import ProjectScreen from '../src/app/projects/[projectId]/index';
 import CreateBoardScreen from '../src/app/projects/[projectId]/boards/new';
 import AddMemberScreen from '../src/app/projects/[projectId]/members/add';
@@ -82,6 +85,9 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       'projects/[projectId]/members/add': AddMemberScreen,
       'projects/[projectId]/members/remove': RemoveMemberScreen,
       'projects/[projectId]/backlog': ProjectBacklogScreen,
+      'projects/[projectId]/workload/index': TeamWorkloadScreen,
+      'projects/[projectId]/workload/member/[userId]': MemberWorkloadScreen,
+      'projects/[projectId]/workload/unassigned': UnassignedWorkScreen,
       '+not-found': NotFoundScreen,
       ...routes,
     } as Routes,

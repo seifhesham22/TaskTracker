@@ -54,6 +54,19 @@ export default function ProjectScreen() {
         </View>
       ))}
       {isOwner ? (
+        // US-29: the workload is the owner's view (the backend's rule); others don't see the way in.
+        <Button
+          label="Team workload"
+          variant="outline"
+          size="lg"
+          block
+          style={styles.button}
+          accessibilityLabel={`Team workload of ${project.name}`}
+          onPress={() => router.push({ pathname: '/projects/[projectId]/workload', params: { projectId: project.id } })}
+          testID="team-workload-button"
+        />
+      ) : null}
+      {isOwner ? (
         <Button
           label="Create board"
           size="lg"

@@ -16,6 +16,8 @@ import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../
 import { EMPTY_QUERY, backlogVariables, type BacklogItem, type BacklogQuery } from '../domain/backlog';
 import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
 import { createBoardRequest } from '../api/createBoard';
+import { workloadRequest } from '../api/workload';
+import { toProjectWorkload } from '../domain/workload';
 import { createProjectRequest } from '../api/projects';
 import {
   assignTaskRequest,
@@ -291,6 +293,10 @@ export function createBackendBoardRepository(): BoardRepository {
 
     async rankTask(taskId: string, afterTaskId: string | null) {
       await rankTaskRequest(taskId, afterTaskId);
+    },
+
+    async getWorkload(projectId: string) {
+      return toProjectWorkload(await workloadRequest(projectId));
     },
 
     async addDependency(blockingTaskId: string, blockedTaskId: string) {
