@@ -200,6 +200,20 @@ export default function ProjectsScreen() {
                 }
                 testID={`backlog-${project.id}`}
               />
+              {project.role === 'OWNER' ? (
+                // US-29: owner only, as the backend's `workload` is.
+                <Button
+                  label="Team workload"
+                  variant="outline"
+                  size="lg"
+                  block
+                  accessibilityLabel={`Team workload of ${project.name}`}
+                  onPress={() =>
+                    leaveTo({ pathname: '/projects/[projectId]/workload', params: { projectId: project.id } })
+                  }
+                  testID={`workload-${project.id}`}
+                />
+              ) : null}
               <Button
                 label="Members"
                 variant="outline"

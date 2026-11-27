@@ -1,5 +1,6 @@
 import type { BacklogItem, BacklogQuery } from '../domain/backlog';
 import type { MemberRole, ProjectMemberDetails, ProjectMembers } from '../domain/members';
+import type { ProjectWorkload } from '../domain/workload';
 
 import type {
   BoardData,
@@ -88,6 +89,11 @@ export interface BoardRepository {
    * top), with the backend's `rankTask`. Rejects with the backend's error.
    */
   rankTask(taskId: string, afterTaskId: string | null): Promise<void>;
+  /**
+   * US-29: every current member's open tasks, and the open tasks nobody in the project is assigned
+   * to, from the backend's `workload` (owner only). Rejects with the backend's error.
+   */
+  getWorkload(projectId: string): Promise<ProjectWorkload>;
   /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
   addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
   /** The project's tasks matching `term` by title or key (excluding none). */
