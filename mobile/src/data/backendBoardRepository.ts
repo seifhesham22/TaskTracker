@@ -17,6 +17,7 @@ import { EMPTY_QUERY, backlogVariables, type BacklogItem, type BacklogQuery } fr
 import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
 import { createBoardRequest } from '../api/createBoard';
 import { workloadRequest } from '../api/workload';
+import { boardTasksRequest } from '../api/boardTasks';
 import { toProjectWorkload } from '../domain/workload';
 import { createProjectRequest } from '../api/projects';
 import {
@@ -297,6 +298,10 @@ export function createBackendBoardRepository(): BoardRepository {
 
     async getWorkload(projectId: string) {
       return toProjectWorkload(await workloadRequest(projectId));
+    },
+
+    async searchBoardTasks(variables) {
+      return boardTasksRequest(variables);
     },
 
     async addDependency(blockingTaskId: string, blockedTaskId: string) {

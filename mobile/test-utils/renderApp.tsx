@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import NotFoundScreen from '../src/app/+not-found';
 import RootLayout from '../src/app/_layout';
 import BoardsScreen from '../src/app/boards/index';
+import BoardTasksScreen from '../src/app/boards/tasks/[boardId]';
 import ProjectsScreen from '../src/app/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
@@ -72,6 +73,7 @@ export async function renderApp(initialUrl = '/', routes: Record<string, unknown
       register: RegisterScreen,
       'boards/index': BoardsScreen,
       'boards/[boardId]': () => <Text>Board screen</Text>,
+      'boards/tasks/[boardId]': BoardTasksScreen,
       'tasks/[taskId]/index': TaskDetailsScreen,
       'tasks/[taskId]/edit': EditTaskScreen,
       'tasks/[taskId]/subtask': CreateSubtaskScreen,

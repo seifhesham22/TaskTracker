@@ -41,6 +41,7 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ headerShown: false, title: 'Your projects' }} />
         <Stack.Screen name="boards/index" options={{ title: 'Boards' }} />
         <Stack.Screen name="boards/[boardId]" options={{ headerShown: false }} />
+        <Stack.Screen name="boards/tasks/[boardId]" options={{ headerShown: false, title: 'Tasks' }} />
         <Stack.Screen name="tasks/[taskId]/index" options={{ headerShown: false, title: 'Task details' }} />
         <Stack.Screen name="tasks/[taskId]/edit" options={{ headerShown: false, title: 'Edit task' }} />
         <Stack.Screen name="tasks/[taskId]/subtask" options={{ headerShown: false, title: 'Create subtask' }} />

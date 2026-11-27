@@ -80,6 +80,12 @@ const LUCIDE = {
       <Path d="M15 3v18" />
     </>
   ),
+  search: (
+    <>
+      <Circle cx="11" cy="11" r="8" />
+      <Path d="m21 21-4.3-4.3" />
+    </>
+  ),
   'grip-vertical': (
     <>
       <Circle cx="9" cy="12" r="1" />
