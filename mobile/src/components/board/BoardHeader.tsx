@@ -8,11 +8,14 @@ export function BoardHeader({
   title,
   subtitle,
   loading,
+  onSearch,
 }: {
   onBack: () => void;
   title?: string;
   subtitle?: string;
   loading?: boolean;
+  /** US-36: opens the board's task search and filters. */
+  onSearch?: () => void;
 }) {
   return (
     <View style={styles.header}>
@@ -37,6 +40,17 @@ export function BoardHeader({
           </>
         ) : null}
       </View>
+      {onSearch ? (
+        <Button
+          variant="ghost"
+          size="lg"
+          icon="search"
+          accessibilityLabel="Search and filter tasks"
+          onPress={onSearch}
+          textColor={colors.foreground}
+          testID="board-search-button"
+        />
+      ) : null}
     </View>
   );
 }

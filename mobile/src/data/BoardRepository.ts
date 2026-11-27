@@ -1,6 +1,7 @@
 import type { BacklogItem, BacklogQuery } from '../domain/backlog';
 import type { MemberRole, ProjectMemberDetails, ProjectMembers } from '../domain/members';
 import type { ProjectWorkload } from '../domain/workload';
+import type { BoardTasksVariables } from '../api/boardTasks';
 
 import type {
   BoardData,
@@ -94,6 +95,11 @@ export interface BoardRepository {
    * to, from the backend's `workload` (owner only). Rejects with the backend's error.
    */
   getWorkload(projectId: string): Promise<ProjectWorkload>;
+  /**
+   * US-36: one board's tasks matching a title search and filters, from the backend's `tasks`
+   * (all matches at once, in creation order). Rejects with the backend's error.
+   */
+  searchBoardTasks(variables: BoardTasksVariables): Promise<Task[]>;
   /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
   addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
   /** The project's tasks matching `term` by title or key (excluding none). */

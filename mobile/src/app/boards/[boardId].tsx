@@ -123,7 +123,12 @@ export default function BoardScreen() {
     const { board, tasks } = state.data;
     content = (
       <>
-        <BoardHeader onBack={goBack} title={board.name} subtitle={[board.projectName, taskCount(tasks.length)].filter(Boolean).join(' · ')} />
+        <BoardHeader
+          onBack={goBack}
+          title={board.name}
+          subtitle={[board.projectName, taskCount(tasks.length)].filter(Boolean).join(' · ')}
+          onSearch={() => router.push({ pathname: '/boards/tasks/[boardId]', params: { boardId: board.id } })}
+        />
         {created === '1' ? (
           <View style={styles.banner}>
             <SuccessBanner>{boardCreatedIn(board.projectName)}</SuccessBanner>
