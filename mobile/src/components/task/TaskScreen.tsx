@@ -28,6 +28,7 @@ export function TaskScreen({
   avoidKeyboardOnAndroid,
   refreshing,
   onRefresh,
+  scrollEnabled = true,
   testID,
   children,
 }: {
@@ -41,6 +42,8 @@ export function TaskScreen({
   /** Pull-to-refresh: reads the screen's data from the backend again. */
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** False while something on the screen is being dragged, so the drag doesn't scroll the page. */
+  scrollEnabled?: boolean;
   testID?: string;
   children: ReactNode;
 }) {
@@ -56,6 +59,7 @@ export function TaskScreen({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          scrollEnabled={scrollEnabled}
           refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
           testID={testID ? `${testID}-scroll` : undefined}
         >
