@@ -78,6 +78,16 @@ export interface BoardRepository {
   completeTask(taskId: string, doneColumnId: string): Promise<Task>;
   /** One page of the project's backlog, searched and filtered by the backend, in its order. */
   getBacklog(projectId: string, query: BacklogQuery, page: number): Promise<BacklogResult>;
+  /**
+   * US-24: the task at this 1-based place of the full, unfiltered backlog, in the backend's order
+   * (one item per page), or null past the end. Used to find a move's neighbour when it isn't loaded.
+   */
+  getBacklogItemAt(projectId: string, position: number): Promise<BacklogItem | null>;
+  /**
+   * US-24: saves the task's place in the project's backlog, right after `afterTaskId` (null: at the
+   * top), with the backend's `rankTask`. Rejects with the backend's error.
+   */
+  rankTask(taskId: string, afterTaskId: string | null): Promise<void>;
   /** `blockingTaskId` must happen before `blockedTaskId`. Rejects with the backend's error. */
   addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
   /** The project's tasks matching `term` by title or key (excluding none). */

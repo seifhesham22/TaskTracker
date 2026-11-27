@@ -11,9 +11,9 @@ import {
 import { getSession } from '../auth/session';
 import { ConfigurationError } from '../api/client';
 import { GraphQLResponseError, NOT_AUTHENTICATED, NetworkError, hasErrorCode } from '../api/graphql';
-import { backlogRequest } from '../api/backlog';
+import { backlogRequest, rankTaskRequest, type BacklogItemNode } from '../api/backlog';
 import { MAX_PAGE_SIZE, addTaskDependencyRequest, searchTasksRequest } from '../api/dependencies';
-import { backlogVariables, type BacklogQuery } from '../domain/backlog';
+import { EMPTY_QUERY, backlogVariables, type BacklogItem, type BacklogQuery } from '../domain/backlog';
 import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
 import { createBoardRequest } from '../api/createBoard';
 import { createProjectRequest } from '../api/projects';
@@ -91,6 +91,17 @@ async function findProject(userId: string | null, projectId: string): Promise<Pr
     return { unavailable: MEMBERS_LOAD_FAILED };
   }
 }
+
+const toBacklogItem = (node: BacklogItemNode): BacklogItem => ({
+  id: node.id,
+  readableId: node.readableId,
+  title: node.title,
+  status: node.status,
+  columnName: node.column.name,
+  priority: node.priority,
+  storyPoints: node.storyPoints,
+  boardId: node.boardId,
+});
 
 export const TASK_NOT_FOUND = 'This task doesn’t exist any more, or was moved to another board.';
 
@@ -265,20 +276,21 @@ export function createBackendBoardRepository(): BoardRepository {
     async getBacklog(projectId: string, query: BacklogQuery, page: number) {
       const result = await backlogRequest(backlogVariables(projectId, query, page));
       return {
-        items: result.items.map((node) => ({
-          id: node.id,
-          readableId: node.readableId,
-          title: node.title,
-          status: node.status,
-          columnName: node.column.name,
-          priority: node.priority,
-          storyPoints: node.storyPoints,
-          boardId: node.boardId,
-        })),
+        items: result.items.map(toBacklogItem),
         totalCount: result.totalCount,
         page: result.page,
         hasNextPage: result.hasNextPage,
       };
+    },
+
+    async getBacklogItemAt(projectId: string, position: number) {
+      const result = await backlogRequest(backlogVariables(projectId, EMPTY_QUERY, position, 1));
+      const node = result.items[0];
+      return node ? toBacklogItem(node) : null;
+    },
+
+    async rankTask(taskId: string, afterTaskId: string | null) {
+      await rankTaskRequest(taskId, afterTaskId);
     },
 
     async addDependency(blockingTaskId: string, blockedTaskId: string) {
