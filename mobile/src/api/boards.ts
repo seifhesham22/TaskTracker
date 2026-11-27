@@ -192,7 +192,7 @@ export function toTask(node: TaskNode): Task {
 }
 
 export function toProjectMembers(project: ProjectNode): ProjectMember[] {
-  return project.projectMembers.map((m) => ({ userId: m.userId, userName: m.userName }));
+  return project.projectMembers.map((m) => ({ userId: m.userId, userName: m.userName, role: m.role ?? undefined }));
 }
 
 export function toBoardSummaries(projects: ProjectNode[]): BoardSummary[] {

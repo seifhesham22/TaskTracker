@@ -445,6 +445,20 @@ Errors are told apart by their structure (`NetworkError`, `ConfigurationError`, 
 | Project boards | `projects(userId)` → the project's `role` and `boards` |
 | Create a board | `createBoard(input: { projectId, name })` → `id`, then `board(id)` and `tasks(boardId)` |
 
+## Task Assignee (US-12)
+
+**Task details** shows the assignee (“Assignee: MJ · mina.joao@local.test”, or Unassigned) and **Assignee** opens **Task assignee**: the task, its saved assignee and, for the project's Owners and Writers, **Change assignee**. A Reader sees “Reader view · Only Owners and Writers can change the assignee.”
+
+- **Change assignee:** one choice among **Unassigned** and the members of the task's own project (from `projects` → `projectMembers`, with their roles), searchable by name. They are read again first (“Loading project members…”, no saving meanwhile). No one outside the project is ever offered, and the backend refuses them anyway.
+- **Saving:** the backend's `assignTask(input: { taskId, userId })` and `unassignTask(input: { taskId, userId })`. Choosing someone assigns them, then removes anyone else; **Unassigned** (**Remove assignment**) removes every assignee. The backend allows several assignees, so when more than one would be replaced the picker says so. **Saving…** locks the choices and sends one request at a time.
+- **Shown only when saved:** after the backend confirms, the task is read again and only then shown, with “Assignee updated” or “Assignment removed”. Task details and the board's cards read the task again when they come back into view.
+- **Failures:** “Couldn't update the assignee. Your selection is kept.”, with the task read again (a change may have been saved in part) and Try again planning from what the backend has. Someone no longer in the project shows “Membership removed” and asks for another choice; a role taken away leads to the read-only view; a lost membership clears the task as when the app resumes.
+
+| Screen | Backend |
+|---|---|
+| Task assignee | `board` + `tasks` (assignees), `projects` (members, roles) |
+| Change assignee | `assignTask` / `unassignTask`, then the task read again |
+
 ## Manual test against the real backend
 
 Use a local development database only, never shared data.

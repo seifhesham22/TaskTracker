@@ -71,6 +71,8 @@ export interface BoardColumn {
 export interface ProjectMember {
   userId: string;
   userName: string;
+  /** OWNER, WRITER or READER, when the backend gives it (the `projects` query does). */
+  role?: string;
 }
 
 export interface Board {
@@ -114,6 +116,10 @@ export interface TaskDetails {
   projectId: string;
   /** False only when the backend says the user is a reader, who can't add dependencies. */
   canEdit: boolean;
+  /** The signed-in user's role in the project, from the backend; null if it couldn't be read. */
+  projectRole: string | null;
+  /** US-12: the project's members, the only accounts a task of it can be assigned to. */
+  members: ProjectMember[];
 }
 
 export interface BoardSummary {

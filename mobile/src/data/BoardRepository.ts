@@ -82,6 +82,10 @@ export interface BoardRepository {
   addDependency(blockingTaskId: string, blockedTaskId: string): Promise<void>;
   /** The project's tasks matching `term` by title or key (excluding none). */
   searchTasks(projectId: string, term: string): Promise<TaskLink[]>;
+  /** US-12: adds a project member to the task's assignees. Rejects with the backend's error. */
+  assignTask(taskId: string, userId: string): Promise<Task>;
+  /** US-12: removes an assignee from the task. Rejects with the backend's error. */
+  unassignTask(taskId: string, userId: string): Promise<Task>;
   /** Rejects with the backend's error; `toEditTaskErrors` turns it into messages. */
   updateTask(taskId: string, changes: UpdateTaskChanges): Promise<Task>;
 }
