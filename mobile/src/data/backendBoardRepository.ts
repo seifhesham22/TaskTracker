@@ -17,7 +17,13 @@ import { backlogVariables, type BacklogQuery } from '../domain/backlog';
 import { addProjectMemberRequest, removeProjectMemberRequest } from '../api/members';
 import { createBoardRequest } from '../api/createBoard';
 import { createProjectRequest } from '../api/projects';
-import { createTaskRequest, moveTaskRequest, updateTaskRequest } from '../api/tasks';
+import {
+  assignTaskRequest,
+  createTaskRequest,
+  moveTaskRequest,
+  unassignTaskRequest,
+  updateTaskRequest,
+} from '../api/tasks';
 import { looksLikeKey } from '../domain/dependencies';
 import { SESSION_EXPIRED } from '../domain/authErrors';
 import { CompleteTaskError, toCompleteTaskFailure } from '../domain/completeTask';
@@ -242,6 +248,8 @@ export function createBackendBoardRepository(): BoardRepository {
         doneColumnId,
         projectId: board.projectId,
         canEdit: board.projectRole !== 'READER',
+        projectRole: board.projectRole ?? null,
+        members: board.members,
       };
     },
 
@@ -283,6 +291,14 @@ export function createBackendBoardRepository(): BoardRepository {
       return looksLikeKey(trimmed)
         ? searchTasksRequest(projectId, null, MAX_PAGE_SIZE)
         : searchTasksRequest(projectId, trimmed || null, 20);
+    },
+
+    async assignTask(taskId: string, userId: string) {
+      return assignTaskRequest(taskId, userId);
+    },
+
+    async unassignTask(taskId: string, userId: string) {
+      return unassignTaskRequest(taskId, userId);
     },
 
     async updateTask(taskId: string, changes: UpdateTaskChanges) {

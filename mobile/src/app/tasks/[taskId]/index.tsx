@@ -15,6 +15,7 @@ import {
   toCompleteTaskFailure,
   type IncompleteSubtask,
 } from '../../../domain/completeTask';
+import { UNASSIGNED, assigneeLabel, currentAssignees } from '../../../domain/assignee';
 import { countLabel } from '../../../domain/dependencies';
 import { formatFullDate, isoToDateKey } from '../../../domain/format';
 import { PRIORITY_LABELS, type Task, type TaskDetails } from '../../../domain/models';
@@ -207,6 +208,12 @@ function TaskDetailsView({
             <Text style={styles.row} testID="task-due-date">
               Due date: {dateLabel(task.dueDate)}
             </Text>
+            <Text style={styles.row} testID="task-assignee">
+              Assignee:{' '}
+              {currentAssignees(task, details.members)
+                .map((a) => assigneeLabel(a.userName))
+                .join(', ') || UNASSIGNED}
+            </Text>
           </View>
 
           <SubtaskList subtasks={subtasks} onOpen={(subtask) => openTask(subtask.id)} />
@@ -274,6 +281,16 @@ function TaskDetailsView({
             disabled={completing}
             onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id, boardId } })}
             testID="edit-task-button"
+          />
+          <Button
+            label="Assignee"
+            variant="outline"
+            size="lg"
+            block
+            accessibilityLabel="Task assignee"
+            disabled={completing}
+            onPress={() => router.push({ pathname: '/tasks/[taskId]/assignee', params: { taskId: task.id, boardId } })}
+            testID="assignee-button"
           />
         </>
       )}

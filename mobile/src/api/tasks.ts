@@ -71,3 +71,34 @@ export async function updateTaskRequest(taskId: string, changes: UpdateTaskChang
   });
   return toTask(data.updateTask);
 }
+
+/**
+ * US-12: the backend's `assignTask` and `unassignTask` (AssignTaskHandler, UnassignTaskHandler).
+ * Owners and Writers only (AUTH_NOT_AUTHORIZED otherwise); assigning someone who isn't a member of
+ * the task's project is refused (BAD_USER_INPUT). Both return the task as saved, with its assignees.
+ */
+export const ASSIGN_TASK_MUTATION = `
+  mutation AssignTask($input: AssignTaskInput!) {
+    assignTask(input: $input) {
+      ${TASK_FIELDS}
+    }
+  }
+`;
+
+export const UNASSIGN_TASK_MUTATION = `
+  mutation UnassignTask($input: UnassignTaskInput!) {
+    unassignTask(input: $input) {
+      ${TASK_FIELDS}
+    }
+  }
+`;
+
+export async function assignTaskRequest(taskId: string, userId: string): Promise<Task> {
+  const data = await graphqlRequest<{ assignTask: TaskNode }>(ASSIGN_TASK_MUTATION, { input: { taskId, userId } });
+  return toTask(data.assignTask);
+}
+
+export async function unassignTaskRequest(taskId: string, userId: string): Promise<Task> {
+  const data = await graphqlRequest<{ unassignTask: TaskNode }>(UNASSIGN_TASK_MUTATION, { input: { taskId, userId } });
+  return toTask(data.unassignTask);
+}
